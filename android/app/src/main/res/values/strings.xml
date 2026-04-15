@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Retro Vault Elite</string>
+    <string name="title_activity_main">Retro Vault Elite</string>
+    <string name="package_name">com.retrovault.elite</string>
+    <string name="custom_url_scheme">com.retrovault.elite</string>
+</resources>

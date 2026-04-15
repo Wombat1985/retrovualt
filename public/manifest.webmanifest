@@ -1,0 +1,17 @@
+{
+  "name": "Retro Vault Elite",
+  "short_name": "Retro Vault",
+  "description": "Retro game collection tracking, market prices, wishlists, and installable collector tools.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0c16",
+  "theme_color": "#1b1328",
+  "icons": [
+    {
+      "src": "/retro-vault-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

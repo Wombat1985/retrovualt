@@ -1,0 +1,29 @@
+{
+  "name": "retro-game-collector",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "backend": "node server/server.mjs",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "cap:sync": "npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "cap:open:ios": "npx cap open ios",
+    "catalog:generate": "powershell -ExecutionPolicy Bypass -File scripts/generate-retro-catalog.ps1",
+    "catalog:enrich-years": "node scripts/enrich-retro-years.mjs",
+    "catalog:enrich-years:ps": "powershell -ExecutionPolicy Bypass -File scripts/enrich-retro-years.ps1"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.0.4"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/ios": "^8.3.0",
+    "@capgo/capacitor-admob": "^8.1.1"
+  }
+}
