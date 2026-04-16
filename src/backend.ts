@@ -1,4 +1,20 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || 'http://127.0.0.1:8787'
+const PRODUCTION_API_BASE_URL = 'https://retro-vault-backend.onrender.com'
+
+function getApiBaseUrl() {
+  const configuredUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '')
+
+  if (configuredUrl) {
+    return configuredUrl
+  }
+
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://127.0.0.1:8787'
+  }
+
+  return PRODUCTION_API_BASE_URL
+}
+
+const API_BASE_URL = getApiBaseUrl()
 
 export type SyncStatePayload = {
   library: Record<string, unknown>
@@ -25,16 +41,22 @@ export type AuthPayload = {
 }
 
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers ?? {}),
-    },
-  })
+  let response: Response
 
-  const parsed = await response.json()
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.headers ?? {}),
+      },
+    })
+  } catch {
+    throw new Error('Could not reach Retro Vault sync. Please check your connection and try again.')
+  }
+
+  const parsed = (await response.json().catch(() => ({}))) as { error?: string }
 
   if (!response.ok) {
     throw new Error(parsed.error ?? 'Backend request failed.')

@@ -11,10 +11,16 @@ const port = Number(process.env.PORT ?? 8787)
 const sessionTtlMs = Number(process.env.SESSION_TTL_DAYS ?? 30) * 24 * 60 * 60 * 1000
 const resetTtlMs = Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 30) * 60 * 1000
 const requestLimits = new Map()
+const defaultAllowedOrigins = [
+  'https://www.retrovaultelite.com',
+  'https://retrovaultelite.com',
+  'https://retro-vault-web.onrender.com',
+]
 const allowedOrigins = (process.env.CORS_ORIGIN ?? '*')
   .split(',')
   .map((value) => value.trim())
   .filter(Boolean)
+  .concat(defaultAllowedOrigins)
 
 mkdirSync(dataDir, { recursive: true })
 
