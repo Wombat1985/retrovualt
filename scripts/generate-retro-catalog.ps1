@@ -3,7 +3,10 @@ $ErrorActionPreference = 'Stop'
 $snapshotDate = '2026-04-11'
 $consoles = @(
   @{ slug = 'nes'; name = 'NES' },
+  @{ slug = 'famicom'; name = 'Famicom'; region = 'Japan' },
+  @{ slug = 'famicom-disk-system'; name = 'Famicom Disk System'; region = 'Japan' },
   @{ slug = 'super-nintendo'; name = 'Super Nintendo' },
+  @{ slug = 'super-famicom'; name = 'Super Famicom'; region = 'Japan' },
   @{ slug = 'nintendo-64'; name = 'Nintendo 64' },
   @{ slug = 'gameboy'; name = 'Game Boy' },
   @{ slug = 'gameboy-color'; name = 'Game Boy Color' },
@@ -90,7 +93,7 @@ foreach ($console in $consoles) {
         title = $title
         console = $console.name
         year = $null
-        region = 'North America'
+        region = if ($console.region) { $console.region } else { 'North America' }
         coverUrl = $coverUrl
         priceLoose = $priceLoose
         priceComplete = $priceComplete

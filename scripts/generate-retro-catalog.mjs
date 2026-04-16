@@ -3,7 +3,10 @@ import { mkdir, writeFile } from 'node:fs/promises'
 const snapshotDate = '2026-04-11'
 const consoles = [
   ['nes', 'NES'],
+  ['famicom', 'Famicom', 'Japan'],
+  ['famicom-disk-system', 'Famicom Disk System', 'Japan'],
   ['super-nintendo', 'Super Nintendo'],
+  ['super-famicom', 'Super Famicom', 'Japan'],
   ['nintendo-64', 'Nintendo 64'],
   ['gameboy', 'Game Boy'],
   ['gameboy-color', 'Game Boy Color'],
@@ -75,7 +78,7 @@ async function fetchConsolePage(consoleSlug, cursor = '') {
   return response.text()
 }
 
-function parseConsolePage(html, consoleSlug, consoleName) {
+function parseConsolePage(html, consoleSlug, consoleName, consoleRegion = 'North America') {
   const rows = [...html.matchAll(/<tr id="product-\d+" data-product="\d+">[\s\S]*?<\/tr>/g)]
   const entries = []
 
@@ -105,7 +108,7 @@ function parseConsolePage(html, consoleSlug, consoleName) {
       title,
       console: consoleName,
       year: null,
-      region: 'North America',
+      region: consoleRegion,
       coverUrl,
       priceLoose,
       priceComplete,
@@ -127,13 +130,13 @@ function parseConsolePage(html, consoleSlug, consoleName) {
 async function main() {
   const allEntries = []
 
-  for (const [consoleSlug, consoleName] of consoles) {
+  for (const [consoleSlug, consoleName, consoleRegion] of consoles) {
     let cursor = ''
     const seen = new Set()
 
     do {
       const html = await fetchConsolePage(consoleSlug, cursor)
-      const { entries, nextCursor } = parseConsolePage(html, consoleSlug, consoleName)
+      const { entries, nextCursor } = parseConsolePage(html, consoleSlug, consoleName, consoleRegion)
 
       for (const entry of entries) {
         if (!seen.has(entry.id)) {

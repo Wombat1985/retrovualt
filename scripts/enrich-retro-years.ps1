@@ -12,6 +12,37 @@ $cachePath = Join-Path $cacheDir 'year-cache-ps.json'
 
 New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
 
+function Write-JsonFile {
+  param(
+    [Parameter(Mandatory = $true)]
+    [object]$Value,
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+    [int]$Depth = 5,
+    [switch]$Compress
+  )
+
+  $json = if ($Compress) {
+    $Value | ConvertTo-Json -Depth $Depth -Compress
+  } else {
+    $Value | ConvertTo-Json -Depth $Depth
+  }
+
+  for ($attempt = 1; $attempt -le 5; $attempt++) {
+    try {
+      [System.IO.File]::WriteAllText($Path, $json, [System.Text.UTF8Encoding]::new($false))
+      return
+    } catch {
+      if ($attempt -eq 5) {
+        throw
+      }
+
+      [System.GC]::Collect()
+      Start-Sleep -Milliseconds (350 * $attempt)
+    }
+  }
+}
+
 if (Test-Path $cachePath) {
   $cache = @{}
   $parsedCache = Get-Content $cachePath -Raw | ConvertFrom-Json
@@ -107,15 +138,15 @@ foreach ($file in $files) {
     $globalProcessed++
 
     if (($processed % 25) -eq 0) {
-      $entries | ConvertTo-Json -Depth 5 -Compress | Set-Content $file.FullName
-      $cache | ConvertTo-Json -Depth 5 | Set-Content $cachePath
+      Write-JsonFile -Value $entries -Path $file.FullName -Depth 5 -Compress
+      Write-JsonFile -Value $cache -Path $cachePath -Depth 5
     }
 
     Start-Sleep -Milliseconds 180
   }
 
-  $entries | ConvertTo-Json -Depth 5 -Compress | Set-Content $file.FullName
-  $cache | ConvertTo-Json -Depth 5 | Set-Content $cachePath
+  Write-JsonFile -Value $entries -Path $file.FullName -Depth 5 -Compress
+  Write-JsonFile -Value $cache -Path $cachePath -Depth 5
 
   if ($MaxItems -gt 0 -and $globalProcessed -ge $MaxItems) {
     break

@@ -12,6 +12,8 @@
     "cap:open:android": "npx cap open android",
     "cap:open:ios": "npx cap open ios",
     "catalog:generate": "powershell -ExecutionPolicy Bypass -File scripts/generate-retro-catalog.ps1",
+    "catalog:generate-console": "powershell -ExecutionPolicy Bypass -File scripts/generate-console-catalog.ps1",
+    "catalog:rebuild-index": "node scripts/rebuild-catalog-index.mjs",
     "catalog:enrich-years": "node scripts/enrich-retro-years.mjs",
     "catalog:enrich-years:ps": "powershell -ExecutionPolicy Bypass -File scripts/enrich-retro-years.ps1"
   },
