@@ -92,6 +92,7 @@ const VISIBLE_GAME_INCREMENT = 160
 const appElement = document.querySelector<HTMLDivElement>('#app')
 let catalogCache: CatalogEntry[] | null = null
 let catalogCacheKey = ''
+let catalogByIdCache = new Map<string, CatalogEntry>()
 let filteredGamesCache: CatalogEntry[] | null = null
 let filteredGamesCacheKey = ''
 let renderFrame = 0
@@ -100,6 +101,7 @@ let pendingSyncStatusRender = 0
 let pendingSearchRender = 0
 let pendingBarcodeSearchRender = 0
 let libraryRevision = 0
+let appEventsBound = false
 
 if (!appElement) {
   throw new Error('App root was not found.')
@@ -484,6 +486,7 @@ function getCatalog() {
   }
 
   catalogCache = dedupeCatalog([...state.generatedCatalog, ...sampleCatalog, ...state.customCatalog])
+  catalogByIdCache = new Map(catalogCache.map((game) => [game.id, game]))
   catalogCacheKey = key
   return catalogCache
 }
@@ -491,6 +494,7 @@ function getCatalog() {
 function invalidateCatalogCache() {
   catalogCache = null
   catalogCacheKey = ''
+  catalogByIdCache = new Map()
   filteredGamesCache = null
   filteredGamesCacheKey = ''
   state.cachedCatalogStatsKey = ''
@@ -546,7 +550,8 @@ function getRecord(gameId: string) {
 }
 
 function getGameById(gameId: string) {
-  return getCatalog().find((game) => game.id === gameId) ?? null
+  getCatalog()
+  return catalogByIdCache.get(gameId) ?? null
 }
 
 function getLinkedBarcodeGame() {
@@ -2038,29 +2043,91 @@ function scheduleBarcodeSearchRender(value: string) {
 }
 
 function bindEvents() {
-  const searchInput = document.querySelector<HTMLInputElement>('#search-input')
-  const regionFilter = document.querySelector<HTMLSelectElement>('#region-filter')
-  const consoleFilter = document.querySelector<HTMLSelectElement>('#console-filter')
-  const sortMode = document.querySelector<HTMLSelectElement>('#sort-mode')
-  const currencyCode = document.querySelector<HTMLSelectElement>('#currency-code')
-  const importInput = document.querySelector<HTMLInputElement>('#catalog-import')
-  const barcodeFileInput = document.querySelector<HTMLInputElement>('#barcode-file-input')
-  const barcodeSearch = document.querySelector<HTMLInputElement>('#barcode-search')
-  const authForm = document.querySelector<HTMLFormElement>('[data-auth-form]')
+  if (appEventsBound) {
+    return
+  }
 
-  searchInput?.addEventListener('input', (event) => {
-    scheduleSearchRender((event.currentTarget as HTMLInputElement).value)
+  appEventsBound = true
+
+  app.addEventListener('input', (event) => {
+    const target = event.target as HTMLInputElement
+
+    if (target.id === 'search-input') {
+      scheduleSearchRender(target.value)
+    } else if (target.id === 'barcode-search') {
+      scheduleBarcodeSearchRender(target.value)
+    }
   })
 
-  consoleFilter?.addEventListener('change', async (event) => {
-    state.consoleFilter = (event.currentTarget as HTMLSelectElement).value
-    resetVisibleGameCount()
-    await ensureConsoleCatalogLoaded(state.consoleFilter)
+  app.addEventListener('change', (event) => {
+    const target = event.target as HTMLInputElement | HTMLSelectElement
+
+    void handleFormControlChange(target)
+  })
+
+  app.addEventListener('submit', (event) => {
+    const form = event.target as HTMLFormElement
+
+    if (!form.matches('[data-auth-form]')) {
+      return
+    }
+
+    event.preventDefault()
+    void handleAuthForm(form)
+  })
+
+  app.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement
+    const actionElement = target.closest<HTMLElement>('[data-action]')
+
+    if (actionElement) {
+      if (actionElement.classList.contains('game-modal-backdrop') && target !== actionElement) {
+        return
+      }
+
+      void handleAction(actionElement)
+      return
+    }
+
+    const card = target.closest<HTMLElement>('.game-card[data-id]')
+
+    if (!card || target.closest('.card-actions')) {
+      return
+    }
+
+    state.selectedGameId = card.dataset.id ?? null
     render()
   })
 
-  regionFilter?.addEventListener('change', async (event) => {
-    state.regionFilter = (event.currentTarget as HTMLSelectElement).value
+  app.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
+    const target = event.target as HTMLElement
+    const card = target.closest<HTMLElement>('.game-card[data-id]')
+
+    if (!card || target.closest('.card-actions')) {
+      return
+    }
+
+    event.preventDefault()
+    state.selectedGameId = card.dataset.id ?? null
+    render()
+  })
+}
+
+async function handleFormControlChange(target: HTMLInputElement | HTMLSelectElement) {
+  if (target.id === 'console-filter') {
+    state.consoleFilter = target.value
+    resetVisibleGameCount()
+    await ensureConsoleCatalogLoaded(state.consoleFilter)
+    render()
+    return
+  }
+
+  if (target.id === 'region-filter') {
+    state.regionFilter = target.value
 
     if (state.regionFilter !== 'All regions' && state.consoleFilter !== 'All consoles') {
       const selectedConsole = getConsoleMeta(state.consoleFilter)
@@ -2073,103 +2140,72 @@ function bindEvents() {
     resetVisibleGameCount()
     await ensureRegionCatalogsLoaded(state.regionFilter)
     render()
-  })
+    return
+  }
 
-  sortMode?.addEventListener('change', (event) => {
-    state.sortMode = (event.currentTarget as HTMLSelectElement).value as SortMode
+  if (target.id === 'sort-mode') {
+    state.sortMode = target.value as SortMode
     resetVisibleGameCount()
     render()
-  })
+    return
+  }
 
-  currencyCode?.addEventListener('change', (event) => {
-    state.currencyCode = (event.currentTarget as HTMLSelectElement).value
+  if (target.id === 'currency-code') {
+    state.currencyCode = target.value
     saveCurrencyCode()
     render()
-  })
+    return
+  }
 
-  barcodeSearch?.addEventListener('input', (event) => {
-    scheduleBarcodeSearchRender((event.currentTarget as HTMLInputElement).value)
-  })
-
-  authForm?.addEventListener('submit', (event) => {
-    event.preventDefault()
-    void handleAuthForm(authForm)
-  })
-
-  barcodeFileInput?.addEventListener('change', async (event) => {
-    const file = (event.currentTarget as HTMLInputElement).files?.[0]
+  if (target.id === 'barcode-file-input' && target instanceof HTMLInputElement) {
+    const file = target.files?.[0]
 
     if (!file) {
       return
     }
 
     await detectBarcodeFromFile(file)
-    barcodeFileInput.value = ''
-  })
+    target.value = ''
+    return
+  }
 
-  importInput?.addEventListener('change', async (event) => {
-    const file = (event.currentTarget as HTMLInputElement).files?.[0]
+  if (target.id === 'catalog-import' && target instanceof HTMLInputElement) {
+    await importCatalogFile(target)
+  }
+}
 
-    if (!file) {
-      return
+async function importCatalogFile(input: HTMLInputElement) {
+  const file = input.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  try {
+    const content = await file.text()
+    const parsed = JSON.parse(content)
+
+    if (!Array.isArray(parsed)) {
+      throw new Error('The JSON file must contain an array of games.')
     }
 
-    try {
-      const content = await file.text()
-      const parsed = JSON.parse(content)
+    const imported = parsed.map(normalizeCatalogEntry).filter(isCatalogEntry)
 
-      if (!Array.isArray(parsed)) {
-        throw new Error('The JSON file must contain an array of games.')
-      }
-
-      const imported = parsed.map(normalizeCatalogEntry).filter(isCatalogEntry)
-
-      if (!imported.length) {
-        throw new Error('No valid games were found in the file.')
-      }
-
-      state.customCatalog = dedupeCatalog([...state.customCatalog, ...imported])
-      invalidateCatalogCache()
-      saveCustomCatalog()
-      render()
-      alert(`Imported ${imported.length} games into Retro Vault Elite.`)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Import failed.'
-      alert(message)
-    } finally {
-      importInput.value = ''
+    if (!imported.length) {
+      throw new Error('No valid games were found in the file.')
     }
-  })
 
-  app.querySelectorAll<HTMLElement>('[data-action]').forEach((element) => {
-    element.addEventListener('click', () => {
-      void handleAction(element)
-    })
-  })
-
-  app.querySelectorAll<HTMLElement>('.game-card[data-id]').forEach((element) => {
-    element.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement
-
-      if (target.closest('.card-actions')) {
-        return
-      }
-
-      state.selectedGameId = element.dataset.id ?? null
-      render()
-    })
-
-    element.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== ' ') {
-        return
-      }
-
-      event.preventDefault()
-      const card = event.currentTarget as HTMLElement
-      state.selectedGameId = card.dataset.id ?? null
-      render()
-    })
-  })
+    state.customCatalog = dedupeCatalog([...state.customCatalog, ...imported])
+    invalidateCatalogCache()
+    saveCustomCatalog()
+    render()
+    alert(`Imported ${imported.length} games into Retro Vault Elite.`)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Import failed.'
+    alert(message)
+  } finally {
+    input.value = ''
+  }
 }
 
 function dedupeCatalog(entries: CatalogEntry[]) {
