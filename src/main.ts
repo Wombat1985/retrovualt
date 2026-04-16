@@ -61,6 +61,13 @@ type CollectorAchievement = {
   tone: 'gold' | 'teal' | 'crimson'
 }
 
+type ConsoleProgress = {
+  consoleName: string
+  total: number
+  owned: number
+  progress: number
+}
+
 type CatalogConsoleMeta = {
   console: string
   slug: string
@@ -85,9 +92,14 @@ const VISIBLE_GAME_INCREMENT = 160
 const appElement = document.querySelector<HTMLDivElement>('#app')
 let catalogCache: CatalogEntry[] | null = null
 let catalogCacheKey = ''
+let filteredGamesCache: CatalogEntry[] | null = null
+let filteredGamesCacheKey = ''
 let renderFrame = 0
 let pendingLibrarySave = 0
 let pendingSyncStatusRender = 0
+let pendingSearchRender = 0
+let pendingBarcodeSearchRender = 0
+let libraryRevision = 0
 
 if (!appElement) {
   throw new Error('App root was not found.')
@@ -155,6 +167,8 @@ const state = {
   cachedOwnedGames: [] as CatalogEntry[],
   cachedWantedGames: [] as CatalogEntry[],
   cachedCatalogStatsKey: '',
+  cachedConsoleProgress: [] as ConsoleProgress[],
+  cachedConsoleProgressKey: '',
   selectedGameId: null as string | null,
   ownershipPickerGameId: null as string | null,
   justOwnedGameId: null as string | null,
@@ -477,7 +491,10 @@ function getCatalog() {
 function invalidateCatalogCache() {
   catalogCache = null
   catalogCacheKey = ''
+  filteredGamesCache = null
+  filteredGamesCacheKey = ''
   state.cachedCatalogStatsKey = ''
+  state.cachedConsoleProgressKey = ''
 }
 
 function getConsoles() {
@@ -591,13 +608,28 @@ function getOwnedValueLabel(game: CatalogEntry) {
 }
 
 function getFilteredGames() {
+  getCatalog()
+  const key = [
+    catalogCacheKey,
+    getLibraryStatsKey(),
+    state.search.trim().toLowerCase(),
+    state.consoleFilter,
+    state.regionFilter,
+    state.ownershipFilter,
+    state.sortMode,
+  ].join(':')
+
+  if (filteredGamesCache && filteredGamesCacheKey === key) {
+    return filteredGamesCache
+  }
+
   const searchValue = state.search.trim().toLowerCase()
   const activeCatalog =
     state.consoleFilter === 'All consoles'
       ? getCatalog()
       : getCatalog().filter((game) => game.console === state.consoleFilter)
 
-  return activeCatalog
+  filteredGamesCache = activeCatalog
     .filter((game) => state.regionFilter === 'All regions' || game.region === state.regionFilter)
     .filter((game) => {
       if (!searchValue) {
@@ -632,6 +664,9 @@ function getFilteredGames() {
           return left.title.localeCompare(right.title)
       }
     })
+  filteredGamesCacheKey = key
+
+  return filteredGamesCache
 }
 
 function resetVisibleGameCount() {
@@ -649,13 +684,7 @@ function getWantedGames() {
 }
 
 function getLibraryStatsKey() {
-  const touched = Object.entries(state.library)
-    .filter(([, record]) => record.status !== 'missing' || record.favorite || record.pricePaid !== null || record.targetPrice !== null)
-    .map(([id, record]) => `${id}:${record.status}:${record.editionStatus}:${record.completeInBox}:${record.favorite}:${record.pricePaid ?? ''}:${record.targetPrice ?? ''}`)
-    .sort()
-    .join('|')
-
-  return `${catalogCacheKey}:${touched}`
+  return `${catalogCacheKey}:${libraryRevision}`
 }
 
 function refreshCollectionStats() {
@@ -886,20 +915,55 @@ function getViralShareLines() {
 }
 
 function getConsoleProgress() {
-  return getConsoles()
-    .filter((consoleName) => consoleName !== 'All consoles')
-    .map((consoleName) => {
-      const games = getCatalog().filter((game) => game.console === consoleName)
-      const owned = games.filter((game) => getRecord(game.id).status === 'owned').length
+  getCatalog()
+  const key = getLibraryStatsKey()
 
-      return {
-        consoleName,
-        total: games.length,
-        owned,
-        progress: games.length ? Math.round((owned / games.length) * 100) : 0,
-      }
+  if (state.cachedConsoleProgressKey === key) {
+    return state.cachedConsoleProgress
+  }
+
+  const progressByConsole = new Map<string, ConsoleProgress>()
+
+  for (const entry of state.catalogMeta) {
+    if (state.regionFilter !== 'All regions' && entry.region !== state.regionFilter) {
+      continue
+    }
+
+    progressByConsole.set(entry.console, {
+      consoleName: entry.console,
+      total: entry.count,
+      owned: 0,
+      progress: 0,
     })
+  }
+
+  for (const game of getCatalog()) {
+    if (state.regionFilter !== 'All regions' && game.region !== state.regionFilter) {
+      continue
+    }
+
+    const hasMetaTotal = progressByConsole.has(game.console)
+    const existing = progressByConsole.get(game.console) ?? {
+      consoleName: game.console,
+      total: 0,
+      owned: 0,
+      progress: 0,
+    }
+
+    existing.total = hasMetaTotal && state.catalogMeta.length ? existing.total : existing.total + 1
+    existing.owned += getRecord(game.id).status === 'owned' ? 1 : 0
+    progressByConsole.set(game.console, existing)
+  }
+
+  state.cachedConsoleProgress = [...progressByConsole.values()]
+    .map((entry) => ({
+      ...entry,
+      progress: entry.total ? Math.round((entry.owned / entry.total) * 100) : 0,
+    }))
     .sort((left, right) => right.progress - left.progress || left.consoleName.localeCompare(right.consoleName))
+  state.cachedConsoleProgressKey = key
+
+  return state.cachedConsoleProgress
 }
 
 function getSpotlightGame(): Spotlight | null {
@@ -1095,6 +1159,7 @@ function applyRemoteSyncState(syncState: {
     : {}
 
   state.accountDisplayName = typeof syncState.profile?.displayName === 'string' ? syncState.profile.displayName : state.accountDisplayName
+  libraryRevision += 1
   invalidateCatalogCache()
 
   localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
@@ -1947,6 +2012,31 @@ function render() {
   })
 }
 
+function scheduleSearchRender(value: string) {
+  if (pendingSearchRender) {
+    window.clearTimeout(pendingSearchRender)
+  }
+
+  pendingSearchRender = window.setTimeout(() => {
+    pendingSearchRender = 0
+    state.search = value
+    resetVisibleGameCount()
+    render()
+  }, 140)
+}
+
+function scheduleBarcodeSearchRender(value: string) {
+  if (pendingBarcodeSearchRender) {
+    window.clearTimeout(pendingBarcodeSearchRender)
+  }
+
+  pendingBarcodeSearchRender = window.setTimeout(() => {
+    pendingBarcodeSearchRender = 0
+    state.barcodeSearch = value
+    render()
+  }, 140)
+}
+
 function bindEvents() {
   const searchInput = document.querySelector<HTMLInputElement>('#search-input')
   const regionFilter = document.querySelector<HTMLSelectElement>('#region-filter')
@@ -1959,9 +2049,7 @@ function bindEvents() {
   const authForm = document.querySelector<HTMLFormElement>('[data-auth-form]')
 
   searchInput?.addEventListener('input', (event) => {
-    state.search = (event.currentTarget as HTMLInputElement).value
-    resetVisibleGameCount()
-    render()
+    scheduleSearchRender((event.currentTarget as HTMLInputElement).value)
   })
 
   consoleFilter?.addEventListener('change', async (event) => {
@@ -2000,8 +2088,7 @@ function bindEvents() {
   })
 
   barcodeSearch?.addEventListener('input', (event) => {
-    state.barcodeSearch = (event.currentTarget as HTMLInputElement).value
-    render()
+    scheduleBarcodeSearchRender((event.currentTarget as HTMLInputElement).value)
   })
 
   authForm?.addEventListener('submit', (event) => {
@@ -2281,7 +2368,9 @@ async function handleAction(element: HTMLElement) {
       break
     case 'reset-library':
       state.library = {}
+      libraryRevision += 1
       state.cachedCatalogStatsKey = ''
+      state.cachedConsoleProgressKey = ''
       saveLibrary()
       render()
       break
@@ -2307,7 +2396,9 @@ function setRecord(id: string, updater: (record: GameRecord) => GameRecord) {
     ...state.library,
     [id]: updater(getRecord(id)),
   }
+  libraryRevision += 1
   state.cachedCatalogStatsKey = ''
+  state.cachedConsoleProgressKey = ''
   saveLibrary()
   render()
 }
@@ -2923,11 +3014,34 @@ async function ensureRegionCatalogsLoaded(regionName: string) {
     return
   }
 
-  await Promise.all(
-    state.catalogMeta
-      .filter((entry) => entry.region === regionName)
-      .map((entry) => ensureConsoleCatalogLoaded(entry.console, false)),
-  )
+  const consoles = state.catalogMeta
+    .filter((entry) => entry.region === regionName)
+    .map((entry) => entry.console)
+
+  await ensureConsoleBatchLoaded(consoles, true)
+}
+
+async function ensureAllConsoleCatalogsLoaded(rerenderAfterBatch: boolean) {
+  const remaining = state.catalogMeta
+    .map((entry) => entry.console)
+    .filter((consoleName) => !state.loadedConsoles.includes(consoleName))
+
+  await ensureConsoleBatchLoaded(remaining, rerenderAfterBatch)
+}
+
+async function ensureConsoleBatchLoaded(consoleNames: string[], rerenderAfterBatch: boolean) {
+  const batchSize = 4
+
+  for (let index = 0; index < consoleNames.length; index += batchSize) {
+    const batch = consoleNames.slice(index, index + batchSize)
+    await Promise.all(batch.map((consoleName) => ensureConsoleCatalogLoaded(consoleName, false)))
+
+    if (rerenderAfterBatch) {
+      render()
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+  }
 }
 
 async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad = true) {
@@ -2936,12 +3050,7 @@ async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad
   }
 
   if (consoleName === 'All consoles') {
-    await Promise.all(state.catalogMeta.map((entry) => ensureConsoleCatalogLoaded(entry.console, false)))
-
-    if (rerenderAfterLoad) {
-      render()
-    }
-
+    await ensureAllConsoleCatalogsLoaded(rerenderAfterLoad)
     return
   }
 
