@@ -144,6 +144,8 @@ const state = {
   customCatalog: loadCustomCatalog(),
   barcodeMappings: loadBarcodeMappings(),
   selectedGameId: null as string | null,
+  ownershipPickerGameId: null as string | null,
+  justOwnedGameId: null as string | null,
   scannerOpen: false,
   scannerStatus: 'Scan a barcode with your camera or upload a clear barcode photo.' as string,
   barcodeLinkCode: null as string | null,
@@ -497,6 +499,20 @@ function getReferencePrice(game: CatalogEntry) {
   return game.priceComplete ?? game.priceLoose
 }
 
+function isCompleteEdition(record: GameRecord) {
+  return record.completeInBox || record.editionStatus === 'cib' || record.editionStatus === 'sealed' || record.editionStatus === 'graded'
+}
+
+function getOwnedMarketPrice(game: CatalogEntry) {
+  const record = getRecord(game.id)
+  return isCompleteEdition(record) ? getReferencePrice(game) : game.priceLoose
+}
+
+function getOwnedValueLabel(game: CatalogEntry) {
+  const record = getRecord(game.id)
+  return isCompleteEdition(record) ? 'Complete value' : 'Loose value'
+}
+
 function getFilteredGames() {
   const searchValue = state.search.trim().toLowerCase()
 
@@ -584,7 +600,7 @@ function getNearCompleteConsoles() {
 function getCollectionDelta() {
   return getOwnedGames().reduce((total, game) => {
     const pricePaid = getRecord(game.id).pricePaid
-    return total + (pricePaid === null ? 0 : game.priceLoose - pricePaid)
+    return total + (pricePaid === null ? 0 : getOwnedMarketPrice(game) - pricePaid)
   }, 0)
 }
 
@@ -593,7 +609,7 @@ function getPrestigeScore() {
 }
 
 function getRarestOwnedGame() {
-  return [...getOwnedGames()].sort((left, right) => getReferencePrice(right) - getReferencePrice(left))[0] ?? null
+  return [...getOwnedGames()].sort((left, right) => getOwnedMarketPrice(right) - getOwnedMarketPrice(left))[0] ?? null
 }
 
 function getDominantConsole() {
@@ -871,6 +887,18 @@ function getEditionLabel(editionStatus: EditionStatus) {
   }
 }
 
+function getOwnedEditionSummary(record: GameRecord) {
+  if (record.status !== 'owned') {
+    return getEditionLabel(record.editionStatus)
+  }
+
+  if (isCompleteEdition(record)) {
+    return `${getEditionLabel(record.editionStatus)} owned`
+  }
+
+  return 'Loose owned'
+}
+
 function getConditionLabel(condition: ConditionRating) {
   return condition.charAt(0).toUpperCase() + condition.slice(1)
 }
@@ -1029,9 +1057,12 @@ function renderCard(game: CatalogEntry) {
   const isWanted = record.status === 'wanted'
   const completeText = game.priceComplete === null ? 'Listing price only' : formatPrice(game.priceComplete)
   const yearText = game.year === null ? 'Release year unavailable' : `Released ${game.year}`
+  const isOwned = record.status === 'owned'
+  const ownedEditionText = getOwnedEditionSummary(record)
+  const ownedPulseClass = state.justOwnedGameId === game.id ? 'just-owned' : ''
 
   return `
-    <article class="game-card ${record.status === 'owned' ? 'is-owned' : ''}" data-game-card="true" data-id="${game.id}" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(game.title)}">
+    <article class="game-card ${isOwned ? 'is-owned' : ''} ${ownedPulseClass}" data-game-card="true" data-id="${game.id}" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(game.title)}">
       <div class="cover-wrap">
         <img
           class="game-cover"
@@ -1044,14 +1075,14 @@ function renderCard(game: CatalogEntry) {
           <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
           <span class="rarity-badge">${game.rarity}</span>
         </div>
-        ${record.status === 'owned' ? '<div class="owned-stamp">In collection</div>' : ''}
+        ${isOwned ? `<div class="owned-stamp"><strong>Owned</strong><span>${escapeHtml(ownedEditionText)}</span></div>` : ''}
       </div>
       <div class="game-copy">
         <div class="game-meta">
           <p class="eyebrow">${escapeHtml(game.console)} / ${escapeHtml(game.region)}</p>
           <h3>${escapeHtml(game.title)}</h3>
           <p class="subtle">${yearText}</p>
-          <p class="collector-line">${getEditionLabel(record.editionStatus)} / ${getConditionLabel(record.condition)}</p>
+          <p class="collector-line">${escapeHtml(ownedEditionText)} / ${getConditionLabel(record.condition)}</p>
         </div>
         <dl class="price-grid">
           <div>
@@ -1059,12 +1090,12 @@ function renderCard(game: CatalogEntry) {
             <dd>${formatPrice(game.priceLoose)}</dd>
           </div>
           <div>
-            <dt>Complete</dt>
-            <dd>${completeText}</dd>
+            <dt>${isOwned ? getOwnedValueLabel(game) : 'Complete'}</dt>
+            <dd>${isOwned ? formatPrice(getOwnedMarketPrice(game)) : completeText}</dd>
           </div>
         </dl>
         <div class="card-actions">
-          <button class="toggle-button" data-action="toggle-owned" data-id="${game.id}" type="button">${record.status === 'owned' ? 'Remove owned' : 'Mark owned'}</button>
+          <button class="toggle-button ${isOwned ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${game.id}" type="button">${isOwned ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
           <button class="ghost-button ${isWanted ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${game.id}" type="button">${isWanted ? 'Remove wanted' : 'Want it'}</button>
           <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${game.id}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
           <button class="ghost-button" data-action="open-details" data-id="${game.id}" type="button">Details</button>
@@ -1087,7 +1118,7 @@ function renderSelectedGameModal() {
 
   const record = getRecord(game.id)
   const valueGap =
-    record.pricePaid === null ? null : game.priceLoose - record.pricePaid
+    record.pricePaid === null ? null : getOwnedMarketPrice(game) - record.pricePaid
 
   return `
     <div class="game-modal-backdrop" data-action="close-details">
@@ -1109,7 +1140,7 @@ function renderSelectedGameModal() {
           <div class="modal-pill-row">
             <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
             <span class="rarity-badge">${game.rarity}</span>
-            <span class="detail-chip">CIB ${record.completeInBox ? 'tracked' : 'not tracked'}</span>
+            <span class="detail-chip">${escapeHtml(getOwnedEditionSummary(record))}</span>
             <span class="detail-chip">Shelf score ${getShelfScore(game)}</span>
             <span class="detail-chip">${getEditionLabel(record.editionStatus)}</span>
             <span class="detail-chip">${getConditionLabel(record.condition)}</span>
@@ -1127,6 +1158,10 @@ function renderSelectedGameModal() {
               <strong>${game.priceComplete === null ? 'Listing only' : formatPrice(game.priceComplete)}</strong>
             </article>
             <article>
+              <span>Your tracked value</span>
+              <strong>${record.status === 'owned' ? formatPrice(getOwnedMarketPrice(game)) : 'Mark owned'}</strong>
+            </article>
+            <article>
               <span>You paid</span>
               <strong>${record.pricePaid === null ? 'Not set' : formatPrice(record.pricePaid)}</strong>
             </article>
@@ -1137,14 +1172,14 @@ function renderSelectedGameModal() {
           </div>
           <div class="modal-notes">
             <p><strong>Price snapshot:</strong> ${priceSnapshotDate}</p>
-            <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus loose market.`}</p>
+            <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus ${getOwnedValueLabel(game).toLowerCase()}.`}</p>
             <p><strong>Alert target:</strong> ${record.targetPrice === null ? 'No target set.' : `Notify yourself when loose value hits ${formatPrice(record.targetPrice)} or less.`}</p>
             <p><strong>Art source:</strong> Live cover from the linked listing source below.</p>
             <p><strong>Market note:</strong> ${appConfig.marketDisclaimer}</p>
             <p><strong>Collector notes:</strong> ${record.notes ? escapeHtml(record.notes) : 'No collector notes yet.'}</p>
           </div>
           <div class="card-actions">
-            <button class="toggle-button" data-action="toggle-owned" data-id="${game.id}" type="button">${record.status === 'owned' ? 'Remove owned' : 'Mark owned'}</button>
+            <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${game.id}" type="button">${record.status === 'owned' ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
             <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${game.id}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
             <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${game.id}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
             <button class="ghost-button" data-action="set-price-paid" data-id="${game.id}" type="button">Set paid</button>
@@ -1248,6 +1283,44 @@ function renderConsoleCompletionCard() {
         <div class="progress-stack">${renderConsoleProgress()}</div>
       </details>
     </article>
+  `
+}
+
+function renderOwnershipPickerModal() {
+  if (!state.ownershipPickerGameId) {
+    return ''
+  }
+
+  const game = getGameById(state.ownershipPickerGameId)
+
+  if (!game) {
+    return ''
+  }
+
+  const completeValue = game.priceComplete === null ? getReferencePrice(game) : game.priceComplete
+
+  return `
+    <div class="game-modal-backdrop" data-action="close-ownership-picker">
+      <section class="ownership-picker" role="dialog" aria-modal="true" aria-labelledby="ownership-picker-title" onclick="event.stopPropagation()">
+        <button class="modal-close" type="button" data-action="close-ownership-picker" aria-label="Close ownership picker">Close</button>
+        <p class="kicker">Add to collection</p>
+        <h2 id="ownership-picker-title">${escapeHtml(game.title)}</h2>
+        <p class="modal-description">Choose the version you own so Retro Vault uses the right market value for your collection.</p>
+        <div class="ownership-choice-grid">
+          <button class="ownership-choice" type="button" data-action="confirm-owned" data-id="${game.id}" data-edition="loose">
+            <span>Loose game</span>
+            <strong>${formatPrice(game.priceLoose)}</strong>
+            <em>Cart, disc, or card only</em>
+          </button>
+          <button class="ownership-choice ownership-choice--premium" type="button" data-action="confirm-owned" data-id="${game.id}" data-edition="cib">
+            <span>Complete in box</span>
+            <strong>${formatPrice(completeValue)}</strong>
+            <em>Box and manual tracked</em>
+          </button>
+        </div>
+        <p class="subtle">You can refine this later to boxed, manual, sealed, graded, paid price, notes, and condition from Details.</p>
+      </section>
+    </div>
   `
 }
 
@@ -1532,9 +1605,9 @@ function render() {
   const filteredGames = getFilteredGames()
   const ownedGames = getOwnedGames()
   const wantedGames = getWantedGames()
-  const ownedLooseValue = ownedGames.reduce((total, game) => total + game.priceLoose, 0)
+  const ownedTrackedValue = ownedGames.reduce((total, game) => total + getOwnedMarketPrice(game), 0)
   const ownedCompleteValue = ownedGames.reduce((total, game) => total + getReferencePrice(game), 0)
-  const estimatedSellValue = ownedLooseValue
+  const estimatedSellValue = ownedTrackedValue
   const completionPercentage = catalog.length === 0 ? 0 : Math.round((ownedGames.length / catalog.length) * 100)
   const wishlistValue = wantedGames.reduce((total, game) => total + getReferencePrice(game), 0)
   const collectionDelta = getCollectionDelta()
@@ -1584,7 +1657,7 @@ function render() {
           <article>
             <span class="stat-label">Estimated sell value</span>
             <strong>${formatPrice(estimatedSellValue)}</strong>
-            <span class="stat-note">Loose market total in ${selectedCurrency.code}</span>
+            <span class="stat-note">Uses your loose/complete ownership choices in ${selectedCurrency.code}</span>
           </article>
           <article>
             <span class="stat-label">Collection premium</span>
@@ -1672,7 +1745,7 @@ function render() {
         ${renderSpotlight(spotlight)}
         <div class="insight-grid">
           ${renderInsightCard('Shelf prestige', prestigeScore.toString(), 'Weighted by rarity, market heat, CIB, and top-shelf picks.')}
-          ${renderInsightCard('Market edge', formatPrice(collectionDelta), `Current loose value minus paid value in ${selectedCurrency.code}.`)}
+          ${renderInsightCard('Market edge', formatPrice(collectionDelta), `Tracked owned value minus paid value in ${selectedCurrency.code}.`)}
           ${renderInsightCard('Price alerts', alertMatches.length.toString(), 'Wanted games currently at or below your target price.')}
           ${renderInsightCard('Top shelf', getTopShelfGames().length.toString(), 'Favorites and standout owned games that deserve a hero row.')}
         </div>
@@ -1719,6 +1792,7 @@ function render() {
         <span>${appConfig.marketDisclaimer}</span>
       </footer>
       ${renderScannerModal()}
+      ${renderOwnershipPickerModal()}
       ${renderSelectedGameModal()}
       ${renderAuthModal()}
     </div>
@@ -1874,10 +1948,33 @@ async function handleAction(element: HTMLElement) {
         return
       }
 
-      setRecord(id, (record) => ({
-        ...record,
-        status: record.status === 'owned' ? 'missing' : 'owned',
-      }))
+      if (getRecord(id).status === 'owned') {
+        setRecord(id, (record) => ({
+          ...record,
+          status: 'missing',
+        }))
+      } else {
+        state.ownershipPickerGameId = id
+        render()
+      }
+      break
+    case 'confirm-owned': {
+      if (!id) {
+        return
+      }
+
+      const edition = element.dataset.edition
+
+      if (!isEditionStatus(edition)) {
+        return
+      }
+
+      markGameOwned(id, edition)
+      break
+    }
+    case 'close-ownership-picker':
+      state.ownershipPickerGameId = null
+      render()
       break
     case 'toggle-wanted':
       if (!id) {
@@ -2057,6 +2154,27 @@ function setRecord(id: string, updater: (record: GameRecord) => GameRecord) {
   render()
 }
 
+function markGameOwned(id: string, editionStatus: EditionStatus) {
+  const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
+
+  state.ownershipPickerGameId = null
+  state.justOwnedGameId = id
+
+  setRecord(id, (record) => ({
+    ...record,
+    status: 'owned',
+    editionStatus,
+    completeInBox,
+  }))
+
+  window.setTimeout(() => {
+    if (state.justOwnedGameId === id) {
+      state.justOwnedGameId = null
+      render()
+    }
+  }, 1300)
+}
+
 function updatePricePaid(id: string) {
   const current = getRecord(id)
   const selectedCurrency = getSelectedCurrency()
@@ -2150,7 +2268,7 @@ function updateEditionStatus(id: string) {
   setRecord(id, (record) => ({
     ...record,
     editionStatus: next,
-    completeInBox: next === 'cib' ? true : record.completeInBox,
+    completeInBox: next === 'cib' || next === 'sealed' || next === 'graded',
   }))
 }
 
