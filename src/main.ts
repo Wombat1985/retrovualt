@@ -78,6 +78,7 @@ const LIBRARY_STORAGE_KEY = 'retro-game-collector-library'
 const CUSTOM_STORAGE_KEY = 'retro-game-collector-custom-catalog'
 const CURRENCY_STORAGE_KEY = 'retro-game-collector-currency'
 const AUTH_TOKEN_STORAGE_KEY = 'retro-game-collector-auth-token'
+const AUTH_PROFILE_STORAGE_KEY = 'retro-game-collector-auth-profile'
 const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
 const appElement = document.querySelector<HTMLDivElement>('#app')
 
@@ -129,9 +130,9 @@ const state = {
   sortMode: 'title' as SortMode,
   currencyCode: loadCurrencyCode(),
   authToken: loadAuthToken(),
-  accountEmail: '',
-  accountDisplayName: '',
-  syncStatus: 'Saved on this device' as string,
+  accountEmail: loadAuthProfile().email,
+  accountDisplayName: loadAuthProfile().displayName,
+  syncStatus: loadAuthToken() ? 'Restoring account session...' : 'Saved on this device',
   authView: getInitialAuthView(),
   authLoading: false,
   authError: '',
@@ -280,9 +281,39 @@ function saveAuthToken(token: string) {
   localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token)
 }
 
+function loadAuthProfile() {
+  const raw = localStorage.getItem(AUTH_PROFILE_STORAGE_KEY)
+
+  if (!raw) {
+    return { email: '', displayName: '' }
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    return {
+      email: typeof parsed.email === 'string' ? parsed.email : '',
+      displayName: typeof parsed.displayName === 'string' ? parsed.displayName : '',
+    }
+  } catch {
+    return { email: '', displayName: '' }
+  }
+}
+
+function saveAuthProfile(email: string, displayName = '') {
+  state.accountEmail = email
+  state.accountDisplayName = displayName
+  localStorage.setItem(AUTH_PROFILE_STORAGE_KEY, JSON.stringify({ email, displayName }))
+}
+
 function clearAuthToken() {
   state.authToken = ''
   localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
+}
+
+function clearAuthProfile() {
+  state.accountEmail = ''
+  state.accountDisplayName = ''
+  localStorage.removeItem(AUTH_PROFILE_STORAGE_KEY)
 }
 
 function getPasswordResetToken() {
@@ -1024,16 +1055,11 @@ async function hydrateAccount() {
 
   try {
     const payload = await getCurrentAccount(state.authToken)
-    state.accountEmail = payload.user.email
-    state.accountDisplayName = payload.user.displayName ?? ''
+    saveAuthProfile(payload.user.email, payload.user.displayName ?? '')
     applyRemoteSyncState(payload.syncState)
     state.syncStatus = 'Your collection is synced to your account'
   } catch {
-    clearAuthToken()
-    state.accountEmail = ''
-    state.accountDisplayName = ''
-    state.syncStatus = 'Signed out'
-    resetLocalCollectionState()
+    state.syncStatus = 'Still signed in on this device. Sync will reconnect when the server is ready.'
   }
 
   render()
@@ -2357,8 +2383,7 @@ async function handleAuthForm(form: HTMLFormElement) {
 
       const payload = await registerAccount(email, password, displayName)
       saveAuthToken(payload.token)
-      state.accountEmail = payload.user.email
-      state.accountDisplayName = payload.user.displayName ?? displayName
+      saveAuthProfile(payload.user.email, payload.user.displayName ?? displayName)
       state.syncStatus = 'Syncing your collection...'
       state.authSuccess = 'Account created. Your collection is being synced.'
       await syncToCloud()
@@ -2378,8 +2403,7 @@ async function handleAuthForm(form: HTMLFormElement) {
 
       const payload = await loginAccount(email, password)
       saveAuthToken(payload.token)
-      state.accountEmail = payload.user.email
-      state.accountDisplayName = payload.user.displayName ?? ''
+      saveAuthProfile(payload.user.email, payload.user.displayName ?? '')
       applyRemoteSyncState(payload.syncState)
       state.syncStatus = 'Your collection is synced to your account'
       state.authSuccess = 'Signed in successfully.'
@@ -2423,8 +2447,7 @@ async function handleAuthForm(form: HTMLFormElement) {
 
       const displayName = String(formData.get('displayName') ?? '').trim()
       const payload = await updateAccountProfile(state.authToken, displayName)
-      state.accountEmail = payload.user.email
-      state.accountDisplayName = payload.user.displayName ?? displayName
+      saveAuthProfile(payload.user.email, payload.user.displayName ?? displayName)
       applyRemoteSyncState(payload.syncState)
       state.authSuccess = 'Account settings saved.'
       state.syncStatus = 'Your collection is synced to your account'
@@ -2454,8 +2477,7 @@ async function logoutCurrentAccount() {
   }
 
   clearAuthToken()
-  state.accountEmail = ''
-  state.accountDisplayName = ''
+  clearAuthProfile()
   resetLocalCollectionState()
   state.syncStatus = 'Signed out'
   state.authView = 'none'
@@ -2521,8 +2543,7 @@ async function deleteCurrentAccount() {
   try {
     await deleteAccount(state.authToken)
     clearAuthToken()
-    state.accountEmail = ''
-    state.accountDisplayName = ''
+    clearAuthProfile()
     resetLocalCollectionState()
     state.syncStatus = 'Account deleted'
     state.authView = 'none'
