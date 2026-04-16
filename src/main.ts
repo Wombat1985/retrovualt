@@ -80,6 +80,8 @@ const CURRENCY_STORAGE_KEY = 'retro-game-collector-currency'
 const AUTH_TOKEN_STORAGE_KEY = 'retro-game-collector-auth-token'
 const AUTH_PROFILE_STORAGE_KEY = 'retro-game-collector-auth-profile'
 const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
+const INITIAL_VISIBLE_GAME_COUNT = 160
+const VISIBLE_GAME_INCREMENT = 160
 const appElement = document.querySelector<HTMLDivElement>('#app')
 
 if (!appElement) {
@@ -128,6 +130,7 @@ const state = {
   regionFilter: 'All regions',
   ownershipFilter: 'all' as OwnershipFilter,
   sortMode: 'title' as SortMode,
+  visibleGameCount: INITIAL_VISIBLE_GAME_COUNT,
   currencyCode: loadCurrencyCode(),
   authToken: loadAuthToken(),
   accountEmail: loadAuthProfile().email,
@@ -583,6 +586,10 @@ function getFilteredGames() {
           return left.title.localeCompare(right.title)
       }
     })
+}
+
+function resetVisibleGameCount() {
+  state.visibleGameCount = INITIAL_VISIBLE_GAME_COUNT
 }
 
 function getOwnedGames() {
@@ -1629,6 +1636,7 @@ function renderSpotlight(spotlight: Spotlight | null) {
 function render() {
   const catalog = getCatalog()
   const filteredGames = getFilteredGames()
+  const visibleGames = filteredGames.slice(0, state.visibleGameCount)
   const ownedGames = getOwnedGames()
   const wantedGames = getWantedGames()
   const ownedTrackedValue = ownedGames.reduce((total, game) => total + getOwnedMarketPrice(game), 0)
@@ -1791,15 +1799,20 @@ function render() {
             <p class="kicker">Collection grid</p>
             <h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>
           </div>
-          <p class="section-note">Every cover stays in full color now. Ownership is shown with a clean collection stamp, status pill, and stronger card treatment.</p>
+          <p class="section-note">Showing ${visibleGames.length.toLocaleString()} at a time for speed. Every cover stays in full color, and owned games get a strong vault stamp.</p>
         </div>
         <div class="catalog-grid">
           ${
-            filteredGames.length
-              ? filteredGames.map(renderCard).join('')
+            visibleGames.length
+              ? visibleGames.map(renderCard).join('')
               : '<div class="empty-state"><h3>No matches</h3><p>Try another search, console, or collector filter.</p></div>'
           }
         </div>
+        ${
+          filteredGames.length > visibleGames.length
+            ? `<div class="load-more-row"><button class="secondary-button" data-action="load-more-games" type="button">Load more games (${(filteredGames.length - visibleGames.length).toLocaleString()} left)</button></div>`
+            : ''
+        }
       </section>
 
       <section class="roadmap-strip">
@@ -1840,11 +1853,13 @@ function bindEvents() {
 
   searchInput?.addEventListener('input', (event) => {
     state.search = (event.currentTarget as HTMLInputElement).value
+    resetVisibleGameCount()
     render()
   })
 
   consoleFilter?.addEventListener('change', async (event) => {
     state.consoleFilter = (event.currentTarget as HTMLSelectElement).value
+    resetVisibleGameCount()
     await ensureConsoleCatalogLoaded(state.consoleFilter)
     render()
   })
@@ -1860,12 +1875,14 @@ function bindEvents() {
       }
     }
 
+    resetVisibleGameCount()
     await ensureRegionCatalogsLoaded(state.regionFilter)
     render()
   })
 
   sortMode?.addEventListener('change', (event) => {
     state.sortMode = (event.currentTarget as HTMLSelectElement).value as SortMode
+    resetVisibleGameCount()
     render()
   })
 
@@ -2146,9 +2163,14 @@ async function handleAction(element: HTMLElement) {
       }
 
       state.ownershipFilter = filter
+      resetVisibleGameCount()
       render()
       break
     }
+    case 'load-more-games':
+      state.visibleGameCount += VISIBLE_GAME_INCREMENT
+      render()
+      break
     case 'reset-library':
       state.library = {}
       saveLibrary()

@@ -651,6 +651,12 @@ a {
   gap: 14px;
 }
 
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 6px;
+}
+
 .game-card {
   border-radius: 26px;
   overflow: hidden;
