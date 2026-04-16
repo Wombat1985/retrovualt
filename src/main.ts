@@ -64,6 +64,8 @@ type CollectorAchievement = {
 type CatalogConsoleMeta = {
   console: string
   slug: string
+  region: string
+  market?: string
   count: number
   file: string
 }
@@ -122,6 +124,7 @@ const currencyOptions = [
 const state = {
   search: '',
   consoleFilter: 'Super Nintendo',
+  regionFilter: 'All regions',
   ownershipFilter: 'all' as OwnershipFilter,
   sortMode: 'title' as SortMode,
   currencyCode: loadCurrencyCode(),
@@ -400,7 +403,9 @@ function getCatalog() {
 
 function getConsoles() {
   const names = state.catalogMeta.length
-    ? state.catalogMeta.map((entry) => entry.console)
+    ? state.catalogMeta
+        .filter((entry) => state.regionFilter === 'All regions' || entry.region === state.regionFilter)
+        .map((entry) => entry.console)
     : [...new Set(getCatalog().map((game) => game.console))]
 
   return ['All consoles', ...names]
@@ -418,6 +423,26 @@ function getConsoleOptionLabel(consoleName: string) {
 
   const meta = getConsoleMeta(consoleName)
   return meta ? `${meta.console} (${meta.count.toLocaleString()})` : consoleName
+}
+
+function getRegions() {
+  const regions = state.catalogMeta.length
+    ? state.catalogMeta.map((entry) => entry.region)
+    : [...new Set(getCatalog().map((game) => game.region))]
+
+  return ['All regions', ...[...new Set(regions.filter(Boolean))].sort((left, right) => left.localeCompare(right))]
+}
+
+function getRegionOptionLabel(regionName: string) {
+  if (regionName === 'All regions') {
+    return regionName
+  }
+
+  const total = state.catalogMeta
+    .filter((entry) => entry.region === regionName)
+    .reduce((sum, entry) => sum + entry.count, 0)
+
+  return total ? `${regionName} (${total.toLocaleString()})` : regionName
 }
 
 function getRecord(gameId: string) {
@@ -476,6 +501,7 @@ function getFilteredGames() {
   const searchValue = state.search.trim().toLowerCase()
 
   return getCatalog()
+    .filter((game) => state.regionFilter === 'All regions' || game.region === state.regionFilter)
     .filter((game) => state.consoleFilter === 'All consoles' || game.console === state.consoleFilter)
     .filter((game) => {
       if (!searchValue) {
@@ -1581,6 +1607,17 @@ function render() {
           <input id="search-input" type="search" placeholder="Mario, Chrono, Castlevania..." value="${escapeHtml(state.search)}" />
         </label>
         <label class="select-field">
+          <span>Region</span>
+          <select id="region-filter">
+            ${getRegions()
+              .map(
+                (regionName) =>
+                  `<option value="${escapeHtml(regionName)}" ${regionName === state.regionFilter ? 'selected' : ''}>${escapeHtml(getRegionOptionLabel(regionName))}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="select-field">
           <span>Console</span>
           <select id="console-filter">
             ${getConsoles()
@@ -1692,6 +1729,7 @@ function render() {
 
 function bindEvents() {
   const searchInput = document.querySelector<HTMLInputElement>('#search-input')
+  const regionFilter = document.querySelector<HTMLSelectElement>('#region-filter')
   const consoleFilter = document.querySelector<HTMLSelectElement>('#console-filter')
   const sortMode = document.querySelector<HTMLSelectElement>('#sort-mode')
   const currencyCode = document.querySelector<HTMLSelectElement>('#currency-code')
@@ -1708,6 +1746,21 @@ function bindEvents() {
   consoleFilter?.addEventListener('change', async (event) => {
     state.consoleFilter = (event.currentTarget as HTMLSelectElement).value
     await ensureConsoleCatalogLoaded(state.consoleFilter)
+    render()
+  })
+
+  regionFilter?.addEventListener('change', async (event) => {
+    state.regionFilter = (event.currentTarget as HTMLSelectElement).value
+
+    if (state.regionFilter !== 'All regions' && state.consoleFilter !== 'All consoles') {
+      const selectedConsole = getConsoleMeta(state.consoleFilter)
+
+      if (selectedConsole && selectedConsole.region !== state.regionFilter) {
+        state.consoleFilter = 'All consoles'
+      }
+    }
+
+    await ensureRegionCatalogsLoaded(state.regionFilter)
     render()
   })
 
@@ -2575,6 +2628,8 @@ async function loadGeneratedCatalog() {
             slug: meta.slug,
             count: meta.count,
             file: meta.file,
+            region: typeof meta.region === 'string' ? meta.region : 'North America',
+            market: typeof meta.market === 'string' ? meta.market : undefined,
           } satisfies CatalogConsoleMeta,
         ]
       })
@@ -2601,6 +2656,18 @@ async function warmCatalogInBackground() {
   for (const consoleName of remaining) {
     await ensureConsoleCatalogLoaded(consoleName, false)
   }
+}
+
+async function ensureRegionCatalogsLoaded(regionName: string) {
+  if (regionName === 'All regions') {
+    return
+  }
+
+  await Promise.all(
+    state.catalogMeta
+      .filter((entry) => entry.region === regionName)
+      .map((entry) => ensureConsoleCatalogLoaded(entry.console, false)),
+  )
 }
 
 async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad = true) {

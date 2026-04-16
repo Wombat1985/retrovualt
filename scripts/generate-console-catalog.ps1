@@ -6,35 +6,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $snapshotDate = '2026-04-11'
-$consoles = @(
-  @{ slug = 'nes'; name = 'NES'; region = 'North America' },
-  @{ slug = 'famicom'; name = 'Famicom'; region = 'Japan' },
-  @{ slug = 'famicom-disk-system'; name = 'Famicom Disk System'; region = 'Japan' },
-  @{ slug = 'super-nintendo'; name = 'Super Nintendo'; region = 'North America' },
-  @{ slug = 'super-famicom'; name = 'Super Famicom'; region = 'Japan' },
-  @{ slug = 'nintendo-64'; name = 'Nintendo 64'; region = 'North America' },
-  @{ slug = 'gameboy'; name = 'Game Boy'; region = 'North America' },
-  @{ slug = 'gameboy-color'; name = 'Game Boy Color'; region = 'North America' },
-  @{ slug = 'gameboy-advance'; name = 'Game Boy Advance'; region = 'North America' },
-  @{ slug = 'virtual-boy'; name = 'Virtual Boy'; region = 'North America' },
-  @{ slug = 'sega-master-system'; name = 'Sega Master System'; region = 'North America' },
-  @{ slug = 'sega-genesis'; name = 'Sega Genesis'; region = 'North America' },
-  @{ slug = 'sega-cd'; name = 'Sega CD'; region = 'North America' },
-  @{ slug = 'sega-32x'; name = 'Sega 32X'; region = 'North America' },
-  @{ slug = 'sega-saturn'; name = 'Sega Saturn'; region = 'North America' },
-  @{ slug = 'sega-dreamcast'; name = 'Dreamcast'; region = 'North America' },
-  @{ slug = 'sega-game-gear'; name = 'Game Gear'; region = 'North America' },
-  @{ slug = 'playstation'; name = 'PlayStation'; region = 'North America' },
-  @{ slug = 'turbografx-16'; name = 'TurboGrafx-16'; region = 'North America' },
-  @{ slug = 'neo-geo-aes'; name = 'Neo Geo AES'; region = 'North America' },
-  @{ slug = 'neo-geo-cd'; name = 'Neo Geo CD'; region = 'North America' },
-  @{ slug = 'neo-geo-pocket-color'; name = 'Neo Geo Pocket Color'; region = 'North America' },
-  @{ slug = 'atari-2600'; name = 'Atari 2600'; region = 'North America' },
-  @{ slug = 'atari-5200'; name = 'Atari 5200'; region = 'North America' },
-  @{ slug = 'atari-7800'; name = 'Atari 7800'; region = 'North America' },
-  @{ slug = 'atari-lynx'; name = 'Atari Lynx'; region = 'North America' },
-  @{ slug = 'jaguar'; name = 'Jaguar'; region = 'North America' }
-)
+$manifestPath = Join-Path $PSScriptRoot 'retro-console-manifest.json'
+$consoles = Get-Content $manifestPath -Raw | ConvertFrom-Json
 
 function Get-Rarity([decimal]$priceLoose) {
   if ($priceLoose -ge 100) { return 'Grail' }
@@ -44,7 +17,7 @@ function Get-Rarity([decimal]$priceLoose) {
 
 function Get-ConsoleCatalog {
   param(
-    [hashtable]$Console
+    [object]$Console
   )
 
   $cursor = ''
@@ -149,7 +122,7 @@ foreach ($slug in $requestedConsoleSlugs) {
   Write-Output "Generating $($console.name)..."
   $entries = Get-ConsoleCatalog -Console $console
   $catalogFileName = "catalog-$($console.slug).json"
-  $entries | ConvertTo-Json -Depth 5 -Compress | Set-Content (Join-Path $outputDir $catalogFileName)
+  ConvertTo-Json -InputObject @($entries) -Depth 5 -Compress | Set-Content (Join-Path $outputDir $catalogFileName)
   Write-Output "Generated $($entries.Count) entries for $($console.name)."
 }
 
@@ -162,7 +135,7 @@ foreach ($file in (Get-ChildItem -Path $outputDir -Filter 'catalog-*.json' | Sor
     continue
   }
 
-  $entries = Get-Content $file.FullName -Raw | ConvertFrom-Json
+  $entries = @(Get-Content $file.FullName -Raw | ConvertFrom-Json)
   foreach ($entry in $entries) {
     $allEntries.Add($entry)
   }
@@ -170,6 +143,8 @@ foreach ($file in (Get-ChildItem -Path $outputDir -Filter 'catalog-*.json' | Sor
   $consoleManifest.Add([pscustomobject]@{
     console = $consoleLookup[$slug].name
     slug = $slug
+    region = $consoleLookup[$slug].region
+    market = $consoleLookup[$slug].market
     count = $entries.Count
     file = "/catalogs/$($file.Name)"
   })
