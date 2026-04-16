@@ -83,6 +83,11 @@ const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
 const INITIAL_VISIBLE_GAME_COUNT = 160
 const VISIBLE_GAME_INCREMENT = 160
 const appElement = document.querySelector<HTMLDivElement>('#app')
+let catalogCache: CatalogEntry[] | null = null
+let catalogCacheKey = ''
+let renderFrame = 0
+let pendingLibrarySave = 0
+let pendingSyncStatusRender = 0
 
 if (!appElement) {
   throw new Error('App root was not found.')
@@ -147,6 +152,9 @@ const state = {
   loadedConsoles: [] as string[],
   customCatalog: loadCustomCatalog(),
   barcodeMappings: loadBarcodeMappings(),
+  cachedOwnedGames: [] as CatalogEntry[],
+  cachedWantedGames: [] as CatalogEntry[],
+  cachedCatalogStatsKey: '',
   selectedGameId: null as string | null,
   ownershipPickerGameId: null as string | null,
   justOwnedGameId: null as string | null,
@@ -241,8 +249,24 @@ function loadLibrary() {
 }
 
 function saveLibrary() {
-  localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
+  if (pendingLibrarySave) {
+    window.clearTimeout(pendingLibrarySave)
+  }
+
+  pendingLibrarySave = window.setTimeout(() => {
+    flushLibrarySave()
+  }, 120)
+
   scheduleCloudSync()
+}
+
+function flushLibrarySave() {
+  if (pendingLibrarySave) {
+    window.clearTimeout(pendingLibrarySave)
+    pendingLibrarySave = 0
+  }
+
+  localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
 }
 
 function loadCustomCatalog(): CatalogEntry[] {
@@ -434,7 +458,26 @@ function isConditionRating(value: unknown): value is ConditionRating {
 }
 
 function getCatalog() {
-  return dedupeCatalog([...state.generatedCatalog, ...sampleCatalog, ...state.customCatalog])
+  const key = [
+    state.generatedCatalog.length,
+    state.customCatalog.length,
+    state.loadedConsoles.join('|'),
+    state.customCatalog.map((game) => game.id).join('|'),
+  ].join(':')
+
+  if (catalogCache && catalogCacheKey === key) {
+    return catalogCache
+  }
+
+  catalogCache = dedupeCatalog([...state.generatedCatalog, ...sampleCatalog, ...state.customCatalog])
+  catalogCacheKey = key
+  return catalogCache
+}
+
+function invalidateCatalogCache() {
+  catalogCache = null
+  catalogCacheKey = ''
+  state.cachedCatalogStatsKey = ''
 }
 
 function getConsoles() {
@@ -549,10 +592,13 @@ function getOwnedValueLabel(game: CatalogEntry) {
 
 function getFilteredGames() {
   const searchValue = state.search.trim().toLowerCase()
+  const activeCatalog =
+    state.consoleFilter === 'All consoles'
+      ? getCatalog()
+      : getCatalog().filter((game) => game.console === state.consoleFilter)
 
-  return getCatalog()
+  return activeCatalog
     .filter((game) => state.regionFilter === 'All regions' || game.region === state.regionFilter)
-    .filter((game) => state.consoleFilter === 'All consoles' || game.console === state.consoleFilter)
     .filter((game) => {
       if (!searchValue) {
         return true
@@ -593,11 +639,49 @@ function resetVisibleGameCount() {
 }
 
 function getOwnedGames() {
-  return getCatalog().filter((game) => getRecord(game.id).status === 'owned')
+  refreshCollectionStats()
+  return state.cachedOwnedGames
 }
 
 function getWantedGames() {
-  return getCatalog().filter((game) => getRecord(game.id).status === 'wanted')
+  refreshCollectionStats()
+  return state.cachedWantedGames
+}
+
+function getLibraryStatsKey() {
+  const touched = Object.entries(state.library)
+    .filter(([, record]) => record.status !== 'missing' || record.favorite || record.pricePaid !== null || record.targetPrice !== null)
+    .map(([id, record]) => `${id}:${record.status}:${record.editionStatus}:${record.completeInBox}:${record.favorite}:${record.pricePaid ?? ''}:${record.targetPrice ?? ''}`)
+    .sort()
+    .join('|')
+
+  return `${catalogCacheKey}:${touched}`
+}
+
+function refreshCollectionStats() {
+  getCatalog()
+  const key = getLibraryStatsKey()
+
+  if (state.cachedCatalogStatsKey === key) {
+    return
+  }
+
+  const ownedGames: CatalogEntry[] = []
+  const wantedGames: CatalogEntry[] = []
+
+  for (const game of getCatalog()) {
+    const status = getRecord(game.id).status
+
+    if (status === 'owned') {
+      ownedGames.push(game)
+    } else if (status === 'wanted') {
+      wantedGames.push(game)
+    }
+  }
+
+  state.cachedOwnedGames = ownedGames
+  state.cachedWantedGames = wantedGames
+  state.cachedCatalogStatsKey = key
 }
 
 function getMissingGrails() {
@@ -1011,6 +1095,7 @@ function applyRemoteSyncState(syncState: {
     : {}
 
   state.accountDisplayName = typeof syncState.profile?.displayName === 'string' ? syncState.profile.displayName : state.accountDisplayName
+  invalidateCatalogCache()
 
   localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
   localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
@@ -1020,7 +1105,7 @@ function applyRemoteSyncState(syncState: {
 
 function scheduleCloudSync() {
   if (!state.authToken) {
-  state.syncStatus = 'Saved on this device'
+    state.syncStatus = 'Saved on this device'
     return
   }
 
@@ -1041,7 +1126,7 @@ async function syncToCloud() {
   }
 
   state.syncStatus = 'Syncing...'
-  render()
+  scheduleStatusRender()
 
   try {
     await pushSyncState(state.authToken, getSyncPayload())
@@ -1050,7 +1135,18 @@ async function syncToCloud() {
     state.syncStatus = error instanceof Error ? `Sync failed: ${error.message}` : 'Sync failed'
   }
 
-  render()
+  scheduleStatusRender()
+}
+
+function scheduleStatusRender() {
+  if (pendingSyncStatusRender) {
+    window.clearTimeout(pendingSyncStatusRender)
+  }
+
+  pendingSyncStatusRender = window.setTimeout(() => {
+    pendingSyncStatusRender = 0
+    render()
+  }, 180)
 }
 
 async function hydrateAccount() {
@@ -1633,7 +1729,7 @@ function renderSpotlight(spotlight: Spotlight | null) {
   `
 }
 
-function render() {
+function renderNow() {
   const catalog = getCatalog()
   const filteredGames = getFilteredGames()
   const visibleGames = filteredGames.slice(0, state.visibleGameCount)
@@ -1840,6 +1936,17 @@ function render() {
   bindEvents()
 }
 
+function render() {
+  if (renderFrame) {
+    window.cancelAnimationFrame(renderFrame)
+  }
+
+  renderFrame = window.requestAnimationFrame(() => {
+    renderFrame = 0
+    renderNow()
+  })
+}
+
 function bindEvents() {
   const searchInput = document.querySelector<HTMLInputElement>('#search-input')
   const regionFilter = document.querySelector<HTMLSelectElement>('#region-filter')
@@ -1935,6 +2042,7 @@ function bindEvents() {
       }
 
       state.customCatalog = dedupeCatalog([...state.customCatalog, ...imported])
+      invalidateCatalogCache()
       saveCustomCatalog()
       render()
       alert(`Imported ${imported.length} games into Retro Vault Elite.`)
@@ -2173,6 +2281,7 @@ async function handleAction(element: HTMLElement) {
       break
     case 'reset-library':
       state.library = {}
+      state.cachedCatalogStatsKey = ''
       saveLibrary()
       render()
       break
@@ -2198,6 +2307,7 @@ function setRecord(id: string, updater: (record: GameRecord) => GameRecord) {
     ...state.library,
     [id]: updater(getRecord(id)),
   }
+  state.cachedCatalogStatsKey = ''
   saveLibrary()
   render()
 }
@@ -2796,7 +2906,6 @@ async function loadGeneratedCatalog() {
       })
 
     await ensureConsoleCatalogLoaded(state.consoleFilter)
-    void warmCatalogInBackground()
     state.catalogLoadError = false
   } catch {
     state.generatedCatalog = []
@@ -2806,16 +2915,6 @@ async function loadGeneratedCatalog() {
   } finally {
     state.isCatalogLoading = false
     render()
-  }
-}
-
-async function warmCatalogInBackground() {
-  const remaining = state.catalogMeta
-    .map((entry) => entry.console)
-    .filter((consoleName) => !state.loadedConsoles.includes(consoleName))
-
-  for (const consoleName of remaining) {
-    await ensureConsoleCatalogLoaded(consoleName, false)
   }
 }
 
@@ -2880,6 +2979,7 @@ async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad
 
     state.generatedCatalog = dedupeCatalog([...state.generatedCatalog, ...consoleEntries])
     state.loadedConsoles = [...state.loadedConsoles, consoleName]
+    invalidateCatalogCache()
     state.catalogLoadError = false
   })()
 
@@ -2905,6 +3005,8 @@ function escapeHtml(value: string) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
 }
+
+window.addEventListener('pagehide', flushLibrarySave)
 
 render()
 void loadGeneratedCatalog()
