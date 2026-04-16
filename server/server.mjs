@@ -19,6 +19,7 @@ function createEmptyDb() {
   return {
     users: [],
     sessions: [],
+    passwordResets: [],
   }
 }
 
@@ -30,7 +31,12 @@ function loadDb() {
   }
 
   try {
-    return JSON.parse(readFileSync(dbPath, 'utf8'))
+    const parsed = JSON.parse(readFileSync(dbPath, 'utf8'))
+    return {
+      users: Array.isArray(parsed.users) ? parsed.users : [],
+      sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+      passwordResets: Array.isArray(parsed.passwordResets) ? parsed.passwordResets : [],
+    }
   } catch {
     const emptyDb = createEmptyDb()
     writeFileSync(dbPath, JSON.stringify(emptyDb, null, 2))
@@ -57,7 +63,7 @@ function json(request, response, statusCode, data) {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': getCorsOrigin(request),
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   })
   response.end(JSON.stringify(data))
 }
@@ -76,6 +82,22 @@ function verifyPassword(password, stored) {
 
 function generateToken() {
   return randomBytes(24).toString('hex')
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function validatePassword(password) {
+  if (password.length < 8) {
+    return 'Use at least 8 characters.'
+  }
+
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return 'Use at least one letter and one number.'
+  }
+
+  return ''
 }
 
 function readBody(request) {
@@ -124,6 +146,7 @@ function sanitizeUser(user) {
   return {
     id: user.id,
     email: user.email,
+    displayName: user.displayName ?? '',
     createdAt: user.createdAt,
   }
 }
@@ -134,7 +157,39 @@ function createDefaultSyncState() {
     customCatalog: [],
     currencyCode: 'USD',
     barcodeMappings: {},
+    profile: {
+      displayName: '',
+      shelfTagline: '',
+    },
     updatedAt: new Date().toISOString(),
+  }
+}
+
+async function sendPasswordResetEmail(email, resetLink) {
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.RESET_FROM_EMAIL
+
+  if (!apiKey || !from) {
+    console.log(`Password reset link for ${email}: ${resetLink}`)
+    return
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: email,
+      subject: 'Reset your Retro Vault Elite password',
+      html: `<p>Use this secure link to reset your Retro Vault Elite password:</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you did not request this, you can ignore this email.</p>`,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Password reset email could not be sent.')
   }
 }
 
@@ -148,7 +203,7 @@ const server = createServer(async (request, response) => {
     response.writeHead(204, {
       'Access-Control-Allow-Origin': getCorsOrigin(request),
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     })
     response.end()
     return
@@ -167,9 +222,16 @@ const server = createServer(async (request, response) => {
       const body = await readBody(request)
       const email = String(body.email ?? '').trim().toLowerCase()
       const password = String(body.password ?? '')
+      const displayName = String(body.displayName ?? '').trim()
 
-      if (!email || !password || password.length < 6) {
-        json(request, response, 400, { error: 'Use a valid email and a password of at least 6 characters.' })
+      if (!isValidEmail(email)) {
+        json(request, response, 400, { error: 'Enter a valid email address.' })
+        return
+      }
+
+      const passwordError = validatePassword(password)
+      if (passwordError) {
+        json(request, response, 400, { error: passwordError })
         return
       }
 
@@ -181,10 +243,12 @@ const server = createServer(async (request, response) => {
       const user = {
         id: randomBytes(12).toString('hex'),
         email,
+        displayName,
         passwordHash: hashPassword(password),
         createdAt: new Date().toISOString(),
         syncState: createDefaultSyncState(),
       }
+      user.syncState.profile.displayName = displayName
 
       db.users.push(user)
       const token = generateToken()
@@ -204,8 +268,13 @@ const server = createServer(async (request, response) => {
       const password = String(body.password ?? '')
       const user = db.users.find((entry) => entry.email === email)
 
-      if (!user || !verifyPassword(password, user.passwordHash)) {
-        json(request, response, 401, { error: 'Email or password was incorrect.' })
+      if (!user) {
+        json(request, response, 404, { error: 'No account was found for that email.' })
+        return
+      }
+
+      if (!verifyPassword(password, user.passwordHash)) {
+        json(request, response, 401, { error: 'Incorrect password.' })
         return
       }
 
@@ -233,6 +302,67 @@ const server = createServer(async (request, response) => {
       return
     }
 
+    if (request.method === 'POST' && url.pathname === '/auth/password-reset') {
+      const body = await readBody(request)
+      const email = String(body.email ?? '').trim().toLowerCase()
+      const appUrl = String(body.appUrl ?? request.headers.origin ?? '').replace(/\/$/, '')
+
+      if (!isValidEmail(email)) {
+        json(request, response, 400, { error: 'Enter a valid email address.' })
+        return
+      }
+
+      const user = db.users.find((entry) => entry.email === email)
+
+      if (user) {
+        const token = generateToken()
+        db.passwordResets = db.passwordResets.filter((entry) => entry.userId !== user.id)
+        db.passwordResets.push({
+          token,
+          userId: user.id,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 1000 * 60 * 30).toISOString(),
+        })
+        saveDb(db)
+        const resetLink = `${appUrl || `http://${request.headers.host}`}/?resetToken=${encodeURIComponent(token)}`
+        await sendPasswordResetEmail(email, resetLink)
+      }
+
+      json(request, response, 200, { ok: true, message: 'If an account exists, a password reset email has been sent.' })
+      return
+    }
+
+    if (request.method === 'POST' && url.pathname === '/auth/password-reset/confirm') {
+      const body = await readBody(request)
+      const token = String(body.token ?? '').trim()
+      const password = String(body.password ?? '')
+      const reset = db.passwordResets.find((entry) => entry.token === token)
+
+      if (!reset || new Date(reset.expiresAt).getTime() < Date.now()) {
+        json(request, response, 400, { error: 'That password reset link is invalid or expired.' })
+        return
+      }
+
+      const passwordError = validatePassword(password)
+      if (passwordError) {
+        json(request, response, 400, { error: passwordError })
+        return
+      }
+
+      const user = db.users.find((entry) => entry.id === reset.userId)
+      if (!user) {
+        json(request, response, 404, { error: 'Account not found.' })
+        return
+      }
+
+      user.passwordHash = hashPassword(password)
+      db.passwordResets = db.passwordResets.filter((entry) => entry.token !== token)
+      db.sessions = db.sessions.filter((entry) => entry.userId !== user.id)
+      saveDb(db)
+      json(request, response, 200, { ok: true })
+      return
+    }
+
     if (request.method === 'GET' && url.pathname === '/auth/me') {
       const user = getSessionUser(request, db)
 
@@ -242,6 +372,76 @@ const server = createServer(async (request, response) => {
       }
 
       json(request, response, 200, { user: sanitizeUser(user), syncState: user.syncState })
+      return
+    }
+
+    if (request.method === 'PATCH' && url.pathname === '/auth/me') {
+      const user = getSessionUser(request, db)
+
+      if (!user) {
+        json(request, response, 401, { error: 'Not signed in.' })
+        return
+      }
+
+      const body = await readBody(request)
+      const displayName = String(body.displayName ?? '').trim()
+      user.displayName = displayName
+      user.syncState = {
+        ...createDefaultSyncState(),
+        ...(user.syncState ?? {}),
+        profile: {
+          ...(user.syncState?.profile ?? {}),
+          displayName,
+        },
+        updatedAt: new Date().toISOString(),
+      }
+      saveDb(db)
+      json(request, response, 200, { user: sanitizeUser(user), syncState: user.syncState })
+      return
+    }
+
+    if (request.method === 'POST' && url.pathname === '/auth/change-password') {
+      const user = getSessionUser(request, db)
+
+      if (!user) {
+        json(request, response, 401, { error: 'Not signed in.' })
+        return
+      }
+
+      const body = await readBody(request)
+      const currentPassword = String(body.currentPassword ?? '')
+      const nextPassword = String(body.nextPassword ?? '')
+
+      if (!verifyPassword(currentPassword, user.passwordHash)) {
+        json(request, response, 401, { error: 'Current password is incorrect.' })
+        return
+      }
+
+      const passwordError = validatePassword(nextPassword)
+      if (passwordError) {
+        json(request, response, 400, { error: passwordError })
+        return
+      }
+
+      user.passwordHash = hashPassword(nextPassword)
+      saveDb(db)
+      json(request, response, 200, { ok: true })
+      return
+    }
+
+    if (request.method === 'DELETE' && url.pathname === '/auth/me') {
+      const user = getSessionUser(request, db)
+
+      if (!user) {
+        json(request, response, 401, { error: 'Not signed in.' })
+        return
+      }
+
+      db.users = db.users.filter((entry) => entry.id !== user.id)
+      db.sessions = db.sessions.filter((entry) => entry.userId !== user.id)
+      db.passwordResets = db.passwordResets.filter((entry) => entry.userId !== user.id)
+      saveDb(db)
+      json(request, response, 200, { ok: true })
       return
     }
 
@@ -271,6 +471,7 @@ const server = createServer(async (request, response) => {
         customCatalog: body.customCatalog ?? [],
         currencyCode: body.currencyCode ?? 'USD',
         barcodeMappings: body.barcodeMappings ?? {},
+        profile: body.profile ?? user.syncState?.profile ?? { displayName: user.displayName ?? '', shelfTagline: '' },
         updatedAt: new Date().toISOString(),
       }
       saveDb(db)

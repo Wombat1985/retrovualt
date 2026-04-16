@@ -5,6 +5,10 @@ export type SyncStatePayload = {
   customCatalog: unknown[]
   currencyCode: string
   barcodeMappings: Record<string, string>
+  profile?: {
+    displayName?: string
+    shelfTagline?: string
+  }
 }
 
 export type AuthPayload = {
@@ -12,6 +16,7 @@ export type AuthPayload = {
   user: {
     id: string
     email: string
+    displayName: string
     createdAt: string
   }
   syncState: SyncStatePayload & {
@@ -38,10 +43,10 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
   return parsed as T
 }
 
-export async function registerAccount(email: string, password: string) {
+export async function registerAccount(email: string, password: string, displayName = '') {
   return request<AuthPayload>('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, displayName }),
   })
 }
 
@@ -58,6 +63,46 @@ export async function logoutAccount(token: string) {
 
 export async function getCurrentAccount(token: string) {
   return request<AuthPayload>('/auth/me', { method: 'GET' }, token)
+}
+
+export async function updateAccountProfile(token: string, displayName: string) {
+  return request<AuthPayload>(
+    '/auth/me',
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ displayName }),
+    },
+    token,
+  )
+}
+
+export async function requestPasswordReset(email: string) {
+  return request<{ ok: boolean; message: string }>('/auth/password-reset', {
+    method: 'POST',
+    body: JSON.stringify({ email, appUrl: window.location.origin }),
+  })
+}
+
+export async function confirmPasswordReset(token: string, password: string) {
+  return request<{ ok: boolean }>('/auth/password-reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+  })
+}
+
+export async function changePassword(token: string, currentPassword: string, nextPassword: string) {
+  return request<{ ok: boolean }>(
+    '/auth/change-password',
+    {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, nextPassword }),
+    },
+    token,
+  )
+}
+
+export async function deleteAccount(token: string) {
+  return request<{ ok: boolean }>('/auth/me', { method: 'DELETE' }, token)
 }
 
 export async function pushSyncState(token: string, syncState: SyncStatePayload) {

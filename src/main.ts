@@ -1,7 +1,19 @@
 import './style.css'
 import { priceSnapshotDate, sampleCatalog, type CatalogEntry, type RarityTier } from './data'
 import { appConfig } from './appConfig'
-import { getCurrentAccount, loginAccount, logoutAccount, pushSyncState, registerAccount, saveBarcodeMapping } from './backend'
+import {
+  changePassword,
+  confirmPasswordReset,
+  deleteAccount,
+  getCurrentAccount,
+  loginAccount,
+  logoutAccount,
+  pushSyncState,
+  registerAccount,
+  requestPasswordReset,
+  saveBarcodeMapping,
+  updateAccountProfile,
+} from './backend'
 import { initMobileBannerAd } from './mobileAds'
 
 type OwnershipFilter = 'all' | 'owned' | 'wanted' | 'missing'
@@ -9,6 +21,7 @@ type SortMode = 'title' | 'year' | 'loose-high' | 'complete-high' | 'trend-high'
 type GameStatus = 'missing' | 'wanted' | 'owned'
 type EditionStatus = 'loose' | 'boxed' | 'manual' | 'cib' | 'sealed' | 'graded'
 type ConditionRating = 'mint' | 'excellent' | 'good' | 'fair'
+type AuthView = 'none' | 'register' | 'login' | 'reset' | 'account' | 'confirm-reset'
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
@@ -114,7 +127,13 @@ const state = {
   currencyCode: loadCurrencyCode(),
   authToken: loadAuthToken(),
   accountEmail: '',
+  accountDisplayName: '',
   syncStatus: 'Saved on this device' as string,
+  authView: getInitialAuthView(),
+  authLoading: false,
+  authError: '',
+  authSuccess: '',
+  resetToken: getPasswordResetToken(),
   library: loadLibrary(),
   generatedCatalog: [] as CatalogEntry[],
   catalogMeta: [] as CatalogConsoleMeta[],
@@ -259,6 +278,33 @@ function saveAuthToken(token: string) {
 function clearAuthToken() {
   state.authToken = ''
   localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
+}
+
+function getPasswordResetToken() {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('resetToken') ?? ''
+}
+
+function getInitialAuthView(): AuthView {
+  return getPasswordResetToken() ? 'confirm-reset' : 'none'
+}
+
+function clearAuthFeedback() {
+  state.authError = ''
+  state.authSuccess = ''
+}
+
+function resetLocalCollectionState() {
+  state.library = {}
+  state.customCatalog = []
+  state.barcodeMappings = {}
+  saveLocalCollectionState()
+}
+
+function saveLocalCollectionState() {
+  localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
+  localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
+  localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
 }
 
 function loadBarcodeMappings() {
@@ -809,6 +855,10 @@ function getSyncPayload() {
     customCatalog: state.customCatalog,
     currencyCode: state.currencyCode,
     barcodeMappings: state.barcodeMappings,
+    profile: {
+      displayName: state.accountDisplayName,
+      shelfTagline: getCollectionMood(),
+    },
   }
 }
 
@@ -817,6 +867,10 @@ function applyRemoteSyncState(syncState: {
   customCatalog: unknown[]
   currencyCode: string
   barcodeMappings: Record<string, string>
+  profile?: {
+    displayName?: string
+    shelfTagline?: string
+  }
 }) {
   const parsedLibrary = syncState.library && typeof syncState.library === 'object' ? syncState.library : {}
   state.library = Object.fromEntries(
@@ -864,6 +918,8 @@ function applyRemoteSyncState(syncState: {
       )
     : {}
 
+  state.accountDisplayName = typeof syncState.profile?.displayName === 'string' ? syncState.profile.displayName : state.accountDisplayName
+
   localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
   localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
   localStorage.setItem(CURRENCY_STORAGE_KEY, state.currencyCode)
@@ -910,15 +966,20 @@ async function hydrateAccount() {
     return
   }
 
+  state.syncStatus = 'Checking account...'
+
   try {
     const payload = await getCurrentAccount(state.authToken)
     state.accountEmail = payload.user.email
+    state.accountDisplayName = payload.user.displayName ?? ''
     applyRemoteSyncState(payload.syncState)
-    state.syncStatus = 'Cloud synced'
+    state.syncStatus = 'Your collection is synced to your account'
   } catch {
     clearAuthToken()
     state.accountEmail = ''
+    state.accountDisplayName = ''
     state.syncStatus = 'Signed out'
+    resetLocalCollectionState()
   }
 
   render()
@@ -940,12 +1001,8 @@ function renderInstallButton() {
 function renderCard(game: CatalogEntry) {
   const record = getRecord(game.id)
   const isWanted = record.status === 'wanted'
-  const paidText = record.pricePaid === null ? 'Not set' : formatPrice(record.pricePaid)
   const completeText = game.priceComplete === null ? 'Listing price only' : formatPrice(game.priceComplete)
   const yearText = game.year === null ? 'Release year unavailable' : `Released ${game.year}`
-  const marketGap =
-    record.pricePaid === null ? 'Add your paid price' : `${record.pricePaid <= game.priceLoose ? 'Up' : 'Down'} ${formatPrice(Math.abs(game.priceLoose - record.pricePaid))}`
-  const targetText = record.targetPrice === null ? 'No alert' : `Alert ${formatPrice(record.targetPrice)}`
 
   return `
     <article class="game-card ${record.status === 'owned' ? 'is-owned' : ''}" data-game-card="true" data-id="${game.id}" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(game.title)}">
@@ -967,8 +1024,8 @@ function renderCard(game: CatalogEntry) {
         <div class="game-meta">
           <p class="eyebrow">${escapeHtml(game.console)} / ${escapeHtml(game.region)}</p>
           <h3>${escapeHtml(game.title)}</h3>
-          <p class="subtle">${yearText} / Market trend ${formatDelta(game.trendDelta)} / Shelf score ${getShelfScore(game)}</p>
-          <p class="collector-line">${getEditionLabel(record.editionStatus)} / ${getConditionLabel(record.condition)} / ${targetText}</p>
+          <p class="subtle">${yearText}</p>
+          <p class="collector-line">${getEditionLabel(record.editionStatus)} / ${getConditionLabel(record.condition)}</p>
         </div>
         <dl class="price-grid">
           <div>
@@ -979,23 +1036,12 @@ function renderCard(game: CatalogEntry) {
             <dt>Complete</dt>
             <dd>${completeText}</dd>
           </div>
-          <div>
-            <dt>You paid</dt>
-            <dd>${paidText}</dd>
-          </div>
-          <div>
-            <dt>Value gap</dt>
-            <dd>${marketGap}</dd>
-          </div>
         </dl>
         <div class="card-actions">
           <button class="toggle-button" data-action="toggle-owned" data-id="${game.id}" type="button">${record.status === 'owned' ? 'Remove owned' : 'Mark owned'}</button>
           <button class="ghost-button ${isWanted ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${game.id}" type="button">${isWanted ? 'Remove wanted' : 'Want it'}</button>
           <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${game.id}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
-          <button class="ghost-button" data-action="toggle-cib" data-id="${game.id}" type="button">${record.completeInBox ? 'Unset CIB' : 'Mark CIB'}</button>
-          <button class="ghost-button" data-action="set-price-paid" data-id="${game.id}" type="button">Set paid</button>
           <button class="ghost-button" data-action="open-details" data-id="${game.id}" type="button">Details</button>
-          <a class="link-button" href="${game.priceSourceUrl}" target="_blank" rel="noreferrer">Price source</a>
         </div>
       </div>
     </article>
@@ -1182,18 +1228,128 @@ function renderConsoleCompletionCard() {
 function renderAccountCard() {
   return `
     <article class="smart-card">
-      <h3>Cloud sync</h3>
-      <p class="subtle">${state.authToken ? `Signed in as ${escapeHtml(state.accountEmail || 'collector')}. Your collection, custom links, and barcode matches are ready to follow you across devices.` : 'Save your collection to an account so your shelf, custom barcode matches, and collector data stay with you.'}</p>
+      <h3>Account sync</h3>
+      <p class="subtle">${state.authToken ? `Signed in as ${escapeHtml(state.accountDisplayName || state.accountEmail || 'collector')}. Your owned games, wishlist, CIB marks, paid prices, favorites, alerts, and profile are protected in your account.` : 'Create an account so your collection, wishlist, paid prices, favorites, alerts, and brag profile are safely synced.'}</p>
       <div class="account-meta">
         <span class="detail-chip">${escapeHtml(state.syncStatus)}</span>
-        <span class="detail-chip">${state.authToken ? 'Account enabled' : 'Offline mode'}</span>
+        <span class="detail-chip">${state.authToken ? 'Account protected' : 'Device-only mode'}</span>
       </div>
       <div class="card-actions">
         ${state.authToken
-          ? '<button class="toggle-button" data-action="sync-now" type="button">Sync now</button><button class="ghost-button" data-action="logout-account" type="button">Sign out</button>'
-          : '<button class="toggle-button" data-action="register-account" type="button">Create account</button><button class="ghost-button" data-action="login-account" type="button">Sign in</button>'}
+          ? '<button class="toggle-button" data-action="sync-now" type="button">Sync now</button><button class="ghost-button" data-action="open-account-settings" type="button">Account settings</button><button class="ghost-button" data-action="logout-account" type="button">Sign out</button>'
+          : '<button class="toggle-button" data-action="open-register" type="button">Create account</button><button class="ghost-button" data-action="open-login" type="button">Sign in</button>'}
       </div>
     </article>
+  `
+}
+
+function renderAuthModal() {
+  if (state.authView === 'none') {
+    return ''
+  }
+
+  const titleByView: Record<Exclude<AuthView, 'none'>, string> = {
+    register: 'Create your account',
+    login: 'Sign in',
+    reset: 'Reset your password',
+    account: 'Account settings',
+    'confirm-reset': 'Choose a new password',
+  }
+  const title = titleByView[state.authView]
+
+  return `
+    <div class="game-modal-backdrop" data-action="close-auth">
+      <section class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" onclick="event.stopPropagation()">
+        <button class="modal-close" type="button" data-action="close-auth" aria-label="Close account dialog">Close</button>
+        <p class="kicker">Retro Vault account</p>
+        <h2 id="auth-title">${title}</h2>
+        <p class="auth-helper">${getAuthHelperText()}</p>
+        ${state.authError ? `<div class="auth-message auth-message--error">${escapeHtml(state.authError)}</div>` : ''}
+        ${state.authSuccess ? `<div class="auth-message auth-message--success">${escapeHtml(state.authSuccess)}</div>` : ''}
+        ${renderAuthForm()}
+      </section>
+    </div>
+  `
+}
+
+function getAuthHelperText() {
+  switch (state.authView) {
+    case 'register':
+      return 'Save your collection to your account before you start tracking serious value.'
+    case 'login':
+      return 'Welcome back. Sign in to restore your synced collection and collector profile.'
+    case 'reset':
+      return 'Enter your email and we will send a reset link if the account exists.'
+    case 'confirm-reset':
+      return 'Use a strong password with at least 8 characters, one letter, and one number.'
+    case 'account':
+      return 'Manage your display name, password, sync state, and account ownership.'
+    case 'none':
+    default:
+      return ''
+  }
+}
+
+function renderAuthForm() {
+  const disabled = state.authLoading ? 'disabled' : ''
+  const buttonText = (label: string) => (state.authLoading ? 'Working...' : label)
+
+  if (state.authView === 'register') {
+    return `
+      <form class="auth-form" data-auth-form="register">
+        <label><span>Display name</span><input name="displayName" autocomplete="name" placeholder="Retro collector name" /></label>
+        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+        <label><span>Password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" /></label>
+        <button class="toggle-button" type="submit" ${disabled}>${buttonText('Create account')}</button>
+        <button class="ghost-button" type="button" data-action="open-login">Already have an account?</button>
+      </form>
+    `
+  }
+
+  if (state.authView === 'login') {
+    return `
+      <form class="auth-form" data-auth-form="login">
+        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+        <label><span>Password</span><input name="password" type="password" autocomplete="current-password" required /></label>
+        <button class="toggle-button" type="submit" ${disabled}>${buttonText('Sign in')}</button>
+        <button class="ghost-button" type="button" data-action="open-reset">Forgot password?</button>
+        <button class="ghost-button" type="button" data-action="open-register">Create account</button>
+      </form>
+    `
+  }
+
+  if (state.authView === 'reset') {
+    return `
+      <form class="auth-form" data-auth-form="reset">
+        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+        <button class="toggle-button" type="submit" ${disabled}>${buttonText('Send reset email')}</button>
+        <button class="ghost-button" type="button" data-action="open-login">Back to sign in</button>
+      </form>
+    `
+  }
+
+  if (state.authView === 'confirm-reset') {
+    return `
+      <form class="auth-form" data-auth-form="confirm-reset">
+        <label><span>New password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" /></label>
+        <button class="toggle-button" type="submit" ${disabled}>${buttonText('Reset password')}</button>
+      </form>
+    `
+  }
+
+  return `
+    <form class="auth-form" data-auth-form="account">
+      <label><span>Display name</span><input name="displayName" autocomplete="name" value="${escapeHtml(state.accountDisplayName)}" /></label>
+      <label><span>Email</span><input value="${escapeHtml(state.accountEmail)}" disabled /></label>
+      <div class="auth-settings-grid">
+        <button class="toggle-button" type="submit" ${disabled}>${buttonText('Save profile')}</button>
+        <button class="ghost-button" type="button" data-action="sync-now">Sync now</button>
+        <button class="ghost-button" type="button" data-action="open-reset">Send password reset</button>
+        <button class="ghost-button" type="button" data-action="change-password">Change password</button>
+        <button class="ghost-button" type="button" data-action="logout-account">Sign out</button>
+        <button class="ghost-button danger-button" type="button" data-action="delete-account">Delete account</button>
+      </div>
+    </form>
   `
 }
 
@@ -1376,16 +1532,16 @@ function render() {
       <header class="hero-panel">
         <div class="hero-copy">
           <p class="kicker">Retro Vault Elite</p>
-          <h1>Track, value, and showcase your retro collection with confidence.</h1>
+          <h1>Catalogue your retro collection, track market value, and know what to hunt next.</h1>
           <p class="hero-text">
-            Browse complete console libraries, follow current market values, and manage your collection in a way that feels polished, informed, and genuinely built for collectors.
+            Track owned, wanted, loose, and complete values across full console libraries. Built for collectors who care about shelf value, progress, and the thrill of the hunt.
           </p>
           <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 10 April 2026.</p>
           <div class="hero-actions">
-            ${renderInstallButton()}
-            <button class="secondary-button" type="button" data-action="export-catalog">Export collection</button>
-            <button class="secondary-button" type="button" data-action="share-recap">Share recap</button>
+            ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button>'}
+            <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
             <button class="secondary-button" type="button" data-action="open-scanner">Scan barcode</button>
+            ${renderInstallButton()}
           </div>
         </div>
         <div class="hero-stats">
@@ -1527,6 +1683,7 @@ function render() {
       </footer>
       ${renderScannerModal()}
       ${renderSelectedGameModal()}
+      ${renderAuthModal()}
     </div>
   `
 
@@ -1541,6 +1698,7 @@ function bindEvents() {
   const importInput = document.querySelector<HTMLInputElement>('#catalog-import')
   const barcodeFileInput = document.querySelector<HTMLInputElement>('#barcode-file-input')
   const barcodeSearch = document.querySelector<HTMLInputElement>('#barcode-search')
+  const authForm = document.querySelector<HTMLFormElement>('[data-auth-form]')
 
   searchInput?.addEventListener('input', (event) => {
     state.search = (event.currentTarget as HTMLInputElement).value
@@ -1567,6 +1725,11 @@ function bindEvents() {
   barcodeSearch?.addEventListener('input', (event) => {
     state.barcodeSearch = (event.currentTarget as HTMLInputElement).value
     render()
+  })
+
+  authForm?.addEventListener('submit', (event) => {
+    event.preventDefault()
+    void handleAuthForm(authForm)
   })
 
   barcodeFileInput?.addEventListener('change', async (event) => {
@@ -1707,6 +1870,9 @@ async function handleAction(element: HTMLElement) {
   state.scannerStatus = 'Scan a barcode with your camera or upload a clear barcode photo.'
       render()
       break
+    case 'browse-library':
+      document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      break
     case 'close-scanner':
       state.scannerOpen = false
       state.barcodeLinkCode = null
@@ -1723,14 +1889,35 @@ async function handleAction(element: HTMLElement) {
 
       await linkBarcodeToGame(state.barcodeLinkCode, id)
       break
-    case 'register-account':
-      await registerWithPrompt()
+    case 'open-register':
+      openAuthView('register')
       break
-    case 'login-account':
-      await loginWithPrompt()
+    case 'open-login':
+      openAuthView('login')
+      break
+    case 'open-reset':
+      openAuthView('reset')
+      break
+    case 'open-account-settings':
+      openAuthView('account')
+      break
+    case 'close-auth':
+      if (state.authLoading) {
+        return
+      }
+
+      state.authView = 'none'
+      clearAuthFeedback()
+      render()
       break
     case 'logout-account':
       await logoutCurrentAccount()
+      break
+    case 'change-password':
+      await changePasswordWithPrompt()
+      break
+    case 'delete-account':
+      await deleteCurrentAccount()
       break
     case 'sync-now':
       await syncToCloud()
@@ -1952,52 +2139,131 @@ function updateNotes(id: string) {
   }))
 }
 
-async function registerWithPrompt() {
-  const email = window.prompt('Enter your email for Retro Vault Elite cloud sync.')
-
-  if (!email) {
-    return
-  }
-
-  const password = window.prompt('Choose a password with at least 6 characters.')
-
-  if (!password) {
-    return
-  }
-
-  try {
-    const payload = await registerAccount(email, password)
-    saveAuthToken(payload.token)
-    state.accountEmail = payload.user.email
-    applyRemoteSyncState(payload.syncState)
-    await syncToCloud()
-  } catch (error) {
-    window.alert(error instanceof Error ? error.message : 'Account registration failed.')
-  }
+function openAuthView(view: AuthView) {
+  clearAuthFeedback()
+  state.authView = view
+  render()
 }
 
-async function loginWithPrompt() {
-  const email = window.prompt('Enter your account email.')
+function validateAuthEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '' : 'Enter a valid email address.'
+}
 
-  if (!email) {
+function validateAuthPassword(password: string) {
+  if (password.length < 8) {
+    return 'Use at least 8 characters.'
+  }
+
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return 'Use at least one letter and one number.'
+  }
+
+  return ''
+}
+
+async function handleAuthForm(form: HTMLFormElement) {
+  if (state.authLoading) {
     return
   }
 
-  const password = window.prompt('Enter your password.')
-
-  if (!password) {
-    return
-  }
+  const formType = form.dataset.authForm
+  const formData = new FormData(form)
+  clearAuthFeedback()
+  state.authLoading = true
+  render()
 
   try {
-    const payload = await loginAccount(email, password)
-    saveAuthToken(payload.token)
-    state.accountEmail = payload.user.email
-    applyRemoteSyncState(payload.syncState)
-    state.syncStatus = 'Cloud synced'
-    render()
+    if (formType === 'register') {
+      const displayName = String(formData.get('displayName') ?? '').trim()
+      const email = String(formData.get('email') ?? '').trim().toLowerCase()
+      const password = String(formData.get('password') ?? '')
+      const emailError = validateAuthEmail(email)
+      const passwordError = validateAuthPassword(password)
+
+      if (emailError || passwordError) {
+        throw new Error(emailError || passwordError)
+      }
+
+      const payload = await registerAccount(email, password, displayName)
+      saveAuthToken(payload.token)
+      state.accountEmail = payload.user.email
+      state.accountDisplayName = payload.user.displayName ?? displayName
+      state.syncStatus = 'Syncing your collection...'
+      state.authSuccess = 'Account created. Your collection is being synced.'
+      await syncToCloud()
+      state.syncStatus = 'Your collection is synced to your account'
+      state.authView = 'none'
+      return
+    }
+
+    if (formType === 'login') {
+      const email = String(formData.get('email') ?? '').trim().toLowerCase()
+      const password = String(formData.get('password') ?? '')
+      const emailError = validateAuthEmail(email)
+
+      if (emailError) {
+        throw new Error(emailError)
+      }
+
+      const payload = await loginAccount(email, password)
+      saveAuthToken(payload.token)
+      state.accountEmail = payload.user.email
+      state.accountDisplayName = payload.user.displayName ?? ''
+      applyRemoteSyncState(payload.syncState)
+      state.syncStatus = 'Your collection is synced to your account'
+      state.authSuccess = 'Signed in successfully.'
+      state.authView = 'none'
+      return
+    }
+
+    if (formType === 'reset') {
+      const email = String(formData.get('email') ?? '').trim().toLowerCase()
+      const emailError = validateAuthEmail(email)
+
+      if (emailError) {
+        throw new Error(emailError)
+      }
+
+      const response = await requestPasswordReset(email)
+      state.authSuccess = response.message
+      return
+    }
+
+    if (formType === 'confirm-reset') {
+      const password = String(formData.get('password') ?? '')
+      const passwordError = validateAuthPassword(password)
+
+      if (passwordError) {
+        throw new Error(passwordError)
+      }
+
+      await confirmPasswordReset(state.resetToken, password)
+      state.resetToken = ''
+      window.history.replaceState({}, document.title, window.location.pathname)
+      state.authSuccess = 'Password reset. You can sign in now.'
+      state.authView = 'login'
+      return
+    }
+
+    if (formType === 'account') {
+      if (!state.authToken) {
+        throw new Error('Sign in before updating account settings.')
+      }
+
+      const displayName = String(formData.get('displayName') ?? '').trim()
+      const payload = await updateAccountProfile(state.authToken, displayName)
+      state.accountEmail = payload.user.email
+      state.accountDisplayName = payload.user.displayName ?? displayName
+      applyRemoteSyncState(payload.syncState)
+      state.authSuccess = 'Account settings saved.'
+      state.syncStatus = 'Your collection is synced to your account'
+      return
+    }
   } catch (error) {
-    window.alert(error instanceof Error ? error.message : 'Sign in failed.')
+    state.authError = error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+  } finally {
+    state.authLoading = false
+    render()
   }
 }
 
@@ -2005,6 +2271,10 @@ async function logoutCurrentAccount() {
   if (!state.authToken) {
     return
   }
+
+  state.authLoading = true
+  state.syncStatus = 'Signing out...'
+  render()
 
   try {
     await logoutAccount(state.authToken)
@@ -2014,8 +2284,83 @@ async function logoutCurrentAccount() {
 
   clearAuthToken()
   state.accountEmail = ''
+  state.accountDisplayName = ''
+  resetLocalCollectionState()
   state.syncStatus = 'Signed out'
+  state.authView = 'none'
+  state.authLoading = false
   render()
+}
+
+async function changePasswordWithPrompt() {
+  if (!state.authToken || state.authLoading) {
+    return
+  }
+
+  const currentPassword = window.prompt('Enter your current password.')
+
+  if (!currentPassword) {
+    return
+  }
+
+  const nextPassword = window.prompt('Enter your new password. Use at least 8 characters with one letter and one number.')
+
+  if (!nextPassword) {
+    return
+  }
+
+  const passwordError = validateAuthPassword(nextPassword)
+
+  if (passwordError) {
+    state.authError = passwordError
+    render()
+    return
+  }
+
+  state.authLoading = true
+  clearAuthFeedback()
+  render()
+
+  try {
+    await changePassword(state.authToken, currentPassword, nextPassword)
+    state.authSuccess = 'Password changed successfully.'
+  } catch (error) {
+    state.authError = error instanceof Error ? error.message : 'Password change failed.'
+  } finally {
+    state.authLoading = false
+    render()
+  }
+}
+
+async function deleteCurrentAccount() {
+  if (!state.authToken || state.authLoading) {
+    return
+  }
+
+  const confirmed = window.confirm('Delete your Retro Vault Elite account and synced collection data? This cannot be undone.')
+
+  if (!confirmed) {
+    return
+  }
+
+  state.authLoading = true
+  clearAuthFeedback()
+  render()
+
+  try {
+    await deleteAccount(state.authToken)
+    clearAuthToken()
+    state.accountEmail = ''
+    state.accountDisplayName = ''
+    resetLocalCollectionState()
+    state.syncStatus = 'Account deleted'
+    state.authView = 'none'
+  } catch (error) {
+    state.authError = error instanceof Error ? error.message : 'Account deletion failed.'
+  } finally {
+    state.authLoading = false
+    render()
+  }
 }
 
 async function enterBarcodeManually() {
