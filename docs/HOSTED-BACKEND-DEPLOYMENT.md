@@ -13,6 +13,10 @@ Move the working local backend to a hosted environment without changing the fron
   - `PORT`
   - `DATA_DIR`
   - `CORS_ORIGIN`
+  - `SESSION_TTL_DAYS`
+  - `PASSWORD_RESET_TTL_MINUTES`
+  - `RESEND_API_KEY`
+  - `RESET_FROM_EMAIL`
 - Docker image file: `Dockerfile.backend`
 - Render starter config: `render.backend.yaml`
 
@@ -39,10 +43,16 @@ npm run dev
 ## Hosted deployment pattern
 
 1. Deploy the backend first.
-2. Set `CORS_ORIGIN` to your web app domain.
+2. Set `CORS_ORIGIN` to your web app domains.
 3. Get the hosted backend URL.
 4. Set `VITE_API_BASE_URL` in the frontend environment.
 5. Rebuild the frontend and resync Capacitor.
+
+For the current live site, use:
+
+```bash
+CORS_ORIGIN=https://www.retrovaultelite.com,https://retrovaultelite.com,https://retro-vault-web.onrender.com
+```
 
 ## Example Render setup
 

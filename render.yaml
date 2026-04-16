@@ -11,6 +11,14 @@ services:
         value: server/data
       - key: CORS_ORIGIN
         sync: false
+      - key: SESSION_TTL_DAYS
+        value: 30
+      - key: PASSWORD_RESET_TTL_MINUTES
+        value: 30
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESET_FROM_EMAIL
+        sync: false
 
   - type: web
     name: retro-vault-web

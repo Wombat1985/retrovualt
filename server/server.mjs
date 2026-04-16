@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -8,6 +8,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const dataDir = process.env.DATA_DIR ? join(process.cwd(), process.env.DATA_DIR) : join(__dirname, 'data')
 const dbPath = join(dataDir, 'db.json')
 const port = Number(process.env.PORT ?? 8787)
+const sessionTtlMs = Number(process.env.SESSION_TTL_DAYS ?? 30) * 24 * 60 * 60 * 1000
+const resetTtlMs = Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 30) * 60 * 1000
+const requestLimits = new Map()
 const allowedOrigins = (process.env.CORS_ORIGIN ?? '*')
   .split(',')
   .map((value) => value.trim())
@@ -84,6 +87,32 @@ function generateToken() {
   return randomBytes(24).toString('hex')
 }
 
+function hashToken(token) {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+function pruneSecurityState(db) {
+  const now = Date.now()
+  db.sessions = db.sessions.filter((entry) => !entry.expiresAt || new Date(entry.expiresAt).getTime() > now)
+  db.passwordResets = db.passwordResets.filter((entry) => new Date(entry.expiresAt).getTime() > now)
+}
+
+function rateLimit(request, key, limit, windowMs) {
+  const ip = request.headers['x-forwarded-for']?.split(',')[0]?.trim() ?? request.socket.remoteAddress ?? 'unknown'
+  const bucketKey = `${key}:${ip}`
+  const now = Date.now()
+  const bucket = requestLimits.get(bucketKey) ?? { count: 0, resetAt: now + windowMs }
+
+  if (bucket.resetAt <= now) {
+    bucket.count = 0
+    bucket.resetAt = now + windowMs
+  }
+
+  bucket.count += 1
+  requestLimits.set(bucketKey, bucket)
+  return bucket.count <= limit
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
@@ -136,6 +165,12 @@ function getSessionUser(request, db) {
   const session = db.sessions.find((entry) => entry.token === token)
 
   if (!session) {
+    return null
+  }
+
+  if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) {
+    db.sessions = db.sessions.filter((entry) => entry.token !== token)
+    saveDb(db)
     return null
   }
 
@@ -210,6 +245,7 @@ const server = createServer(async (request, response) => {
   }
 
   const db = loadDb()
+  pruneSecurityState(db)
   const url = new URL(request.url, `http://${request.headers.host}`)
 
   try {
@@ -219,6 +255,11 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'POST' && url.pathname === '/auth/register') {
+      if (!rateLimit(request, 'register', 12, 15 * 60 * 1000)) {
+        json(request, response, 429, { error: 'Too many sign-up attempts. Please wait and try again.' })
+        return
+      }
+
       const body = await readBody(request)
       const email = String(body.email ?? '').trim().toLowerCase()
       const password = String(body.password ?? '')
@@ -256,6 +297,7 @@ const server = createServer(async (request, response) => {
         token,
         userId: user.id,
         createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
       })
       saveDb(db)
       json(request, response, 201, { token, user: sanitizeUser(user), syncState: user.syncState })
@@ -263,6 +305,11 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'POST' && url.pathname === '/auth/login') {
+      if (!rateLimit(request, 'login', 20, 15 * 60 * 1000)) {
+        json(request, response, 429, { error: 'Too many sign-in attempts. Please wait and try again.' })
+        return
+      }
+
       const body = await readBody(request)
       const email = String(body.email ?? '').trim().toLowerCase()
       const password = String(body.password ?? '')
@@ -283,6 +330,7 @@ const server = createServer(async (request, response) => {
         token,
         userId: user.id,
         createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
       })
       saveDb(db)
       json(request, response, 200, { token, user: sanitizeUser(user), syncState: user.syncState })
@@ -303,6 +351,11 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'POST' && url.pathname === '/auth/password-reset') {
+      if (!rateLimit(request, 'password-reset', 5, 15 * 60 * 1000)) {
+        json(request, response, 429, { error: 'Too many reset requests. Please wait and try again.' })
+        return
+      }
+
       const body = await readBody(request)
       const email = String(body.email ?? '').trim().toLowerCase()
       const appUrl = String(body.appUrl ?? request.headers.origin ?? '').replace(/\/$/, '')
@@ -318,10 +371,10 @@ const server = createServer(async (request, response) => {
         const token = generateToken()
         db.passwordResets = db.passwordResets.filter((entry) => entry.userId !== user.id)
         db.passwordResets.push({
-          token,
+          tokenHash: hashToken(token),
           userId: user.id,
           createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 1000 * 60 * 30).toISOString(),
+          expiresAt: new Date(Date.now() + resetTtlMs).toISOString(),
         })
         saveDb(db)
         const resetLink = `${appUrl || `http://${request.headers.host}`}/?resetToken=${encodeURIComponent(token)}`
@@ -336,7 +389,7 @@ const server = createServer(async (request, response) => {
       const body = await readBody(request)
       const token = String(body.token ?? '').trim()
       const password = String(body.password ?? '')
-      const reset = db.passwordResets.find((entry) => entry.token === token)
+      const reset = db.passwordResets.find((entry) => entry.tokenHash === hashToken(token))
 
       if (!reset || new Date(reset.expiresAt).getTime() < Date.now()) {
         json(request, response, 400, { error: 'That password reset link is invalid or expired.' })
@@ -356,7 +409,7 @@ const server = createServer(async (request, response) => {
       }
 
       user.passwordHash = hashPassword(password)
-      db.passwordResets = db.passwordResets.filter((entry) => entry.token !== token)
+      db.passwordResets = db.passwordResets.filter((entry) => entry.tokenHash !== hashToken(token))
       db.sessions = db.sessions.filter((entry) => entry.userId !== user.id)
       saveDb(db)
       json(request, response, 200, { ok: true })

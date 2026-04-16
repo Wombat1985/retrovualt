@@ -80,6 +80,7 @@ See:
 - `docs/LOCAL-BACKEND-AND-SCANNER.md`
 - `docs/HOSTED-BACKEND-DEPLOYMENT.md`
 - `docs/LIVE-WEBSITE-LAUNCH.md`
+- `docs/PRODUCTION-AUTH-EMAIL.md`
 
 ## Launch it as a public website
 

@@ -33,7 +33,7 @@ This repo now includes `render.yaml`, which defines:
 Example values:
 
 - `VITE_API_BASE_URL=https://retro-vault-backend.onrender.com`
-- `CORS_ORIGIN=https://retro-vault-web.onrender.com`
+- `CORS_ORIGIN=https://www.retrovaultelite.com,https://retrovaultelite.com,https://retro-vault-web.onrender.com`
 
 ## Frontend-only option
 
