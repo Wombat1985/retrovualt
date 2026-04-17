@@ -1279,10 +1279,71 @@ function getSyncPayload() {
     customCatalog: state.customCatalog,
     currencyCode: state.currencyCode,
     barcodeMappings: state.barcodeMappings,
+    clientUpdatedAt: new Date().toISOString(),
+    version: 2,
     profile: {
       displayName: state.accountDisplayName,
       shelfTagline: getCollectionMood(),
     },
+  }
+}
+
+function hasMeaningfulRecord(record: GameRecord) {
+  return (
+    record.status !== 'missing' ||
+    record.completeInBox ||
+    record.favorite ||
+    record.editionStatus !== 'loose' ||
+    record.condition !== 'good' ||
+    record.pricePaid !== null ||
+    record.targetPrice !== null ||
+    record.notes.trim() !== ''
+  )
+}
+
+function hasLocalCollectionData() {
+  return Object.values(state.library).some(hasMeaningfulRecord) || state.customCatalog.length > 0 || Object.keys(state.barcodeMappings).length > 0
+}
+
+function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: GameRecord) {
+  if (!localRecord) {
+    return remoteRecord
+  }
+
+  return {
+    status: localRecord.status !== 'missing' ? localRecord.status : remoteRecord.status,
+    completeInBox: localRecord.completeInBox || remoteRecord.completeInBox,
+    pricePaid: localRecord.pricePaid ?? remoteRecord.pricePaid,
+    favorite: localRecord.favorite || remoteRecord.favorite,
+    editionStatus: localRecord.editionStatus !== 'loose' ? localRecord.editionStatus : remoteRecord.editionStatus,
+    condition: localRecord.condition !== 'good' ? localRecord.condition : remoteRecord.condition,
+    targetPrice: localRecord.targetPrice ?? remoteRecord.targetPrice,
+    notes: localRecord.notes.trim() ? localRecord.notes : remoteRecord.notes,
+  } satisfies GameRecord
+}
+
+function mergeLibraryData(remoteLibrary: Record<string, GameRecord>) {
+  const merged = { ...remoteLibrary }
+
+  for (const [id, localRecord] of Object.entries(state.library)) {
+    if (!hasMeaningfulRecord(localRecord)) {
+      continue
+    }
+
+    merged[id] = mergeGameRecord(localRecord, merged[id])
+  }
+
+  return merged
+}
+
+function mergeCustomCatalogData(remoteCatalog: CatalogEntry[]) {
+  return dedupeCatalog([...remoteCatalog, ...state.customCatalog])
+}
+
+function mergeBarcodeMappingsData(remoteMappings: Record<string, string>) {
+  return {
+    ...remoteMappings,
+    ...state.barcodeMappings,
   }
 }
 
@@ -1295,9 +1356,9 @@ function applyRemoteSyncState(syncState: {
     displayName?: string
     shelfTagline?: string
   }
-}) {
+}, options: { mergeWithLocal?: boolean } = {}) {
   const parsedLibrary = syncState.library && typeof syncState.library === 'object' ? syncState.library : {}
-  state.library = Object.fromEntries(
+  const remoteLibrary = Object.fromEntries(
     Object.entries(parsedLibrary).flatMap(([id, value]) => {
       if (!value || typeof value !== 'object') {
         return []
@@ -1326,21 +1387,28 @@ function applyRemoteSyncState(syncState: {
     }),
   )
 
-  state.customCatalog = Array.isArray(syncState.customCatalog)
+  const remoteCustomCatalog = Array.isArray(syncState.customCatalog)
     ? syncState.customCatalog.map(normalizeCatalogEntry).filter(isCatalogEntry)
     : []
 
-  if (typeof syncState.currencyCode === 'string' && currencyOptions.some((currency) => currency.code === syncState.currencyCode)) {
-    state.currencyCode = syncState.currencyCode
-  }
-
-  state.barcodeMappings = syncState.barcodeMappings && typeof syncState.barcodeMappings === 'object'
+  const remoteBarcodeMappings = syncState.barcodeMappings && typeof syncState.barcodeMappings === 'object'
     ? Object.fromEntries(
         Object.entries(syncState.barcodeMappings).flatMap(([code, gameId]) =>
           typeof code === 'string' && typeof gameId === 'string' ? [[code, gameId]] : [],
         ),
       )
     : {}
+
+  const shouldMerge = options.mergeWithLocal && hasLocalCollectionData()
+
+  state.library = shouldMerge ? mergeLibraryData(remoteLibrary) : remoteLibrary
+  state.customCatalog = shouldMerge ? mergeCustomCatalogData(remoteCustomCatalog) : remoteCustomCatalog
+
+  if (typeof syncState.currencyCode === 'string' && currencyOptions.some((currency) => currency.code === syncState.currencyCode)) {
+    state.currencyCode = options.mergeWithLocal && state.currencyCode ? state.currencyCode : syncState.currencyCode
+  }
+
+  state.barcodeMappings = shouldMerge ? mergeBarcodeMappingsData(remoteBarcodeMappings) : remoteBarcodeMappings
 
   state.accountDisplayName = typeof syncState.profile?.displayName === 'string' ? syncState.profile.displayName : state.accountDisplayName
   libraryRevision += 1
@@ -2988,6 +3056,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       saveAuthProfile(payload.user.email, payload.user.displayName ?? displayName)
       state.syncStatus = 'Syncing your collection...'
       state.authSuccess = 'Account created. Your collection is being synced.'
+      applyRemoteSyncState(payload.syncState, { mergeWithLocal: true })
       await syncToCloud()
       state.syncStatus = 'Your collection is synced to your account'
       state.authView = 'none'
@@ -3006,7 +3075,8 @@ async function handleAuthForm(form: HTMLFormElement) {
       const payload = await loginAccount(email, password)
       saveAuthToken(payload.token)
       saveAuthProfile(payload.user.email, payload.user.displayName ?? '')
-      applyRemoteSyncState(payload.syncState)
+      applyRemoteSyncState(payload.syncState, { mergeWithLocal: true })
+      await syncToCloud()
       state.syncStatus = 'Your collection is synced to your account'
       state.authSuccess = 'Signed in successfully.'
       state.authView = 'none'

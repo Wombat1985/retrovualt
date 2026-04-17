@@ -21,6 +21,8 @@ export type SyncStatePayload = {
   customCatalog: unknown[]
   currencyCode: string
   barcodeMappings: Record<string, string>
+  clientUpdatedAt?: string
+  version?: number
   profile?: {
     displayName?: string
     shelfTagline?: string

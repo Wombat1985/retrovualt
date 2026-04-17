@@ -1,11 +1,15 @@
 import { createServer } from 'node:http'
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const dataDir = process.env.DATA_DIR ? join(process.cwd(), process.env.DATA_DIR) : join(__dirname, 'data')
+const dataDir = process.env.DATA_DIR
+  ? isAbsolute(process.env.DATA_DIR)
+    ? process.env.DATA_DIR
+    : join(process.cwd(), process.env.DATA_DIR)
+  : join(__dirname, 'data')
 const dbPath = join(dataDir, 'db.json')
 const port = Number(process.env.PORT ?? 8787)
 const sessionTtlMs = Number(process.env.SESSION_TTL_DAYS ?? 30) * 24 * 60 * 60 * 1000
@@ -198,6 +202,8 @@ function createDefaultSyncState() {
     customCatalog: [],
     currencyCode: 'USD',
     barcodeMappings: {},
+    clientUpdatedAt: new Date().toISOString(),
+    version: 2,
     profile: {
       displayName: '',
       shelfTagline: '',
@@ -530,6 +536,8 @@ const server = createServer(async (request, response) => {
         customCatalog: body.customCatalog ?? [],
         currencyCode: body.currencyCode ?? 'USD',
         barcodeMappings: body.barcodeMappings ?? {},
+        clientUpdatedAt: typeof body.clientUpdatedAt === 'string' ? body.clientUpdatedAt : new Date().toISOString(),
+        version: typeof body.version === 'number' ? body.version : 1,
         profile: body.profile ?? user.syncState?.profile ?? { displayName: user.displayName ?? '', shelfTagline: '' },
         updatedAt: new Date().toISOString(),
       }
