@@ -1288,16 +1288,37 @@ function getSyncPayload() {
   }
 }
 
+function normalizeGameRecord(value: unknown): GameRecord {
+  if (!value || typeof value !== 'object') {
+    return defaultRecord()
+  }
+
+  const record = value as Partial<GameRecord>
+
+  return {
+    status: record.status === 'owned' || record.status === 'wanted' || record.status === 'missing' ? record.status : 'missing',
+    completeInBox: typeof record.completeInBox === 'boolean' ? record.completeInBox : false,
+    pricePaid: typeof record.pricePaid === 'number' ? record.pricePaid : null,
+    favorite: typeof record.favorite === 'boolean' ? record.favorite : false,
+    editionStatus: isEditionStatus(record.editionStatus) ? record.editionStatus : 'loose',
+    condition: isConditionRating(record.condition) ? record.condition : 'good',
+    targetPrice: typeof record.targetPrice === 'number' ? record.targetPrice : null,
+    notes: typeof record.notes === 'string' ? record.notes : '',
+  }
+}
+
 function hasMeaningfulRecord(record: GameRecord) {
+  const safeRecord = normalizeGameRecord(record)
+
   return (
-    record.status !== 'missing' ||
-    record.completeInBox ||
-    record.favorite ||
-    record.editionStatus !== 'loose' ||
-    record.condition !== 'good' ||
-    record.pricePaid !== null ||
-    record.targetPrice !== null ||
-    record.notes.trim() !== ''
+    safeRecord.status !== 'missing' ||
+    safeRecord.completeInBox ||
+    safeRecord.favorite ||
+    safeRecord.editionStatus !== 'loose' ||
+    safeRecord.condition !== 'good' ||
+    safeRecord.pricePaid !== null ||
+    safeRecord.targetPrice !== null ||
+    safeRecord.notes.trim() !== ''
   )
 }
 
@@ -1306,19 +1327,23 @@ function hasLocalCollectionData() {
 }
 
 function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: GameRecord) {
+  const safeRemoteRecord = normalizeGameRecord(remoteRecord)
+
   if (!localRecord) {
-    return remoteRecord
+    return safeRemoteRecord
   }
 
+  const safeLocalRecord = normalizeGameRecord(localRecord)
+
   return {
-    status: localRecord.status !== 'missing' ? localRecord.status : remoteRecord.status,
-    completeInBox: localRecord.completeInBox || remoteRecord.completeInBox,
-    pricePaid: localRecord.pricePaid ?? remoteRecord.pricePaid,
-    favorite: localRecord.favorite || remoteRecord.favorite,
-    editionStatus: localRecord.editionStatus !== 'loose' ? localRecord.editionStatus : remoteRecord.editionStatus,
-    condition: localRecord.condition !== 'good' ? localRecord.condition : remoteRecord.condition,
-    targetPrice: localRecord.targetPrice ?? remoteRecord.targetPrice,
-    notes: localRecord.notes.trim() ? localRecord.notes : remoteRecord.notes,
+    status: safeLocalRecord.status !== 'missing' ? safeLocalRecord.status : safeRemoteRecord.status,
+    completeInBox: safeLocalRecord.completeInBox || safeRemoteRecord.completeInBox,
+    pricePaid: safeLocalRecord.pricePaid ?? safeRemoteRecord.pricePaid,
+    favorite: safeLocalRecord.favorite || safeRemoteRecord.favorite,
+    editionStatus: safeLocalRecord.editionStatus !== 'loose' ? safeLocalRecord.editionStatus : safeRemoteRecord.editionStatus,
+    condition: safeLocalRecord.condition !== 'good' ? safeLocalRecord.condition : safeRemoteRecord.condition,
+    targetPrice: safeLocalRecord.targetPrice ?? safeRemoteRecord.targetPrice,
+    notes: safeLocalRecord.notes.trim() ? safeLocalRecord.notes : safeRemoteRecord.notes,
   } satisfies GameRecord
 }
 
@@ -1373,16 +1398,7 @@ function applyRemoteSyncState(syncState: {
 
       return [[
         id,
-        {
-          status,
-          completeInBox: typeof entry.completeInBox === 'boolean' ? entry.completeInBox : false,
-          pricePaid: typeof entry.pricePaid === 'number' ? entry.pricePaid : null,
-          favorite: typeof entry.favorite === 'boolean' ? entry.favorite : false,
-          editionStatus: isEditionStatus(entry.editionStatus) ? entry.editionStatus : 'loose',
-          condition: isConditionRating(entry.condition) ? entry.condition : 'good',
-          targetPrice: typeof entry.targetPrice === 'number' ? entry.targetPrice : null,
-          notes: typeof entry.notes === 'string' ? entry.notes : '',
-        } satisfies GameRecord,
+        normalizeGameRecord(entry),
       ]]
     }),
   )
