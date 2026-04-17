@@ -96,6 +96,8 @@ const AUTH_TOKEN_STORAGE_KEY = 'retro-game-collector-auth-token'
 const AUTH_PROFILE_STORAGE_KEY = 'retro-game-collector-auth-profile'
 const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
 const ONBOARDING_STORAGE_KEY = 'retro-game-collector-onboarding-dismissed'
+const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
+const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
 const INITIAL_VISIBLE_GAME_COUNT = 96
 const VISIBLE_GAME_INCREMENT = 96
 const appElement = document.querySelector<HTMLDivElement>('#app')
@@ -444,6 +446,9 @@ function normalizeCatalogEntry(value: unknown) {
   }
 
   const entry = value as Record<string, unknown>
+  const coverUrl = typeof entry.coverUrl === 'string' ? normalizeCoverUrl(entry.coverUrl) : ''
+  const priceSourceUrl = typeof entry.priceSourceUrl === 'string' ? normalizeExternalUrl(entry.priceSourceUrl) : ''
+  const coverSourceUrl = typeof entry.coverSourceUrl === 'string' ? normalizeExternalUrl(entry.coverSourceUrl) : ''
 
   if (
     typeof entry.id !== 'string' ||
@@ -451,11 +456,10 @@ function normalizeCatalogEntry(value: unknown) {
     typeof entry.console !== 'string' ||
     (typeof entry.year !== 'number' && entry.year !== null) ||
     typeof entry.region !== 'string' ||
-    typeof entry.coverUrl !== 'string' ||
     typeof entry.priceLoose !== 'number' ||
     (typeof entry.priceComplete !== 'number' && entry.priceComplete !== null) ||
-    typeof entry.priceSourceUrl !== 'string' ||
-    typeof entry.coverSourceUrl !== 'string'
+    !priceSourceUrl ||
+    !coverSourceUrl
   ) {
     return null
   }
@@ -466,14 +470,51 @@ function normalizeCatalogEntry(value: unknown) {
     console: entry.console,
     year: entry.year,
     region: entry.region,
-    coverUrl: entry.coverUrl,
+    coverUrl,
     priceLoose: entry.priceLoose,
     priceComplete: entry.priceComplete,
-    priceSourceUrl: entry.priceSourceUrl,
-    coverSourceUrl: entry.coverSourceUrl,
+    priceSourceUrl,
+    coverSourceUrl,
     trendDelta: typeof entry.trendDelta === 'number' ? entry.trendDelta : 0,
     rarity: isRarityTier(entry.rarity) ? entry.rarity : 'Classic',
   } satisfies CatalogEntry
+}
+
+function normalizeExternalUrl(value: string) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' ? url.toString() : ''
+  } catch {
+    return ''
+  }
+}
+
+function normalizeCoverUrl(value: string) {
+  const url = normalizeExternalUrl(value)
+
+  if (!url) {
+    return ''
+  }
+
+  return isTrustedCoverUrl(url) ? url : ''
+}
+
+function isTrustedCoverUrl(value: string) {
+  try {
+    const url = new URL(value)
+
+    if (!TRUSTED_COVER_HOSTS.has(url.hostname)) {
+      return false
+    }
+
+    if (url.hostname === 'storage.googleapis.com') {
+      return url.pathname.startsWith('/images.pricecharting.com/')
+    }
+
+    return true
+  } catch {
+    return false
+  }
 }
 
 function isCatalogEntry(value: CatalogEntry | null): value is CatalogEntry {
@@ -1107,12 +1148,51 @@ function formatDelta(value: number) {
   return `${value >= 0 ? '+' : '-'}${amount}%`
 }
 
+function getCoverFallbackDataUri(game: CatalogEntry) {
+  const title = escapeHtml(game.title).slice(0, 80)
+  const consoleName = escapeHtml(game.console).slice(0, 48)
+  const region = escapeHtml(game.region).slice(0, 48)
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="720" height="900" viewBox="0 0 720 900">
+      <defs>
+        <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stop-color="#1f2d42"/>
+          <stop offset="0.55" stop-color="#0b1520"/>
+          <stop offset="1" stop-color="#261400"/>
+        </linearGradient>
+        <radialGradient id="glow" cx="35%" cy="18%" r="60%">
+          <stop offset="0" stop-color="#ffd66e" stop-opacity="0.35"/>
+          <stop offset="1" stop-color="#ffd66e" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="720" height="900" rx="44" fill="url(#bg)"/>
+      <rect width="720" height="900" rx="44" fill="url(#glow)"/>
+      <rect x="52" y="52" width="616" height="796" rx="34" fill="none" stroke="#ffd66e" stroke-opacity="0.45" stroke-width="4"/>
+      <text x="72" y="116" fill="#ffd66e" font-family="Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="7">RETRO VAULT</text>
+      <text x="72" y="420" fill="#f4f8ff" font-family="Arial, sans-serif" font-size="48" font-weight="900">${title}</text>
+      <text x="72" y="496" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="30">${consoleName}</text>
+      <text x="72" y="542" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="26">${region}</text>
+      <text x="72" y="760" fill="#58d8aa" font-family="Arial, sans-serif" font-size="24" font-weight="700">Cover source needed</text>
+    </svg>
+  `.trim()
+
+  return `${COVER_FALLBACK_PREFIX}${encodeURIComponent(svg)}`
+}
+
 function getCardCoverUrl(game: CatalogEntry) {
-  return game.coverUrl
+  return game.coverUrl || getCoverFallbackDataUri(game)
 }
 
 function getDetailCoverUrl(game: CatalogEntry) {
-  return game.coverUrl.replace('/240.jpg', '/1600.jpg')
+  return game.coverUrl ? game.coverUrl.replace('/240.jpg', '/1600.jpg') : getCoverFallbackDataUri(game)
+}
+
+function getCoverSourceLabel(game: CatalogEntry) {
+  if (!game.coverUrl) {
+    return 'No trusted cover source yet. Showing Retro Vault fallback art.'
+  }
+
+  return 'Cover displayed from the linked source for identification. Artwork rights remain with their owners.'
 }
 
 function getOwnershipLabel(status: GameStatus) {
@@ -1349,6 +1429,7 @@ function renderCard(game: CatalogEntry) {
           loading="lazy"
           decoding="async"
           referrerpolicy="no-referrer"
+          data-fallback-src="${getCoverFallbackDataUri(game)}"
         />
         <div class="cover-chips">
           <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
@@ -1411,6 +1492,7 @@ function renderSelectedGameModal() {
             loading="eager"
             decoding="async"
             referrerpolicy="no-referrer"
+            data-fallback-src="${getCoverFallbackDataUri(game)}"
           />
         </div>
         <div class="game-modal-copy">
@@ -1454,7 +1536,7 @@ function renderSelectedGameModal() {
             <p><strong>Price snapshot:</strong> ${priceSnapshotDate}</p>
             <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus ${getOwnedValueLabel(game).toLowerCase()}.`}</p>
             <p><strong>Alert target:</strong> ${record.targetPrice === null ? 'No target set.' : `Notify yourself when loose value hits ${formatPrice(record.targetPrice)} or less.`}</p>
-            <p><strong>Art source:</strong> Live cover from the linked listing source below.</p>
+            <p><strong>Art source:</strong> ${getCoverSourceLabel(game)}</p>
             <p><strong>Market note:</strong> ${appConfig.marketDisclaimer}</p>
             <p><strong>Collector notes:</strong> ${record.notes ? escapeHtml(record.notes) : 'No collector notes yet.'}</p>
           </div>
@@ -1957,7 +2039,7 @@ function renderSpotlight(spotlight: Spotlight | null) {
 
   return `
     <article class="spotlight-card">
-      <img class="spotlight-cover" src="${spotlight.game.coverUrl}" alt="${escapeHtml(spotlight.game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+      <img class="spotlight-cover" src="${getCardCoverUrl(spotlight.game)}" alt="${escapeHtml(spotlight.game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fallback-src="${getCoverFallbackDataUri(spotlight.game)}" />
       <div class="spotlight-copy">
         <p class="kicker">${spotlight.label}</p>
         <h2>${escapeHtml(spotlight.game.title)}</h2>
@@ -2173,6 +2255,7 @@ function renderNow() {
         <a href="${appConfig.supportUrl}" target="_blank" rel="noreferrer">Support</a>
         <a href="${appConfig.privacyUrl}" target="_blank" rel="noreferrer">Privacy</a>
         <span>${appConfig.marketDisclaimer}</span>
+        <span>Cover artwork is used for game identification with visible source links; rights remain with their owners.</span>
       </footer>
       ${renderScannerModal()}
       ${renderOwnershipPickerModal()}
@@ -2236,6 +2319,21 @@ function bindEvents() {
       scheduleBarcodeSearchRender(target.value)
     }
   })
+
+  app.addEventListener(
+    'error',
+    (event) => {
+      const target = event.target as HTMLElement
+
+      if (!(target instanceof HTMLImageElement) || !target.dataset.fallbackSrc || target.src === target.dataset.fallbackSrc) {
+        return
+      }
+
+      target.src = target.dataset.fallbackSrc
+      target.classList.add('is-fallback-cover')
+    },
+    true,
+  )
 
   app.addEventListener('change', (event) => {
     const target = event.target as HTMLInputElement | HTMLSelectElement

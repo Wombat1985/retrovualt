@@ -877,6 +877,13 @@ a {
     filter 180ms ease;
 }
 
+.game-cover.is-fallback-cover,
+.spotlight-cover.is-fallback-cover,
+.game-modal-cover.is-fallback-cover {
+  opacity: 0.96;
+  filter: saturate(0.92);
+}
+
 .game-card:hover .game-cover {
   transform: scale(1.03);
 }

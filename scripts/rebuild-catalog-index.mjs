@@ -12,7 +12,6 @@ async function main() {
     .filter((file) => file.startsWith('catalog-') && file.endsWith('.json'))
     .sort()
 
-  const allEntries = []
   const consoles = []
 
   for (const file of files) {
@@ -25,7 +24,6 @@ async function main() {
 
     const parsed = JSON.parse(await readFile(path.join(catalogsDir, file), 'utf8'))
     const entries = Array.isArray(parsed) ? parsed : [parsed]
-    allEntries.push(...entries)
     consoles.push({
       console: consoleMeta.name,
       slug,
@@ -38,17 +36,16 @@ async function main() {
 
   consoles.sort((left, right) => left.console.localeCompare(right.console))
 
-  await writeFile(path.join(catalogsDir, 'retro-catalog.json'), JSON.stringify(allEntries))
   await writeFile(
     path.join(catalogsDir, 'retro-catalog-meta.json'),
     JSON.stringify({
       snapshotDate,
-      totalGames: allEntries.length,
+      totalGames: consoles.reduce((total, consoleMeta) => total + consoleMeta.count, 0),
       consoles,
     }),
   )
 
-  console.log(`Catalog index rebuilt with ${allEntries.length} retro entries across ${consoles.length} consoles.`)
+  console.log(`Catalog index rebuilt across ${consoles.length} consoles.`)
 }
 
 main().catch((error) => {
