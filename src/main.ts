@@ -2097,7 +2097,7 @@ function bindEvents() {
 
     state.selectedGameId = card.dataset.id ?? null
     render()
-  })
+  }, { capture: true })
 
   app.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') {
