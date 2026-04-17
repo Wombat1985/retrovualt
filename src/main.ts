@@ -68,6 +68,13 @@ type DailyHuntItem = {
   tone: 'gold' | 'teal' | 'crimson' | 'blue'
 }
 
+type VisitStreak = {
+  current: number
+  best: number
+  lastVisitDate: string
+  weekStartDate: string
+}
+
 type CollectorAchievement = {
   title: string
   detail: string
@@ -109,6 +116,7 @@ const AUTH_TOKEN_STORAGE_KEY = 'retro-game-collector-auth-token'
 const AUTH_PROFILE_STORAGE_KEY = 'retro-game-collector-auth-profile'
 const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
 const ONBOARDING_STORAGE_KEY = 'retro-game-collector-onboarding-dismissed'
+const STREAK_STORAGE_KEY = 'retro-game-collector-visit-streak'
 const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
 const INITIAL_VISIBLE_GAME_COUNT = 96
@@ -191,6 +199,7 @@ const state = {
   customCatalog: loadCustomCatalog(),
   barcodeMappings: loadBarcodeMappings(),
   onboardingDismissed: loadOnboardingDismissed(),
+  visitStreak: recordDailyVisit(),
   cachedOwnedGames: [] as CatalogEntry[],
   cachedWantedGames: [] as CatalogEntry[],
   cachedCatalogStatsKey: '',
@@ -380,6 +389,76 @@ function loadOnboardingDismissed() {
 function saveOnboardingDismissed() {
   state.onboardingDismissed = true
   localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true')
+}
+
+function getLocalDateKey(offsetDays = 0) {
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() + offsetDays)
+  return date.toISOString().slice(0, 10)
+}
+
+function getWeekStartDateKey() {
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  const mondayOffset = (date.getDay() + 6) % 7
+  date.setDate(date.getDate() - mondayOffset)
+  return date.toISOString().slice(0, 10)
+}
+
+function loadVisitStreak(): VisitStreak {
+  const fallback = {
+    current: 0,
+    best: 0,
+    lastVisitDate: '',
+    weekStartDate: getWeekStartDateKey(),
+  }
+  const raw = localStorage.getItem(STREAK_STORAGE_KEY)
+
+  if (!raw) {
+    return fallback
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+
+    return {
+      current: typeof parsed.current === 'number' ? parsed.current : fallback.current,
+      best: typeof parsed.best === 'number' ? parsed.best : fallback.best,
+      lastVisitDate: typeof parsed.lastVisitDate === 'string' ? parsed.lastVisitDate : fallback.lastVisitDate,
+      weekStartDate: typeof parsed.weekStartDate === 'string' ? parsed.weekStartDate : fallback.weekStartDate,
+    }
+  } catch {
+    return fallback
+  }
+}
+
+function saveVisitStreak(streak: VisitStreak) {
+  localStorage.setItem(STREAK_STORAGE_KEY, JSON.stringify(streak))
+}
+
+function recordDailyVisit() {
+  const today = getLocalDateKey()
+  const yesterday = getLocalDateKey(-1)
+  const weekStartDate = getWeekStartDateKey()
+  const streak = loadVisitStreak()
+
+  if (streak.lastVisitDate === today) {
+    return {
+      ...streak,
+      weekStartDate,
+    }
+  }
+
+  const current = streak.lastVisitDate === yesterday ? streak.current + 1 : 1
+  const nextStreak = {
+    current,
+    best: Math.max(streak.best, current),
+    lastVisitDate: today,
+    weekStartDate,
+  }
+  saveVisitStreak(nextStreak)
+  return nextStreak
 }
 
 function clearAuthToken() {
@@ -948,6 +1027,44 @@ function getTodayHuntItems(): DailyHuntItem[] {
   })
 
   return items.slice(0, 5)
+}
+
+function getWeeklyRecapLines() {
+  const ownedGames = getOwnedGames()
+  const wantedGames = getWantedGames()
+  const completeCount = ownedGames.filter((game) => isCompleteEdition(getRecord(game.id))).length
+  const favoriteCount = getFavoriteCount()
+  const alertMatches = getAlertMatches()
+  const rarestOwned = getRarestOwnedGame()
+  const dominantConsole = getDominantConsole()
+  const estimatedSellValue = ownedGames.reduce((total, game) => total + getOwnedMarketPrice(game), 0)
+  const rank = getCollectorRank()
+
+  return [
+    `Weekly vault recap from ${state.visitStreak.weekStartDate}`,
+    `Collector rank: ${rank.title}`,
+    `Daily streak: ${state.visitStreak.current} day${state.visitStreak.current === 1 ? '' : 's'} / best ${state.visitStreak.best}`,
+    `Owned: ${ownedGames.length}`,
+    `Wishlist: ${wantedGames.length}`,
+    `Complete/CIB tracked: ${completeCount}`,
+    `Favorites: ${favoriteCount}`,
+    `Estimated sell value: ${formatPrice(estimatedSellValue)}`,
+    dominantConsole ? `Strongest console: ${dominantConsole.consoleName} (${dominantConsole.owned} owned)` : 'Strongest console: still forming',
+    rarestOwned ? `Rarest owned: ${rarestOwned.title} (${formatPrice(getOwnedMarketPrice(rarestOwned))})` : 'Rarest owned: still building',
+    `Price alert hits: ${alertMatches.length}`,
+  ]
+}
+
+function getWeeklyRecapHighlights() {
+  const lines = getWeeklyRecapLines()
+  return {
+    streak: lines[2],
+    owned: lines[3],
+    value: lines[7],
+    strongest: lines[8],
+    rarest: lines[9],
+    alerts: lines[10],
+  }
 }
 
 function getTopShelfGames() {
@@ -2275,6 +2392,39 @@ function renderTodayHunt() {
   `
 }
 
+function renderRetentionRecap() {
+  const highlights = getWeeklyRecapHighlights()
+
+  return `
+    <section class="retention-grid" aria-label="Daily streak and weekly recap">
+      <article class="streak-card">
+        <p class="kicker">Daily streak</p>
+        <strong>${state.visitStreak.current}</strong>
+        <span>day${state.visitStreak.current === 1 ? '' : 's'} in a row</span>
+        <p class="subtle">Best streak ${state.visitStreak.best}. Check the vault daily to keep your collector rhythm alive.</p>
+      </article>
+      <article class="weekly-recap-card">
+        <div class="weekly-recap-copy">
+          <p class="kicker">Weekly recap</p>
+          <h2>Your vault story for the week.</h2>
+          <p class="subtle">A shareable snapshot of your collection, hunt list, value, strongest console, and rarest flex.</p>
+        </div>
+        <div class="weekly-recap-stats">
+          <span>${escapeHtml(highlights.owned)}</span>
+          <span>${escapeHtml(highlights.value)}</span>
+          <span>${escapeHtml(highlights.strongest)}</span>
+          <span>${escapeHtml(highlights.rarest)}</span>
+          <span>${escapeHtml(highlights.alerts)}</span>
+        </div>
+        <div class="card-actions">
+          <button class="toggle-button" type="button" data-action="share-weekly-recap">Share weekly recap</button>
+          <button class="ghost-button" type="button" data-action="browse-library">Improve next week</button>
+        </div>
+      </article>
+    </section>
+  `
+}
+
 function renderScannerModal() {
   if (!state.scannerOpen) {
     return ''
@@ -2434,6 +2584,7 @@ function renderNow() {
       ${renderOnboardingPanel()}
       ${renderAchievementStrip()}
       ${renderTodayHunt()}
+      ${renderRetentionRecap()}
 
       <section class="toolbar">
         <label class="search-field">
@@ -3035,6 +3186,9 @@ async function handleAction(element: HTMLElement) {
     case 'share-recap':
       await shareCollectionRecap()
       break
+    case 'share-weekly-recap':
+      await shareWeeklyRecap()
+      break
     case 'share-challenge':
       await shareCollectorChallenge()
       break
@@ -3572,6 +3726,37 @@ async function shareCollectionRecap() {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(recap)
     window.alert('Collection recap copied to your clipboard.')
+    return
+  }
+
+  window.alert(recap)
+}
+
+async function shareWeeklyRecap() {
+  const recapUrl = `${window.location.origin}/collector-challenge.html`
+  const recap = [
+    'Retro Vault Elite Weekly Recap',
+    ...getWeeklyRecapLines(),
+    '',
+    `Build your own vault: ${recapUrl}`,
+  ].join('\n')
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Retro Vault Elite weekly recap',
+        text: recap,
+        url: recapUrl,
+      })
+      return
+    } catch {
+      // fall through to clipboard
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(recap)
+    window.alert('Weekly recap copied to your clipboard.')
     return
   }
 

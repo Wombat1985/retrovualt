@@ -70,7 +70,9 @@ a {
 .game-card,
 .empty-state,
 .roadmap-card,
-.daily-hunt {
+.daily-hunt,
+.streak-card,
+.weekly-recap-card {
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
@@ -381,6 +383,79 @@ a {
   margin-top: auto;
 }
 
+.retention-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.35fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.streak-card,
+.weekly-recap-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: 22px;
+}
+
+.streak-card {
+  display: grid;
+  align-content: center;
+  min-height: 260px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 214, 110, 0.22), transparent 42%),
+    var(--panel-soft);
+}
+
+.streak-card strong {
+  display: block;
+  margin: 6px 0 0;
+  color: var(--accent-2);
+  font-family: var(--display);
+  font-size: clamp(4.5rem, 10vw, 7rem);
+  line-height: 0.88;
+}
+
+.streak-card span {
+  color: var(--text);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.weekly-recap-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(280px, 1fr);
+  gap: 18px;
+  background:
+    linear-gradient(145deg, rgba(88, 216, 170, 0.12), rgba(247, 155, 50, 0.08)),
+    var(--panel);
+}
+
+.weekly-recap-copy h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  line-height: 0.95;
+}
+
+.weekly-recap-stats {
+  display: grid;
+  gap: 10px;
+}
+
+.weekly-recap-stats span {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 18px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.weekly-recap-card .card-actions {
+  grid-column: 1 / -1;
+}
+
 .hero-stats strong {
   display: block;
   margin: 8px 0 4px;
@@ -394,6 +469,7 @@ a {
 .showcase-grid,
 .identity-card,
 .achievement-strip,
+.retention-grid,
 .trust-strip,
 .onboarding-panel,
 .control-summary,
@@ -1491,6 +1567,8 @@ a {
   .insight-grid,
   .achievement-strip,
   .daily-hunt-grid,
+  .retention-grid,
+  .weekly-recap-card,
   .identity-card,
   .trust-strip,
   .onboarding-panel,
