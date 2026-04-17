@@ -2053,6 +2053,10 @@ function renderCollectionIdentityCard() {
           <span>${dominantConsole ? `${escapeHtml(dominantConsole.consoleName)} specialist` : 'Shelf in progress'}</span>
           <span>${rarestOwned ? `Flex: ${escapeHtml(rarestOwned.title)}` : 'Flex: loading'}</span>
         </div>
+        <div class="card-actions">
+          <button class="toggle-button" type="button" data-action="share-challenge">Share collector challenge</button>
+          <a class="link-button" href="/collector-challenge.html">Open challenge page</a>
+        </div>
       </div>
     </article>
   `
@@ -2824,6 +2828,9 @@ async function handleAction(element: HTMLElement) {
     case 'share-recap':
       await shareCollectionRecap()
       break
+    case 'share-challenge':
+      await shareCollectorChallenge()
+      break
     case 'install-app':
       await promptInstall()
       break
@@ -3329,6 +3336,7 @@ async function shareCollectionRecap() {
   const ownedGames = getOwnedGames()
   const wantedGames = getWantedGames()
   const rank = getCollectorRank()
+  const challengeUrl = `${window.location.origin}/collector-challenge.html`
   const recap = [
     'Retro Vault Elite Collection Recap',
     `Collector rank: ${rank.title}`,
@@ -3336,6 +3344,8 @@ async function shareCollectionRecap() {
     `Estimated sell value: ${formatPrice(ownedGames.reduce((total, game) => total + game.priceLoose, 0))}`,
     `Collection premium: ${formatPrice(ownedGames.reduce((total, game) => total + getReferencePrice(game), 0))}`,
     ...getViralShareLines(),
+    '',
+    `Build your vault and compare rank: ${challengeUrl}`,
   ].join('\n')
 
   if (navigator.share) {
@@ -3343,6 +3353,7 @@ async function shareCollectionRecap() {
       await navigator.share({
         title: 'Retro Vault Elite recap',
         text: recap,
+        url: challengeUrl,
       })
       return
     } catch {
@@ -3357,6 +3368,38 @@ async function shareCollectionRecap() {
   }
 
   window.alert(recap)
+}
+
+async function shareCollectorChallenge() {
+  const challengeUrl = `${window.location.origin}/collector-challenge.html`
+  const shareText = [
+    'I am building my retro game vault on Retro Vault Elite.',
+    ...getViralShareLines(),
+    '',
+    'Start yours, build your shelf, and compare collector rank.',
+  ].join('\n')
+  const clipboardText = `${shareText}\n${challengeUrl}`
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Retro Vault Elite Collector Challenge',
+        text: shareText,
+        url: challengeUrl,
+      })
+      return
+    } catch {
+      // fall through to clipboard
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(clipboardText)
+    window.alert('Collector challenge copied to your clipboard.')
+    return
+  }
+
+  window.alert(clipboardText)
 }
 
 async function promptInstall() {
