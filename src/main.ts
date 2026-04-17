@@ -381,6 +381,13 @@ function clearAuthProfile() {
   localStorage.removeItem(AUTH_PROFILE_STORAGE_KEY)
 }
 
+function clearExpiredAccountSession(message = 'Session expired. Please sign in again to sync.') {
+  clearAuthToken()
+  clearAuthProfile()
+  state.syncStatus = message
+  state.authView = 'login'
+}
+
 function getPasswordResetToken() {
   const params = new URLSearchParams(window.location.search)
   return params.get('resetToken') ?? ''
@@ -1456,6 +1463,9 @@ function scheduleCloudSync() {
 
 async function syncToCloud() {
   if (!state.authToken) {
+    state.syncStatus = 'Sign in to sync your collection'
+    state.authView = 'login'
+    render()
     return
   }
 
@@ -1466,7 +1476,13 @@ async function syncToCloud() {
     await pushSyncState(state.authToken, getSyncPayload())
     state.syncStatus = 'Cloud synced'
   } catch (error) {
-    state.syncStatus = error instanceof Error ? `Sync failed: ${error.message}` : 'Sync failed'
+    const message = error instanceof Error ? error.message : 'Sync failed'
+
+    if (message.toLowerCase().includes('not signed in')) {
+      clearExpiredAccountSession()
+    } else {
+      state.syncStatus = `Sync failed: ${message}`
+    }
   }
 
   scheduleStatusRender()
@@ -1495,8 +1511,14 @@ async function hydrateAccount() {
     saveAuthProfile(payload.user.email, payload.user.displayName ?? '')
     applyRemoteSyncState(payload.syncState)
     state.syncStatus = 'Your collection is synced to your account'
-  } catch {
-    state.syncStatus = 'Still signed in on this device. Sync will reconnect when the server is ready.'
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+
+    if (message.toLowerCase().includes('not signed in')) {
+      clearExpiredAccountSession()
+    } else {
+      state.syncStatus = 'Still signed in on this device. Sync will reconnect when the server is ready.'
+    }
   }
 
   render()
@@ -3138,6 +3160,7 @@ async function handleAuthForm(form: HTMLFormElement) {
 
     if (formType === 'account') {
       if (!state.authToken) {
+        clearExpiredAccountSession('Please sign in again before updating account settings.')
         throw new Error('Sign in before updating account settings.')
       }
 
