@@ -15,6 +15,7 @@
     "catalog:generate-console": "powershell -ExecutionPolicy Bypass -File scripts/generate-console-catalog.ps1",
     "catalog:rebuild-index": "node scripts/rebuild-catalog-index.mjs",
     "catalog:enrich-years": "node scripts/enrich-retro-years.mjs",
+    "marketing:calendar": "node scripts/generate-marketing-calendar.mjs",
     "catalog:enrich-years:ps": "powershell -ExecutionPolicy Bypass -File scripts/enrich-retro-years.ps1"
   },
   "devDependencies": {
