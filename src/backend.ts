@@ -150,3 +150,20 @@ export async function saveBarcodeMapping(token: string, code: string, gameId: st
     token,
   )
 }
+
+export async function trackPageView(signedIn = false) {
+  try {
+    await request<{ ok: boolean }>('/analytics/page-view', {
+      method: 'POST',
+      keepalive: true,
+      body: JSON.stringify({
+        path: window.location.pathname,
+        referrer: document.referrer,
+        title: document.title,
+        signedIn,
+      }),
+    })
+  } catch {
+    // Analytics must never block the app.
+  }
+}

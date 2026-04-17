@@ -33,6 +33,20 @@ function createEmptyDb() {
     users: [],
     sessions: [],
     passwordResets: [],
+    analytics: createDefaultAnalyticsState(),
+  }
+}
+
+function createDefaultAnalyticsState() {
+  return {
+    totalPageViews: 0,
+    firstTrackedAt: null,
+    lastTrackedAt: null,
+    pages: {},
+    days: {},
+    referrers: {},
+    userAgents: {},
+    signedInPageViews: 0,
   }
 }
 
@@ -49,6 +63,7 @@ function loadDb() {
       users: Array.isArray(parsed.users) ? parsed.users : [],
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
       passwordResets: Array.isArray(parsed.passwordResets) ? parsed.passwordResets : [],
+      analytics: normalizeAnalyticsState(parsed.analytics),
     }
   } catch {
     const emptyDb = createEmptyDb()
@@ -59,6 +74,17 @@ function loadDb() {
 
 function saveDb(db) {
   writeFileSync(dbPath, JSON.stringify(db, null, 2))
+}
+
+function normalizeAnalyticsState(analytics) {
+  return {
+    ...createDefaultAnalyticsState(),
+    ...(analytics && typeof analytics === 'object' ? analytics : {}),
+    pages: analytics?.pages && typeof analytics.pages === 'object' ? analytics.pages : {},
+    days: analytics?.days && typeof analytics.days === 'object' ? analytics.days : {},
+    referrers: analytics?.referrers && typeof analytics.referrers === 'object' ? analytics.referrers : {},
+    userAgents: analytics?.userAgents && typeof analytics.userAgents === 'object' ? analytics.userAgents : {},
+  }
 }
 
 function getCorsOrigin(request) {
@@ -75,7 +101,7 @@ function json(request, response, statusCode, data) {
   response.writeHead(statusCode, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': getCorsOrigin(request),
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Key',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   })
   response.end(JSON.stringify(data))
@@ -196,6 +222,155 @@ function sanitizeUser(user) {
   }
 }
 
+function getAdminKey() {
+  return String(process.env.ADMIN_KEY ?? '').trim()
+}
+
+function isAdminRequest(request, url) {
+  const adminKey = getAdminKey()
+
+  if (!adminKey) {
+    return false
+  }
+
+  const suppliedKey = request.headers['x-admin-key'] ?? url.searchParams.get('key') ?? ''
+  return timingSafeStringEqual(String(suppliedKey), adminKey)
+}
+
+function timingSafeStringEqual(a, b) {
+  const left = Buffer.from(a)
+  const right = Buffer.from(b)
+
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return timingSafeEqual(left, right)
+}
+
+function getSafeUserDetails(user) {
+  const library = user.syncState?.library && typeof user.syncState.library === 'object' ? user.syncState.library : {}
+  const records = Object.values(library).filter((record) => record && typeof record === 'object')
+  const ownedCount = records.filter((record) => record.status === 'owned').length
+  const wantedCount = records.filter((record) => record.status === 'wanted').length
+  const favoriteCount = records.filter((record) => record.favorite === true).length
+  const cibCount = records.filter((record) => record.completeInBox === true || record.editionStatus === 'cib').length
+  const paidPriceCount = records.filter((record) => Number.isFinite(record.pricePaid)).length
+
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName ?? '',
+    createdAt: user.createdAt,
+    lastSyncedAt: user.syncState?.updatedAt ?? null,
+    currencyCode: user.syncState?.currencyCode ?? 'USD',
+    ownedCount,
+    wantedCount,
+    favoriteCount,
+    cibCount,
+    paidPriceCount,
+  }
+}
+
+function incrementCounter(bucket, key) {
+  const safeKey = key || 'unknown'
+  bucket[safeKey] = (Number(bucket[safeKey]) || 0) + 1
+}
+
+function normalizePagePath(path) {
+  const rawPath = String(path ?? '/').trim() || '/'
+
+  try {
+    return new URL(rawPath, 'https://www.retrovaultelite.com').pathname || '/'
+  } catch {
+    return '/'
+  }
+}
+
+function normalizeReferrer(referrer) {
+  const rawReferrer = String(referrer ?? '').trim()
+
+  if (!rawReferrer) {
+    return 'direct'
+  }
+
+  try {
+    const host = new URL(rawReferrer).hostname.replace(/^www\./, '')
+    return host || 'direct'
+  } catch {
+    return 'unknown'
+  }
+}
+
+function normalizeUserAgent(userAgent) {
+  const value = String(userAgent ?? '').toLowerCase()
+
+  if (value.includes('iphone') || value.includes('android') || value.includes('mobile')) {
+    return 'mobile'
+  }
+
+  if (value.includes('ipad') || value.includes('tablet')) {
+    return 'tablet'
+  }
+
+  if (value.includes('bot') || value.includes('crawl') || value.includes('spider')) {
+    return 'bot'
+  }
+
+  return 'desktop'
+}
+
+function recordPageView(db, request, body) {
+  const now = new Date()
+  const day = now.toISOString().slice(0, 10)
+  const analytics = normalizeAnalyticsState(db.analytics)
+  const path = normalizePagePath(body.path)
+  const referrer = normalizeReferrer(body.referrer)
+  const userAgent = normalizeUserAgent(request.headers['user-agent'])
+  const signedIn = Boolean(body.signedIn)
+
+  analytics.totalPageViews = (Number(analytics.totalPageViews) || 0) + 1
+  analytics.firstTrackedAt = analytics.firstTrackedAt ?? now.toISOString()
+  analytics.lastTrackedAt = now.toISOString()
+  analytics.signedInPageViews = (Number(analytics.signedInPageViews) || 0) + (signedIn ? 1 : 0)
+  incrementCounter(analytics.pages, path)
+  incrementCounter(analytics.days, day)
+  incrementCounter(analytics.referrers, referrer)
+  incrementCounter(analytics.userAgents, userAgent)
+  db.analytics = analytics
+}
+
+function getTopCounters(bucket, limit = 12) {
+  return Object.entries(bucket ?? {})
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .slice(0, limit)
+    .map(([name, count]) => ({ name, count }))
+}
+
+function getAdminStats(db) {
+  const analytics = normalizeAnalyticsState(db.analytics)
+  const users = db.users.map(getSafeUserDetails).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+
+  return {
+    generatedAt: new Date().toISOString(),
+    userCount: users.length,
+    activeSessionCount: db.sessions.length,
+    users,
+    analytics: {
+      totalPageViews: analytics.totalPageViews,
+      signedInPageViews: analytics.signedInPageViews,
+      firstTrackedAt: analytics.firstTrackedAt,
+      lastTrackedAt: analytics.lastTrackedAt,
+      topPages: getTopCounters(analytics.pages),
+      dailyViews: Object.entries(analytics.days ?? {})
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, views]) => ({ date, views })),
+      topReferrers: getTopCounters(analytics.referrers),
+      deviceTypes: getTopCounters(analytics.userAgents),
+    },
+  }
+}
+
 function createDefaultSyncState() {
   return {
     library: {},
@@ -249,7 +424,7 @@ const server = createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
       'Access-Control-Allow-Origin': getCorsOrigin(request),
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Key',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     })
     response.end()
@@ -263,6 +438,34 @@ const server = createServer(async (request, response) => {
   try {
     if (request.method === 'GET' && url.pathname === '/health') {
       json(request, response, 200, { ok: true })
+      return
+    }
+
+    if (request.method === 'POST' && url.pathname === '/analytics/page-view') {
+      if (!rateLimit(request, 'analytics', 240, 60 * 1000)) {
+        json(request, response, 429, { error: 'Too many analytics events.' })
+        return
+      }
+
+      const body = await readBody(request)
+      recordPageView(db, request, body)
+      saveDb(db)
+      json(request, response, 200, { ok: true })
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/admin/stats') {
+      if (!getAdminKey()) {
+        json(request, response, 503, { error: 'Admin reporting is not configured.' })
+        return
+      }
+
+      if (!isAdminRequest(request, url)) {
+        json(request, response, 401, { error: 'Admin key required.' })
+        return
+      }
+
+      json(request, response, 200, getAdminStats(db))
       return
     }
 

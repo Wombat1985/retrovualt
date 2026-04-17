@@ -12,6 +12,7 @@ import {
   registerAccount,
   requestPasswordReset,
   saveBarcodeMapping,
+  trackPageView,
   updateAccountProfile,
 } from './backend'
 import { initMobileBannerAd } from './mobileAds'
@@ -3626,6 +3627,7 @@ function escapeHtml(value: string) {
 window.addEventListener('pagehide', flushLibrarySave)
 
 render()
+void trackPageView(Boolean(loadAuthToken()))
 void loadGeneratedCatalog()
 void hydrateAccount()
 void initMobileBannerAd()

@@ -16,6 +16,7 @@ function startServer(dataDir) {
       DATA_DIR: dataDir,
       CORS_ORIGIN: 'http://127.0.0.1:4173',
       SESSION_TTL_DAYS: '30',
+      ADMIN_KEY: 'test-admin-key',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
@@ -145,6 +146,24 @@ async function main() {
 
     if (stableJson(restored.barcodeMappings) !== stableJson(syncPayload.barcodeMappings)) {
       throw new Error('Barcode mappings did not restore exactly.')
+    }
+
+    await request('/analytics/page-view', {
+      method: 'POST',
+      body: JSON.stringify({ path: '/', referrer: '', signedIn: true }),
+    })
+
+    const stats = await request('/admin/stats', {
+      method: 'GET',
+      headers: { 'X-Admin-Key': 'test-admin-key' },
+    })
+
+    if (stats.userCount < 1 || stats.analytics.totalPageViews < 1) {
+      throw new Error('Admin stats did not include account and analytics totals.')
+    }
+
+    if (stats.users.some((user) => 'passwordHash' in user)) {
+      throw new Error('Admin stats leaked password hashes.')
     }
 
     console.log('Auth sync regression passed.')

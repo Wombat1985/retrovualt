@@ -19,6 +19,8 @@ services:
         sync: false
       - key: RESET_FROM_EMAIL
         sync: false
+      - key: ADMIN_KEY
+        sync: false
 
   - type: web
     name: retro-vault-web
