@@ -68,6 +68,14 @@ type ConsoleProgress = {
   progress: number
 }
 
+type OnboardingStep = {
+  label: string
+  detail: string
+  done: boolean
+  action: string
+  actionLabel: string
+}
+
 type CatalogConsoleMeta = {
   console: string
   slug: string
@@ -87,6 +95,7 @@ const CURRENCY_STORAGE_KEY = 'retro-game-collector-currency'
 const AUTH_TOKEN_STORAGE_KEY = 'retro-game-collector-auth-token'
 const AUTH_PROFILE_STORAGE_KEY = 'retro-game-collector-auth-profile'
 const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
+const ONBOARDING_STORAGE_KEY = 'retro-game-collector-onboarding-dismissed'
 const INITIAL_VISIBLE_GAME_COUNT = 96
 const VISIBLE_GAME_INCREMENT = 96
 const appElement = document.querySelector<HTMLDivElement>('#app')
@@ -166,6 +175,7 @@ const state = {
   loadedConsoles: [] as string[],
   customCatalog: loadCustomCatalog(),
   barcodeMappings: loadBarcodeMappings(),
+  onboardingDismissed: loadOnboardingDismissed(),
   cachedOwnedGames: [] as CatalogEntry[],
   cachedWantedGames: [] as CatalogEntry[],
   cachedCatalogStatsKey: '',
@@ -346,6 +356,15 @@ function saveAuthProfile(email: string, displayName = '') {
   state.accountEmail = email
   state.accountDisplayName = displayName
   localStorage.setItem(AUTH_PROFILE_STORAGE_KEY, JSON.stringify({ email, displayName }))
+}
+
+function loadOnboardingDismissed() {
+  return localStorage.getItem(ONBOARDING_STORAGE_KEY) === 'true'
+}
+
+function saveOnboardingDismissed() {
+  state.onboardingDismissed = true
+  localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true')
 }
 
 function clearAuthToken() {
@@ -744,6 +763,66 @@ function getAlertMatches() {
     })
     .sort((left, right) => left.priceLoose - right.priceLoose || left.title.localeCompare(right.title))
     .slice(0, 4)
+}
+
+function getPaidPriceCount() {
+  return getOwnedGames().filter((game) => getRecord(game.id).pricePaid !== null).length
+}
+
+function getFavoriteCount() {
+  return getCatalog().filter((game) => getRecord(game.id).favorite).length
+}
+
+function getCollectionCompletenessScore() {
+  const checks = [
+    state.authToken !== '',
+    getOwnedGames().length > 0,
+    getWantedGames().length > 0,
+    getPaidPriceCount() > 0,
+    getFavoriteCount() > 0,
+  ]
+
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100)
+}
+
+function getOnboardingSteps(): OnboardingStep[] {
+  return [
+    {
+      label: 'Create your vault account',
+      detail: 'Protect the collection so it follows you across devices.',
+      done: state.authToken !== '',
+      action: state.authToken ? 'open-account-settings' : 'open-register',
+      actionLabel: state.authToken ? 'Account' : 'Create account',
+    },
+    {
+      label: 'Mark your first owned game',
+      detail: 'Unlock shelf value, completion progress, and collector rank.',
+      done: getOwnedGames().length > 0,
+      action: 'browse-library',
+      actionLabel: 'Browse games',
+    },
+    {
+      label: 'Add a wanted grail',
+      detail: 'Build a hunt list and let price alerts start working for you.',
+      done: getWantedGames().length > 0,
+      action: 'browse-library',
+      actionLabel: 'Find grails',
+    },
+    {
+      label: 'Set one paid price',
+      detail: 'Track your market edge and see which pickups were bargains.',
+      done: getPaidPriceCount() > 0,
+      action: 'browse-library',
+      actionLabel: 'Set paid',
+    },
+    {
+      label: 'Favorite a top-shelf title',
+      detail: 'Build the brag row that makes your profile feel personal.',
+      done: getFavoriteCount() > 0,
+      action: 'browse-library',
+      actionLabel: 'Choose favorite',
+    },
+  ]
 }
 
 function getNearCompleteConsoles() {
@@ -1424,6 +1503,99 @@ function renderInsightCard(title: string, value: string, note: string) {
   `
 }
 
+function renderTrustStrip() {
+  const syncCopy = state.authToken
+    ? state.syncStatus
+    : 'Device-only until you create an account'
+  const ownershipMode = getOwnedGames().some((game) => isCompleteEdition(getRecord(game.id)))
+    ? 'Loose and complete values active'
+    : 'Loose values active'
+
+  return `
+    <section class="trust-strip" aria-label="Retro Vault trust signals">
+      <article>
+        <span>Secure sync</span>
+        <strong>${escapeHtml(syncCopy)}</strong>
+      </article>
+      <article>
+        <span>Market snapshot</span>
+        <strong>${priceSnapshotDate}</strong>
+      </article>
+      <article>
+        <span>Collection pricing</span>
+        <strong>${ownershipMode}</strong>
+      </article>
+      <article>
+        <span>Your data</span>
+        <strong>Owned by you, exportable anytime</strong>
+      </article>
+    </section>
+  `
+}
+
+function renderOnboardingPanel() {
+  const steps = getOnboardingSteps()
+  const completed = steps.filter((step) => step.done).length
+  const setupScore = getCollectionCompletenessScore()
+
+  if (state.onboardingDismissed && completed === steps.length) {
+    return ''
+  }
+
+  return `
+    <section class="onboarding-panel">
+      <div class="onboarding-copy">
+        <p class="kicker">Collector setup</p>
+        <h2>${completed === steps.length ? 'Your vault is ready to show off.' : 'Build a collection people want to come back to.'}</h2>
+        <p class="subtle">${completed}/${steps.length} core setup steps complete. Vault readiness ${setupScore}%. Finish these to unlock stronger stats, better value tracking, and a more personal collector profile.</p>
+      </div>
+      <div class="onboarding-steps">
+        ${steps
+          .map(
+            (step) => `
+              <article class="onboarding-step ${step.done ? 'is-done' : ''}">
+                <div>
+                  <strong>${step.done ? 'Done' : 'Next'}: ${escapeHtml(step.label)}</strong>
+                  <span>${escapeHtml(step.detail)}</span>
+                </div>
+                <button class="ghost-button" type="button" data-action="${step.action}">${escapeHtml(step.done ? 'Review' : step.actionLabel)}</button>
+              </article>
+            `,
+          )
+          .join('')}
+      </div>
+      <button class="link-button onboarding-dismiss" type="button" data-action="dismiss-onboarding">Hide checklist</button>
+    </section>
+  `
+}
+
+function renderControlSummary(resultCount: number, visibleCount: number) {
+  const activeFilters = [
+    state.regionFilter !== 'All regions' ? getRegionOptionLabel(state.regionFilter) : '',
+    state.consoleFilter !== 'All consoles' ? getConsoleOptionLabel(state.consoleFilter) : '',
+    state.ownershipFilter !== 'all' ? state.ownershipFilter : '',
+    state.search.trim() ? `Search: ${state.search.trim()}` : '',
+  ].filter(Boolean)
+
+  return `
+    <section class="control-summary">
+      <div>
+        <p class="kicker">Control centre</p>
+        <strong>${resultCount.toLocaleString()} results</strong>
+        <span class="subtle">Showing ${visibleCount.toLocaleString()} now. Filters update without leaving the collection grid.</span>
+      </div>
+      <div class="filter-chip-row">
+        ${
+          activeFilters.length
+            ? activeFilters.map((filter) => `<span>${escapeHtml(filter)}</span>`).join('')
+            : '<span>All games in the selected vault view</span>'
+        }
+        <button class="ghost-button" type="button" data-action="clear-filters">Clear filters</button>
+      </div>
+    </section>
+  `
+}
+
 function renderConsolePush(title: string, entries: ReturnType<typeof getNearCompleteConsoles>, emptyText: string) {
   return `
     <article class="smart-card">
@@ -1874,6 +2046,8 @@ function renderNow() {
         </div>
       </header>
 
+      ${renderTrustStrip()}
+      ${renderOnboardingPanel()}
       ${renderAchievementStrip()}
 
       <section class="toolbar">
@@ -1926,6 +2100,8 @@ function renderNow() {
           </select>
         </label>
       </section>
+
+      ${renderControlSummary(filteredGames.length, visibleGames.length)}
 
       <section class="filters">
         ${renderFilterChip('all', 'All')}
@@ -2396,6 +2572,9 @@ async function handleAction(element: HTMLElement) {
       }
 
       state.ownershipFilter = filter
+      if (element.textContent?.toLowerCase().includes('grail')) {
+        state.sortMode = 'complete-high'
+      }
       resetVisibleGameCount()
       render()
       break
@@ -2405,11 +2584,29 @@ async function handleAction(element: HTMLElement) {
       render()
       break
     case 'reset-library':
+      if (!window.confirm('Reset your local collection view? This clears owned, wanted, paid prices, notes, and favorites on this device.')) {
+        return
+      }
+
       state.library = {}
       libraryRevision += 1
       state.cachedCatalogStatsKey = ''
       state.cachedConsoleProgressKey = ''
       saveLibrary()
+      render()
+      break
+    case 'clear-filters':
+      state.search = ''
+      state.regionFilter = 'All regions'
+      state.consoleFilter = 'Super Nintendo'
+      state.ownershipFilter = 'all'
+      state.sortMode = 'title'
+      resetVisibleGameCount()
+      await ensureConsoleCatalogLoaded(state.consoleFilter)
+      render()
+      break
+    case 'dismiss-onboarding':
+      saveOnboardingDismissed()
       render()
       break
     case 'import-catalog':
@@ -2619,6 +2816,20 @@ function validateAuthPassword(password: string) {
   return ''
 }
 
+function getFriendlyAuthError(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+
+  if (message.toLowerCase().includes('could not reach')) {
+    return 'Retro Vault sync could not be reached. Your collection is still safe on this device; try again in a moment.'
+  }
+
+  if (message.toLowerCase().includes('failed to fetch')) {
+    return 'Network connection failed. Check the backend is awake, then try again.'
+  }
+
+  return message
+}
+
 async function handleAuthForm(form: HTMLFormElement) {
   if (state.authLoading) {
     return
@@ -2715,7 +2926,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       return
     }
   } catch (error) {
-    state.authError = error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+    state.authError = getFriendlyAuthError(error)
   } finally {
     state.authLoading = false
     render()
