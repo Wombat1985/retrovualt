@@ -56,6 +56,18 @@ type Spotlight = {
   copy: string
 }
 
+type DailyHuntItem = {
+  label: string
+  title: string
+  detail: string
+  meta: string
+  actionLabel: string
+  action: string
+  game?: CatalogEntry
+  consoleName?: string
+  tone: 'gold' | 'teal' | 'crimson' | 'blue'
+}
+
 type CollectorAchievement = {
   title: string
   detail: string
@@ -815,6 +827,127 @@ function getMissingGrails() {
 
 function getMarketMovers() {
   return [...getCatalog()].sort((left, right) => right.trendDelta - left.trendDelta).slice(0, 4)
+}
+
+function getDailySeed() {
+  return Math.floor(new Date().getTime() / 86_400_000)
+}
+
+function pickDailyGame(games: CatalogEntry[], offset = 0) {
+  if (!games.length) {
+    return null
+  }
+
+  return games[(getDailySeed() + offset) % games.length]
+}
+
+function getTodayHuntItems(): DailyHuntItem[] {
+  const missingGrail = pickDailyGame(getMissingGrails(), 1)
+  const marketMover = pickDailyGame(getMarketMovers(), 2)
+  const alertMatch = pickDailyGame(getAlertMatches(), 3)
+  const nearComplete = getNearCompleteConsoles()[0]
+  const wantedGame = pickDailyGame(getWantedGames(), 4)
+  const ownedGames = getOwnedGames()
+  const items: DailyHuntItem[] = []
+
+  if (missingGrail) {
+    items.push({
+      label: 'Today\'s grail',
+      title: missingGrail.title,
+      detail: `${missingGrail.console} ${missingGrail.year ?? 'release year unknown'} is still missing from your vault.`,
+      meta: `Reference value ${formatPrice(getReferencePrice(missingGrail))}`,
+      actionLabel: 'Open details',
+      action: 'open-details',
+      game: missingGrail,
+      tone: 'gold',
+    })
+  }
+
+  if (marketMover) {
+    items.push({
+      label: 'Market heat',
+      title: marketMover.title,
+      detail: 'One of the hottest movers in your tracked market right now.',
+      meta: `${formatDelta(marketMover.trendDelta)} trend / Loose ${formatPrice(marketMover.priceLoose)}`,
+      actionLabel: 'Inspect mover',
+      action: 'open-details',
+      game: marketMover,
+      tone: 'crimson',
+    })
+  }
+
+  if (nearComplete) {
+    const remaining = nearComplete.total - nearComplete.owned
+    items.push({
+      label: 'Milestone push',
+      title: nearComplete.consoleName,
+      detail: `You are ${remaining.toLocaleString()} game${remaining === 1 ? '' : 's'} away from completing this library.`,
+      meta: `${nearComplete.owned}/${nearComplete.total} owned / ${nearComplete.progress}% complete`,
+      actionLabel: 'View console',
+      action: 'daily-console',
+      consoleName: nearComplete.consoleName,
+      tone: 'teal',
+    })
+  } else {
+    items.push({
+      label: 'Milestone push',
+      title: ownedGames.length ? 'Pick your next console' : 'Start your shelf',
+      detail: ownedGames.length
+        ? 'Choose a system to chase next and your completion milestones will start surfacing here.'
+        : 'Mark your first owned game to unlock completion goals and collector rank progress.',
+      meta: ownedGames.length ? `${ownedGames.length} owned so far` : 'First pickup unlocks the hunt loop',
+      actionLabel: 'Browse library',
+      action: 'browse-library',
+      tone: 'teal',
+    })
+  }
+
+  if (alertMatch) {
+    const target = getRecord(alertMatch.id).targetPrice
+    items.push({
+      label: 'Deal watch',
+      title: alertMatch.title,
+      detail: 'This wanted game is currently at or below your target price.',
+      meta: `Loose ${formatPrice(alertMatch.priceLoose)}${target === null ? '' : ` / Target ${formatPrice(target)}`}`,
+      actionLabel: 'Check deal',
+      action: 'open-details',
+      game: alertMatch,
+      tone: 'blue',
+    })
+  } else if (wantedGame) {
+    items.push({
+      label: 'Deal watch',
+      title: wantedGame.title,
+      detail: 'Set a target price on this wanted game so the vault can surface deal hits.',
+      meta: `Wanted grail value ${formatPrice(getReferencePrice(wantedGame))}`,
+      actionLabel: 'Set target',
+      action: 'set-target-price',
+      game: wantedGame,
+      tone: 'blue',
+    })
+  } else {
+    items.push({
+      label: 'Deal watch',
+      title: 'Add a wanted game',
+      detail: 'Build a hunt list and set target prices to catch future bargains.',
+      meta: 'Wishlist alerts unlock once wanted games have targets',
+      actionLabel: 'Find grails',
+      action: 'browse-library',
+      tone: 'blue',
+    })
+  }
+
+  items.push({
+    label: 'Share spark',
+    title: 'Collector challenge',
+    detail: 'Share your vault progress and invite another retro nerd to compare collector rank.',
+    meta: `${ownedGames.length} owned / ${getWantedGames().length} wanted / ${getCollectorRank().title}`,
+    actionLabel: 'Share challenge',
+    action: 'share-challenge',
+    tone: 'gold',
+  })
+
+  return items.slice(0, 5)
 }
 
 function getTopShelfGames() {
@@ -2108,6 +2241,40 @@ function renderAchievementStrip() {
   `
 }
 
+function renderTodayHunt() {
+  const items = getTodayHuntItems()
+
+  return `
+    <section class="daily-hunt" aria-labelledby="daily-hunt-title">
+      <div class="daily-hunt-header">
+        <div>
+          <p class="kicker">Today's collector hunt</p>
+          <h2 id="daily-hunt-title">Five reasons to check the vault today.</h2>
+        </div>
+        <p class="subtle">A fresh daily mix of grails, market movement, milestones, deal prompts, and share fuel.</p>
+      </div>
+      <div class="daily-hunt-grid">
+        ${items
+          .map((item) => {
+            const dataId = item.game ? ` data-id="${escapeHtml(item.game.id)}"` : ''
+            const dataConsole = item.consoleName ? ` data-console="${escapeHtml(item.consoleName)}"` : ''
+
+            return `
+              <article class="hunt-card hunt-card--${item.tone}">
+                <span class="hunt-label">${escapeHtml(item.label)}</span>
+                <h3>${escapeHtml(item.title)}</h3>
+                <p>${escapeHtml(item.detail)}</p>
+                <strong>${escapeHtml(item.meta)}</strong>
+                <button class="link-button" type="button" data-action="${item.action}"${dataId}${dataConsole}>${escapeHtml(item.actionLabel)}</button>
+              </article>
+            `
+          })
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
 function renderScannerModal() {
   if (!state.scannerOpen) {
     return ''
@@ -2266,6 +2433,7 @@ function renderNow() {
       ${renderTrustStrip()}
       ${renderOnboardingPanel()}
       ${renderAchievementStrip()}
+      ${renderTodayHunt()}
 
       <section class="toolbar">
         <label class="search-field">
@@ -2708,6 +2876,22 @@ async function handleAction(element: HTMLElement) {
     case 'browse-library':
       document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       break
+    case 'daily-console': {
+      const consoleName = element.dataset.console
+
+      if (!consoleName) {
+        return
+      }
+
+      state.consoleFilter = consoleName
+      state.ownershipFilter = 'missing'
+      state.sortMode = 'complete-high'
+      resetVisibleGameCount()
+      await ensureConsoleCatalogLoaded(consoleName)
+      render()
+      document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      break
+    }
     case 'close-scanner':
       state.scannerOpen = false
       state.barcodeLinkCode = null

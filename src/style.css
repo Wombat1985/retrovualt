@@ -69,7 +69,8 @@ a {
 .smart-card,
 .game-card,
 .empty-state,
-.roadmap-card {
+.roadmap-card,
+.daily-hunt {
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
@@ -265,6 +266,119 @@ a {
   color: var(--text);
   font-size: 0.95rem;
   line-height: 1.4;
+}
+
+.daily-hunt {
+  position: relative;
+  overflow: hidden;
+  border-radius: 30px;
+  padding: 22px;
+}
+
+.daily-hunt::before {
+  content: '';
+  position: absolute;
+  inset: -30% auto auto 50%;
+  width: 440px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(88, 216, 170, 0.16), transparent 68%);
+  pointer-events: none;
+}
+
+.daily-hunt-header,
+.daily-hunt-grid {
+  position: relative;
+  z-index: 1;
+}
+
+.daily-hunt-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.daily-hunt-header h2 {
+  max-width: 720px;
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  line-height: 0.96;
+}
+
+.daily-hunt-header .subtle {
+  max-width: 420px;
+  margin: 0;
+}
+
+.daily-hunt-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hunt-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 245px;
+  padding: 16px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.hunt-card--gold {
+  background: linear-gradient(180deg, rgba(83, 54, 12, 0.72), rgba(19, 22, 29, 0.9));
+  border-color: rgba(255, 214, 110, 0.22);
+}
+
+.hunt-card--teal {
+  background: linear-gradient(180deg, rgba(10, 54, 45, 0.72), rgba(16, 25, 31, 0.9));
+  border-color: rgba(88, 216, 170, 0.22);
+}
+
+.hunt-card--crimson {
+  background: linear-gradient(180deg, rgba(78, 23, 34, 0.72), rgba(24, 17, 28, 0.9));
+  border-color: rgba(255, 143, 143, 0.22);
+}
+
+.hunt-card--blue {
+  background: linear-gradient(180deg, rgba(20, 48, 84, 0.72), rgba(13, 21, 33, 0.9));
+  border-color: rgba(120, 180, 255, 0.22);
+}
+
+.hunt-label {
+  color: var(--accent-2);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.hunt-card h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.hunt-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.hunt-card strong {
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.hunt-card .link-button {
+  width: max-content;
+  margin-top: auto;
 }
 
 .hero-stats strong {
@@ -1376,6 +1490,7 @@ a {
   .showcase-grid,
   .insight-grid,
   .achievement-strip,
+  .daily-hunt-grid,
   .identity-card,
   .trust-strip,
   .onboarding-panel,
@@ -1396,6 +1511,11 @@ a {
     flex-direction: column;
     align-items: start;
   }
+
+  .daily-hunt-header {
+    align-items: start;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1411,6 +1531,7 @@ a {
   .spotlight-copy,
   .insight-card,
   .roadmap-card,
+  .daily-hunt,
   .onboarding-panel,
   .game-copy,
   .empty-state {
