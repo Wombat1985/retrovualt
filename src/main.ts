@@ -87,8 +87,8 @@ const CURRENCY_STORAGE_KEY = 'retro-game-collector-currency'
 const AUTH_TOKEN_STORAGE_KEY = 'retro-game-collector-auth-token'
 const AUTH_PROFILE_STORAGE_KEY = 'retro-game-collector-auth-profile'
 const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
-const INITIAL_VISIBLE_GAME_COUNT = 160
-const VISIBLE_GAME_INCREMENT = 160
+const INITIAL_VISIBLE_GAME_COUNT = 96
+const VISIBLE_GAME_INCREMENT = 96
 const appElement = document.querySelector<HTMLDivElement>('#app')
 let catalogCache: CatalogEntry[] | null = null
 let catalogCacheKey = ''
@@ -921,7 +921,7 @@ function getViralShareLines() {
 
 function getConsoleProgress() {
   getCatalog()
-  const key = getLibraryStatsKey()
+  const key = `${getLibraryStatsKey()}:${state.regionFilter}`
 
   if (state.cachedConsoleProgressKey === key) {
     return state.cachedConsoleProgress
@@ -1268,6 +1268,7 @@ function renderCard(game: CatalogEntry) {
           src="${getCardCoverUrl(game)}"
           alt="${escapeHtml(game.title)} cover art"
           loading="lazy"
+          decoding="async"
           referrerpolicy="no-referrer"
         />
         <div class="cover-chips">
@@ -1329,6 +1330,7 @@ function renderSelectedGameModal() {
             src="${getDetailCoverUrl(game)}"
             alt="${escapeHtml(game.title)} cover art"
             loading="eager"
+            decoding="async"
             referrerpolicy="no-referrer"
           />
         </div>
@@ -1783,7 +1785,7 @@ function renderSpotlight(spotlight: Spotlight | null) {
 
   return `
     <article class="spotlight-card">
-      <img class="spotlight-cover" src="${spotlight.game.coverUrl}" alt="${escapeHtml(spotlight.game.title)} cover art" loading="lazy" referrerpolicy="no-referrer" />
+      <img class="spotlight-cover" src="${spotlight.game.coverUrl}" alt="${escapeHtml(spotlight.game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
       <div class="spotlight-copy">
         <p class="kicker">${spotlight.label}</p>
         <h2>${escapeHtml(spotlight.game.title)}</h2>
@@ -2991,7 +2993,7 @@ function registerServiceWorker() {
 
 async function loadGeneratedCatalog() {
   try {
-    const response = await fetch('/catalogs/retro-catalog-meta.json', { cache: 'no-store' })
+    const response = await fetch('/catalogs/retro-catalog-meta.json')
 
     if (!response.ok) {
       throw new Error(`Catalog request failed: ${response.status}`)
@@ -3108,7 +3110,7 @@ async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad
   }
 
   const loadPromise = (async () => {
-    const response = await fetch(meta.file, { cache: 'no-store' })
+    const response = await fetch(meta.file)
 
     if (!response.ok) {
       throw new Error(`Console catalog request failed: ${response.status}`)

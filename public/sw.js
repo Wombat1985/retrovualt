@@ -1,4 +1,4 @@
-const CACHE_NAME = 'retro-vault-elite-v2'
+const CACHE_NAME = 'retro-vault-elite-v3'
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/retro-vault-icon.svg']
 
 self.addEventListener('install', (event) => {
@@ -22,8 +22,28 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Keep large catalog data and app shell fresh instead of pinning users to an older build.
-  if (url.pathname === '/' || url.pathname.endsWith('.html') || url.pathname.startsWith('/catalogs/')) {
+  if (url.pathname.startsWith('/catalogs/')) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(request)
+        const networkUpdate = fetch(request)
+          .then((response) => {
+            if (response && response.status === 200) {
+              void cache.put(request, response.clone())
+            }
+
+            return response
+          })
+          .catch(() => cached)
+
+        return cached ?? networkUpdate
+      }),
+    )
+    return
+  }
+
+  // Keep the app shell fresh instead of pinning users to an older build.
+  if (url.pathname === '/' || url.pathname.endsWith('.html')) {
     event.respondWith(
       fetch(request)
         .then((response) => {
