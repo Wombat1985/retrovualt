@@ -99,6 +99,7 @@ type CollectorBadge = {
   title: string
   detail: string
   hint: string
+  icon: string
   progress: number
   target: number
   unlocked: boolean
@@ -1202,6 +1203,7 @@ function createBadge(
   title: string,
   detail: string,
   hint: string,
+  icon: string,
   progress: number,
   target: number,
   tone: CollectorBadge['tone'],
@@ -1213,6 +1215,7 @@ function createBadge(
     title,
     detail,
     hint,
+    icon,
     progress: safeProgress,
     target,
     unlocked: safeProgress >= target,
@@ -1233,21 +1236,21 @@ function getCollectorBadges(): CollectorBadge[] {
   const positiveDelta = getCollectionDelta() > 0 ? 1 : 0
 
   return [
-    createBadge('first-pickup', 'First Pickup', 'Your first game is officially on the shelf.', 'Mark any game as owned.', ownedGames.length, 1, 'gold'),
-    createBadge('ten-owned', '10 Owned', 'The shelf is starting to look real.', 'Own 10 games.', ownedGames.length, 10, 'teal'),
-    createBadge('fifty-owned', '50 Owned', 'A proper collector library is forming.', 'Own 50 games.', ownedGames.length, 50, 'teal'),
-    createBadge('hundred-owned', '100 Owned', 'A serious vault with real depth.', 'Own 100 games.', ownedGames.length, 100, 'gold'),
-    createBadge('first-grail', 'First Grail', 'You secured a true standout piece.', 'Own one Grail rarity game.', grailsOwned, 1, 'crimson'),
-    createBadge('grail-keeper', 'Grail Keeper', 'Multiple grails now live in your vault.', 'Own 5 Grail rarity games.', grailsOwned, 5, 'crimson'),
-    createBadge('cib-collector', 'CIB Collector', 'Condition tracking is becoming part of your collector identity.', 'Track 10 complete, sealed, or graded games.', cibCount, 10, 'gold'),
-    createBadge('wishlist-hunter', 'Wishlist Hunter', 'Your hunt list has real targets.', 'Add 10 wanted games.', wantedGames.length, 10, 'blue'),
-    createBadge('value-tracker', 'Value Tracker', 'You are tracking paid prices like a market-minded collector.', 'Add paid prices to 10 owned games.', paidPriceCount, 10, 'teal'),
-    createBadge('bargain-finder', 'Bargain Finder', 'Your tracked paid prices show market edge.', 'Enter paid prices until your market edge turns positive.', positiveDelta, 1, 'blue'),
-    createBadge('top-shelf-built', 'Top Shelf Built', 'Your favourites row has personality.', 'Favourite 5 standout games.', favoriteCount, 5, 'gold'),
-    createBadge('deal-watcher', 'Deal Watcher', 'Your wishlist is watching for price hits.', 'Create at least one target price alert hit.', alertCount, 1, 'blue'),
-    createBadge('console-specialist', 'Console Specialist', `${dominantConsole?.consoleName ?? 'One console'} is becoming your signature shelf.`, 'Reach 25% completion on any console.', completionProgress, 25, 'teal'),
-    createBadge('daily-seven', '7-Day Streak', 'You kept the collector rhythm alive for a full week.', 'Open the vault 7 days in a row.', state.visitStreak.current, 7, 'crimson'),
-    createBadge('daily-thirty', '30-Day Streak', 'A month-long vault habit. Serious collector energy.', 'Open the vault 30 days in a row.', state.visitStreak.current, 30, 'gold'),
+    createBadge('first-pickup', 'First Pickup', 'Your first game is officially on the shelf.', 'Mark any game as owned.', 'I', ownedGames.length, 1, 'gold'),
+    createBadge('ten-owned', '10 Owned', 'The shelf is starting to look real.', 'Own 10 games.', '10', ownedGames.length, 10, 'teal'),
+    createBadge('fifty-owned', '50 Owned', 'A proper collector library is forming.', 'Own 50 games.', '50', ownedGames.length, 50, 'teal'),
+    createBadge('hundred-owned', '100 Owned', 'A serious vault with real depth.', 'Own 100 games.', '100', ownedGames.length, 100, 'gold'),
+    createBadge('first-grail', 'First Grail', 'You secured a true standout piece.', 'Own one Grail rarity game.', 'G', grailsOwned, 1, 'crimson'),
+    createBadge('grail-keeper', 'Grail Keeper', 'Multiple grails now live in your vault.', 'Own 5 Grail rarity games.', 'GK', grailsOwned, 5, 'crimson'),
+    createBadge('cib-collector', 'CIB Collector', 'Condition tracking is becoming part of your collector identity.', 'Track 10 complete, sealed, or graded games.', 'CIB', cibCount, 10, 'gold'),
+    createBadge('wishlist-hunter', 'Wishlist Hunter', 'Your hunt list has real targets.', 'Add 10 wanted games.', 'W', wantedGames.length, 10, 'blue'),
+    createBadge('value-tracker', 'Value Tracker', 'You are tracking paid prices like a market-minded collector.', 'Add paid prices to 10 owned games.', '$', paidPriceCount, 10, 'teal'),
+    createBadge('bargain-finder', 'Bargain Finder', 'Your tracked paid prices show market edge.', 'Enter paid prices until your market edge turns positive.', 'B', positiveDelta, 1, 'blue'),
+    createBadge('top-shelf-built', 'Top Shelf Built', 'Your favourites row has personality.', 'Favourite 5 standout games.', 'TS', favoriteCount, 5, 'gold'),
+    createBadge('deal-watcher', 'Deal Watcher', 'Your wishlist is watching for price hits.', 'Create at least one target price alert hit.', 'DW', alertCount, 1, 'blue'),
+    createBadge('console-specialist', 'Console Specialist', `${dominantConsole?.consoleName ?? 'One console'} is becoming your signature shelf.`, 'Reach 25% completion on any console.', '25', completionProgress, 25, 'teal'),
+    createBadge('daily-seven', '7-Day Streak', 'You kept the collector rhythm alive for a full week.', 'Open the vault 7 days in a row.', '7', state.visitStreak.current, 7, 'crimson'),
+    createBadge('daily-thirty', '30-Day Streak', 'A month-long vault habit. Serious collector energy.', 'Open the vault 30 days in a row.', '30', state.visitStreak.current, 30, 'gold'),
   ]
 }
 
@@ -2707,8 +2710,11 @@ function renderNewsletterCapture() {
 function renderBadgePill(badge: CollectorBadge) {
   return `
     <article class="badge-pill badge-pill--${badge.tone}">
-      <span>${badge.unlocked ? 'Unlocked' : `${badge.progress}/${badge.target}`}</span>
-      <strong>${escapeHtml(badge.title)}</strong>
+      <div class="badge-medal" aria-hidden="true"><span>${escapeHtml(badge.icon)}</span></div>
+      <div class="badge-pill-copy">
+        <span>${badge.unlocked ? 'Unlocked' : `${badge.progress}/${badge.target}`}</span>
+        <strong>${escapeHtml(badge.title)}</strong>
+      </div>
     </article>
   `
 }
@@ -2737,9 +2743,14 @@ function renderBadgesModal() {
             .map(
               (badge) => `
                 <article class="badge-card ${badge.unlocked ? 'is-unlocked' : 'is-locked'} badge-card--${badge.tone}">
-                  <span class="badge-state">${badge.unlocked ? 'Unlocked' : 'Locked'}</span>
-                  <h3>${escapeHtml(badge.title)}</h3>
-                  <p>${escapeHtml(badge.unlocked ? badge.detail : badge.hint)}</p>
+                  <div class="badge-card-top">
+                    <div class="badge-medal badge-medal--large" aria-hidden="true"><span>${escapeHtml(badge.icon)}</span></div>
+                    <span class="badge-state">${badge.unlocked ? 'Unlocked' : 'Locked'}</span>
+                  </div>
+                  <div class="badge-card-copy">
+                    <h3>${escapeHtml(badge.title)}</h3>
+                    <p>${escapeHtml(badge.unlocked ? badge.detail : badge.hint)}</p>
+                  </div>
                   <div class="badge-progress" aria-label="${escapeHtml(badge.title)} progress ${badge.progress} of ${badge.target}">
                     <span style="width:${getBadgePercent(badge)}%"></span>
                   </div>
