@@ -73,7 +73,8 @@ a {
 .daily-hunt,
 .streak-card,
 .weekly-recap-card,
-.badge-preview {
+.badge-preview,
+.newsletter-card {
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
@@ -636,6 +637,50 @@ a {
   color: var(--text);
 }
 
+.newsletter-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.55fr);
+  gap: 18px;
+  align-items: end;
+  padding: 22px;
+  border-radius: 30px;
+  background:
+    linear-gradient(135deg, rgba(247, 155, 50, 0.14), rgba(88, 216, 170, 0.1)),
+    var(--panel);
+}
+
+.newsletter-card h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  line-height: 0.95;
+}
+
+.newsletter-form {
+  display: grid;
+  gap: 12px;
+}
+
+.newsletter-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.newsletter-form input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 13px 16px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.newsletter-status {
+  color: var(--accent-2);
+  font-weight: 800;
+}
+
 .hero-stats strong {
   display: block;
   margin: 8px 0 4px;
@@ -651,6 +696,7 @@ a {
 .achievement-strip,
 .retention-grid,
 .badge-preview,
+.newsletter-card,
 .trust-strip,
 .onboarding-panel,
 .control-summary,
@@ -1751,6 +1797,7 @@ a {
   .retention-grid,
   .weekly-recap-card,
   .badge-preview,
+  .newsletter-card,
   .badge-grid,
   .identity-card,
   .trust-strip,

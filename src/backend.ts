@@ -21,6 +21,7 @@ export type SyncStatePayload = {
   customCatalog: unknown[]
   currencyCode: string
   barcodeMappings: Record<string, string>
+  activityEvents?: unknown[]
   clientUpdatedAt?: string
   version?: number
   profile?: {
@@ -166,4 +167,11 @@ export async function trackPageView(signedIn = false) {
   } catch {
     // Analytics must never block the app.
   }
+}
+
+export async function subscribeToNewsletter(email: string, source = 'app') {
+  return request<{ ok: boolean; message: string }>('/newsletter/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({ email, source }),
+  })
 }

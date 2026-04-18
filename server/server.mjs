@@ -33,6 +33,7 @@ function createEmptyDb() {
     users: [],
     sessions: [],
     passwordResets: [],
+    newsletterSubscribers: [],
     analytics: createDefaultAnalyticsState(),
   }
 }
@@ -63,6 +64,7 @@ function loadDb() {
       users: Array.isArray(parsed.users) ? parsed.users : [],
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
       passwordResets: Array.isArray(parsed.passwordResets) ? parsed.passwordResets : [],
+      newsletterSubscribers: Array.isArray(parsed.newsletterSubscribers) ? parsed.newsletterSubscribers : [],
       analytics: normalizeAnalyticsState(parsed.analytics),
     }
   } catch {
@@ -350,14 +352,31 @@ function getTopCounters(bucket, limit = 12) {
 function getAdminStats(db) {
   const analytics = normalizeAnalyticsState(db.analytics)
   const users = db.users.map(getSafeUserDetails).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+  const today = new Date().toISOString().slice(0, 10)
+  const viewsToday = Number(analytics.days?.[today]) || 0
+  const signupsToday = users.filter((user) => String(user.createdAt).startsWith(today)).length
+  const newsletterToday = db.newsletterSubscribers.filter((entry) => String(entry.createdAt).startsWith(today)).length
 
   return {
     generatedAt: new Date().toISOString(),
     userCount: users.length,
+    signupsToday,
     activeSessionCount: db.sessions.length,
+    newsletterSubscriberCount: db.newsletterSubscribers.length,
+    newsletterToday,
+    signupConversionRate: viewsToday ? Number(((signupsToday / viewsToday) * 100).toFixed(2)) : 0,
     users,
+    newsletterSubscribers: db.newsletterSubscribers
+      .slice()
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+      .map((entry) => ({
+        email: entry.email,
+        source: entry.source,
+        createdAt: entry.createdAt,
+      })),
     analytics: {
       totalPageViews: analytics.totalPageViews,
+      viewsToday,
       signedInPageViews: analytics.signedInPageViews,
       firstTrackedAt: analytics.firstTrackedAt,
       lastTrackedAt: analytics.lastTrackedAt,
@@ -377,6 +396,7 @@ function createDefaultSyncState() {
     customCatalog: [],
     currencyCode: 'USD',
     barcodeMappings: {},
+    activityEvents: [],
     clientUpdatedAt: new Date().toISOString(),
     version: 2,
     profile: {
@@ -451,6 +471,39 @@ const server = createServer(async (request, response) => {
       recordPageView(db, request, body)
       saveDb(db)
       json(request, response, 200, { ok: true })
+      return
+    }
+
+    if (request.method === 'POST' && url.pathname === '/newsletter/subscribe') {
+      if (!rateLimit(request, 'newsletter', 8, 15 * 60 * 1000)) {
+        json(request, response, 429, { error: 'Too many signup attempts. Please wait and try again.' })
+        return
+      }
+
+      const body = await readBody(request)
+      const email = String(body.email ?? '').trim().toLowerCase()
+      const source = String(body.source ?? 'site').trim().slice(0, 80)
+
+      if (!isValidEmail(email)) {
+        json(request, response, 400, { error: 'Enter a valid email address.' })
+        return
+      }
+
+      const existing = db.newsletterSubscribers.find((entry) => entry.email === email)
+
+      if (existing) {
+        existing.source = existing.source || source
+        existing.updatedAt = new Date().toISOString()
+      } else {
+        db.newsletterSubscribers.push({
+          email,
+          source,
+          createdAt: new Date().toISOString(),
+        })
+      }
+
+      saveDb(db)
+      json(request, response, 200, { ok: true, message: 'You are on the Retro Vault market movers list.' })
       return
     }
 
@@ -739,6 +792,7 @@ const server = createServer(async (request, response) => {
         customCatalog: body.customCatalog ?? [],
         currencyCode: body.currencyCode ?? 'USD',
         barcodeMappings: body.barcodeMappings ?? {},
+        activityEvents: Array.isArray(body.activityEvents) ? body.activityEvents.slice(0, 250) : user.syncState?.activityEvents ?? [],
         clientUpdatedAt: typeof body.clientUpdatedAt === 'string' ? body.clientUpdatedAt : new Date().toISOString(),
         version: typeof body.version === 'number' ? body.version : 1,
         profile: body.profile ?? user.syncState?.profile ?? { displayName: user.displayName ?? '', shelfTagline: '' },

@@ -61,6 +61,36 @@
     <priority>0.85</priority>
   </url>
   <url>
+    <loc>https://www.retrovaultelite.com/snes-rarity-list.html</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.84</priority>
+  </url>
+  <url>
+    <loc>https://www.retrovaultelite.com/nes-collection-checklist.html</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.84</priority>
+  </url>
+  <url>
+    <loc>https://www.retrovaultelite.com/game-boy-collection-checklist.html</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.84</priority>
+  </url>
+  <url>
+    <loc>https://www.retrovaultelite.com/best-retro-games-to-collect.html</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.86</priority>
+  </url>
+  <url>
+    <loc>https://www.retrovaultelite.com/complete-in-box-value-guide.html</loc>
+    <lastmod>2026-04-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.84</priority>
+  </url>
+  <url>
     <loc>https://www.retrovaultelite.com/famicom-collection-tracker.html</loc>
     <lastmod>2026-04-17</lastmod>
     <changefreq>weekly</changefreq>

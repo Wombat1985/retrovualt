@@ -107,6 +107,16 @@ async function main() {
       barcodeMappings: {
         '012345678905': 'super-nintendo-actraiser',
       },
+      activityEvents: [
+        {
+          id: 'test-owned-added',
+          type: 'owned_added',
+          gameId: 'super-nintendo-actraiser',
+          title: 'Game added to collection',
+          detail: 'ActRaiser joined the vault.',
+          createdAt: new Date().toISOString(),
+        },
+      ],
       clientUpdatedAt: new Date().toISOString(),
       version: 2,
       profile: {
@@ -148,6 +158,15 @@ async function main() {
       throw new Error('Barcode mappings did not restore exactly.')
     }
 
+    if (!Array.isArray(restored.activityEvents) || restored.activityEvents[0]?.id !== 'test-owned-added') {
+      throw new Error('Activity events did not restore exactly.')
+    }
+
+    await request('/newsletter/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ email: `newsletter-${Date.now()}@example.com`, source: 'test' }),
+    })
+
     await request('/analytics/page-view', {
       method: 'POST',
       body: JSON.stringify({ path: '/', referrer: '', signedIn: true }),
@@ -158,7 +177,7 @@ async function main() {
       headers: { 'X-Admin-Key': 'test-admin-key' },
     })
 
-    if (stats.userCount < 1 || stats.analytics.totalPageViews < 1) {
+    if (stats.userCount < 1 || stats.analytics.totalPageViews < 1 || stats.newsletterSubscriberCount < 1) {
       throw new Error('Admin stats did not include account and analytics totals.')
     }
 

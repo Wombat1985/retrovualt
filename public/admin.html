@@ -237,13 +237,35 @@
           .join('')
       }
 
+      function renderSubscriberRows(subscribers) {
+        if (!subscribers?.length) {
+          return '<tr><td colspan="3">No newsletter subscribers yet.</td></tr>'
+        }
+
+        return subscribers
+          .map(
+            (subscriber) => `
+              <tr>
+                <td>${escapeHtml(subscriber.email)}</td>
+                <td>${escapeHtml(subscriber.source || 'site')}</td>
+                <td>${escapeHtml(subscriber.createdAt)}</td>
+              </tr>
+            `,
+          )
+          .join('')
+      }
+
       function renderStats(stats) {
         resultsEl.innerHTML = `
           <section class="stat-grid">
             <article class="card"><span class="stat">${Number(stats.analytics.totalPageViews).toLocaleString()}</span><p>All-time page views tracked here</p></article>
+            <article class="card"><span class="stat">${Number(stats.analytics.viewsToday || 0).toLocaleString()}</span><p>Page views today</p></article>
             <article class="card"><span class="stat">${Number(stats.userCount).toLocaleString()}</span><p>Created accounts</p></article>
+            <article class="card"><span class="stat">${Number(stats.signupsToday || 0).toLocaleString()}</span><p>Signups today</p></article>
+            <article class="card"><span class="stat">${Number(stats.signupConversionRate || 0)}%</span><p>Signup conversion today</p></article>
+            <article class="card"><span class="stat">${Number(stats.newsletterSubscriberCount || 0).toLocaleString()}</span><p>Newsletter subscribers</p></article>
+            <article class="card"><span class="stat">${Number(stats.newsletterToday || 0).toLocaleString()}</span><p>Newsletter signups today</p></article>
             <article class="card"><span class="stat">${Number(stats.activeSessionCount).toLocaleString()}</span><p>Active sessions</p></article>
-            <article class="card"><span class="stat">${Number(stats.analytics.signedInPageViews).toLocaleString()}</span><p>Signed-in page views</p></article>
           </section>
           <section class="grid">
             <article class="card">
@@ -264,6 +286,19 @@
                 .map((item) => `<tr><td>${escapeHtml(item.date)}</td><td>${Number(item.views).toLocaleString()}</td></tr>`)
                 .join('') || '<tr><td colspan="2">Nothing tracked yet.</td></tr>'}</tbody></table>
             </article>
+          </section>
+          <section class="card" style="margin-top: 18px">
+            <h2>Newsletter subscribers</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Source</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>${renderSubscriberRows(stats.newsletterSubscribers)}</tbody>
+            </table>
           </section>
           <section class="card" style="margin-top: 18px">
             <h2>Accounts</h2>

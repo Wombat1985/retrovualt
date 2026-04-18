@@ -12,6 +12,7 @@ import {
   registerAccount,
   requestPasswordReset,
   saveBarcodeMapping,
+  subscribeToNewsletter,
   trackPageView,
   updateAccountProfile,
 } from './backend'
@@ -75,6 +76,24 @@ type VisitStreak = {
   weekStartDate: string
 }
 
+type ActivityType =
+  | 'owned_added'
+  | 'wanted_added'
+  | 'cib_upgraded'
+  | 'paid_price_added'
+  | 'favorite_added'
+  | 'target_price_added'
+  | 'badge_unlocked'
+
+type ActivityEvent = {
+  id: string
+  type: ActivityType
+  gameId?: string
+  title: string
+  detail: string
+  createdAt: string
+}
+
 type CollectorBadge = {
   id: string
   title: string
@@ -128,6 +147,8 @@ const AUTH_PROFILE_STORAGE_KEY = 'retro-game-collector-auth-profile'
 const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
 const ONBOARDING_STORAGE_KEY = 'retro-game-collector-onboarding-dismissed'
 const STREAK_STORAGE_KEY = 'retro-game-collector-visit-streak'
+const ACTIVITY_STORAGE_KEY = 'retro-game-collector-activity-events'
+const MAX_ACTIVITY_EVENTS = 250
 const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
 const INITIAL_VISIBLE_GAME_COUNT = 96
@@ -202,6 +223,7 @@ const state = {
   authLoading: false,
   authError: '',
   authSuccess: '',
+  newsletterStatus: '',
   resetToken: getPasswordResetToken(),
   library: loadLibrary(),
   generatedCatalog: [] as CatalogEntry[],
@@ -211,6 +233,7 @@ const state = {
   barcodeMappings: loadBarcodeMappings(),
   onboardingDismissed: loadOnboardingDismissed(),
   visitStreak: recordDailyVisit(),
+  activityEvents: loadActivityEvents(),
   cachedOwnedGames: [] as CatalogEntry[],
   cachedWantedGames: [] as CatalogEntry[],
   cachedCatalogStatsKey: '',
@@ -403,6 +426,79 @@ function saveOnboardingDismissed() {
   localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true')
 }
 
+function isActivityType(value: unknown): value is ActivityType {
+  return (
+    value === 'owned_added' ||
+    value === 'wanted_added' ||
+    value === 'cib_upgraded' ||
+    value === 'paid_price_added' ||
+    value === 'favorite_added' ||
+    value === 'target_price_added' ||
+    value === 'badge_unlocked'
+  )
+}
+
+function normalizeActivityEvent(value: unknown): ActivityEvent | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const event = value as Partial<ActivityEvent>
+
+  if (!event.id || !isActivityType(event.type) || !event.title || !event.detail || !event.createdAt) {
+    return null
+  }
+
+  return {
+    id: String(event.id),
+    type: event.type,
+    gameId: typeof event.gameId === 'string' ? event.gameId : undefined,
+    title: String(event.title),
+    detail: String(event.detail),
+    createdAt: String(event.createdAt),
+  }
+}
+
+function loadActivityEvents() {
+  const raw = localStorage.getItem(ACTIVITY_STORAGE_KEY)
+
+  if (!raw) {
+    return [] as ActivityEvent[]
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? parsed.map(normalizeActivityEvent).filter((event): event is ActivityEvent => event !== null).slice(0, MAX_ACTIVITY_EVENTS)
+      : []
+  } catch {
+    return []
+  }
+}
+
+function saveActivityEvents() {
+  localStorage.setItem(ACTIVITY_STORAGE_KEY, JSON.stringify(state.activityEvents.slice(0, MAX_ACTIVITY_EVENTS)))
+}
+
+function mergeActivityEvents(remoteEvents: ActivityEvent[]) {
+  return [...new Map([...state.activityEvents, ...remoteEvents].map((event) => [event.id, event])).values()]
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .slice(0, MAX_ACTIVITY_EVENTS)
+}
+
+function addActivityEvent(event: Omit<ActivityEvent, 'id' | 'createdAt'>) {
+  const createdAt = new Date().toISOString()
+  state.activityEvents = [
+    {
+      ...event,
+      id: `${createdAt}-${event.type}-${event.gameId ?? event.title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      createdAt,
+    },
+    ...state.activityEvents,
+  ].slice(0, MAX_ACTIVITY_EVENTS)
+  saveActivityEvents()
+}
+
 function getLocalDateKey(offsetDays = 0) {
   const date = new Date()
   date.setHours(0, 0, 0, 0)
@@ -509,6 +605,7 @@ function resetLocalCollectionState() {
   state.library = {}
   state.customCatalog = []
   state.barcodeMappings = {}
+  state.activityEvents = []
   saveLocalCollectionState()
 }
 
@@ -516,6 +613,7 @@ function saveLocalCollectionState() {
   localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
   localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
   localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
+  saveActivityEvents()
 }
 
 function loadBarcodeMappings() {
@@ -1044,6 +1142,12 @@ function getTodayHuntItems(): DailyHuntItem[] {
 function getWeeklyRecapLines() {
   const ownedGames = getOwnedGames()
   const wantedGames = getWantedGames()
+  const weeklyEvents = getWeeklyActivityEvents()
+  const addedOwned = countWeeklyEvents(weeklyEvents, 'owned_added')
+  const addedWanted = countWeeklyEvents(weeklyEvents, 'wanted_added')
+  const cibUpgrades = countWeeklyEvents(weeklyEvents, 'cib_upgraded')
+  const paidPrices = countWeeklyEvents(weeklyEvents, 'paid_price_added')
+  const newFavorites = countWeeklyEvents(weeklyEvents, 'favorite_added')
   const completeCount = ownedGames.filter((game) => isCompleteEdition(getRecord(game.id))).length
   const favoriteCount = getFavoriteCount()
   const alertMatches = getAlertMatches()
@@ -1056,6 +1160,10 @@ function getWeeklyRecapLines() {
     `Weekly vault recap from ${state.visitStreak.weekStartDate}`,
     `Collector rank: ${rank.title}`,
     `Daily streak: ${state.visitStreak.current} day${state.visitStreak.current === 1 ? '' : 's'} / best ${state.visitStreak.best}`,
+    `Added this week: ${addedOwned} owned / ${addedWanted} wanted`,
+    `CIB upgrades this week: ${cibUpgrades}`,
+    `Paid prices entered this week: ${paidPrices}`,
+    `Top shelf picks this week: ${newFavorites}`,
     `Owned: ${ownedGames.length}`,
     `Wishlist: ${wantedGames.length}`,
     `Complete/CIB tracked: ${completeCount}`,
@@ -1071,12 +1179,22 @@ function getWeeklyRecapHighlights() {
   const lines = getWeeklyRecapLines()
   return {
     streak: lines[2],
-    owned: lines[3],
-    value: lines[7],
-    strongest: lines[8],
-    rarest: lines[9],
-    alerts: lines[10],
+    added: lines[3],
+    owned: lines[7],
+    value: lines[11],
+    strongest: lines[12],
+    rarest: lines[13],
+    alerts: lines[14],
   }
+}
+
+function getWeeklyActivityEvents() {
+  const weekStart = new Date(`${state.visitStreak.weekStartDate}T00:00:00`)
+  return state.activityEvents.filter((event) => new Date(event.createdAt).getTime() >= weekStart.getTime())
+}
+
+function countWeeklyEvents(events: ActivityEvent[], type: ActivityType) {
+  return events.filter((event) => event.type === type).length
 }
 
 function createBadge(
@@ -1618,6 +1736,7 @@ function getSyncPayload() {
     customCatalog: state.customCatalog,
     currencyCode: state.currencyCode,
     barcodeMappings: state.barcodeMappings,
+    activityEvents: state.activityEvents,
     clientUpdatedAt: new Date().toISOString(),
     version: 2,
     profile: {
@@ -1662,7 +1781,12 @@ function hasMeaningfulRecord(record: GameRecord) {
 }
 
 function hasLocalCollectionData() {
-  return Object.values(state.library).some(hasMeaningfulRecord) || state.customCatalog.length > 0 || Object.keys(state.barcodeMappings).length > 0
+  return (
+    Object.values(state.library).some(hasMeaningfulRecord) ||
+    state.customCatalog.length > 0 ||
+    Object.keys(state.barcodeMappings).length > 0 ||
+    state.activityEvents.length > 0
+  )
 }
 
 function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: GameRecord) {
@@ -1716,6 +1840,7 @@ function applyRemoteSyncState(syncState: {
   customCatalog: unknown[]
   currencyCode: string
   barcodeMappings: Record<string, string>
+  activityEvents?: unknown[]
   profile?: {
     displayName?: string
     shelfTagline?: string
@@ -1754,10 +1879,15 @@ function applyRemoteSyncState(syncState: {
       )
     : {}
 
+  const remoteActivityEvents = Array.isArray(syncState.activityEvents)
+    ? syncState.activityEvents.map(normalizeActivityEvent).filter((event): event is ActivityEvent => event !== null)
+    : []
+
   const shouldMerge = options.mergeWithLocal && hasLocalCollectionData()
 
   state.library = shouldMerge ? mergeLibraryData(remoteLibrary) : remoteLibrary
   state.customCatalog = shouldMerge ? mergeCustomCatalogData(remoteCustomCatalog) : remoteCustomCatalog
+  state.activityEvents = shouldMerge ? mergeActivityEvents(remoteActivityEvents) : remoteActivityEvents.slice(0, MAX_ACTIVITY_EVENTS)
 
   if (typeof syncState.currencyCode === 'string' && currencyOptions.some((currency) => currency.code === syncState.currencyCode)) {
     state.currencyCode = options.mergeWithLocal && state.currencyCode ? state.currencyCode : syncState.currencyCode
@@ -1773,6 +1903,7 @@ function applyRemoteSyncState(syncState: {
   localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
   localStorage.setItem(CURRENCY_STORAGE_KEY, state.currencyCode)
   localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
+  saveActivityEvents()
 }
 
 function scheduleCloudSync() {
@@ -2492,6 +2623,7 @@ function renderRetentionRecap() {
         </div>
         <div class="weekly-recap-stats">
           <span>${escapeHtml(highlights.owned)}</span>
+          <span>${escapeHtml(highlights.added)}</span>
           <span>${escapeHtml(highlights.value)}</span>
           <span>${escapeHtml(highlights.strongest)}</span>
           <span>${escapeHtml(highlights.rarest)}</span>
@@ -2548,6 +2680,26 @@ function renderBadgePreview() {
             : '<p class="subtle">Every badge is unlocked. Legendary shelf behavior.</p>'
         }
       </div>
+    </section>
+  `
+}
+
+function renderNewsletterCapture() {
+  return `
+    <section class="newsletter-card" aria-label="Weekly retro market movers email">
+      <div>
+        <p class="kicker">Weekly market movers</p>
+        <h2>Bring collectors back with one useful email.</h2>
+        <p class="subtle">Join the free Retro Vault list for weekly grails, market movers, collecting tips, and feature drops. No spam. Just shelf fuel.</p>
+        ${state.newsletterStatus ? `<p class="newsletter-status">${escapeHtml(state.newsletterStatus)}</p>` : ''}
+      </div>
+      <form class="newsletter-form" data-newsletter-form>
+        <label>
+          <span>Email</span>
+          <input name="email" type="email" autocomplete="email" required placeholder="collector@example.com" value="${escapeHtml(state.accountEmail)}" />
+        </label>
+        <button class="toggle-button" type="submit">Get weekly movers</button>
+      </form>
     </section>
   `
 }
@@ -2763,6 +2915,7 @@ function renderNow() {
       ${renderTodayHunt()}
       ${renderRetentionRecap()}
       ${renderBadgePreview()}
+      ${renderNewsletterCapture()}
 
       <section class="toolbar">
         <label class="search-field">
@@ -2976,6 +3129,12 @@ function bindEvents() {
 
   app.addEventListener('submit', (event) => {
     const form = event.target as HTMLFormElement
+
+    if (form.matches('[data-newsletter-form]')) {
+      event.preventDefault()
+      void handleNewsletterForm(form)
+      return
+    }
 
     if (!form.matches('[data-auth-form]')) {
       return
@@ -3392,7 +3551,9 @@ async function handleAction(element: HTMLElement) {
 
 function setRecord(id: string, updater: (record: GameRecord) => GameRecord) {
   const decodedAlias = decodeHtmlEntities(id)
-  const nextRecord = updater(getRecord(id))
+  const previousBadgeIds = new Set(getUnlockedBadges().map((badge) => badge.id))
+  const previousRecord = getRecord(id)
+  const nextRecord = updater(previousRecord)
 
   state.library = {
     ...state.library,
@@ -3406,8 +3567,83 @@ function setRecord(id: string, updater: (record: GameRecord) => GameRecord) {
   libraryRevision += 1
   state.cachedCatalogStatsKey = ''
   state.cachedConsoleProgressKey = ''
+  recordCollectionActivity(id, previousRecord, nextRecord)
+  recordNewBadgeUnlocks(previousBadgeIds)
   saveLibrary()
   render()
+}
+
+function recordCollectionActivity(id: string, previousRecord: GameRecord, nextRecord: GameRecord) {
+  const game = getGameById(id)
+  const title = game?.title ?? id
+
+  if (previousRecord.status !== 'owned' && nextRecord.status === 'owned') {
+    addActivityEvent({
+      type: 'owned_added',
+      gameId: id,
+      title: 'Game added to collection',
+      detail: `${title} joined the vault as ${getEditionLabel(nextRecord.editionStatus)}.`,
+    })
+  }
+
+  if (previousRecord.status !== 'wanted' && nextRecord.status === 'wanted') {
+    addActivityEvent({
+      type: 'wanted_added',
+      gameId: id,
+      title: 'Wanted game added',
+      detail: `${title} was added to the hunt list.`,
+    })
+  }
+
+  if (!isCompleteEdition(previousRecord) && isCompleteEdition(nextRecord)) {
+    addActivityEvent({
+      type: 'cib_upgraded',
+      gameId: id,
+      title: 'Condition upgraded',
+      detail: `${title} is now tracked as ${getEditionLabel(nextRecord.editionStatus)}.`,
+    })
+  }
+
+  if (previousRecord.pricePaid === null && nextRecord.pricePaid !== null) {
+    addActivityEvent({
+      type: 'paid_price_added',
+      gameId: id,
+      title: 'Paid price tracked',
+      detail: `${title} now has a paid price for market edge tracking.`,
+    })
+  }
+
+  if (!previousRecord.favorite && nextRecord.favorite) {
+    addActivityEvent({
+      type: 'favorite_added',
+      gameId: id,
+      title: 'Top shelf pick',
+      detail: `${title} was added to the showcase shelf.`,
+    })
+  }
+
+  if (previousRecord.targetPrice === null && nextRecord.targetPrice !== null) {
+    addActivityEvent({
+      type: 'target_price_added',
+      gameId: id,
+      title: 'Deal target set',
+      detail: `${title} now has a wishlist target price.`,
+    })
+  }
+}
+
+function recordNewBadgeUnlocks(previousBadgeIds: Set<string>) {
+  for (const badge of getUnlockedBadges()) {
+    if (previousBadgeIds.has(badge.id)) {
+      continue
+    }
+
+    addActivityEvent({
+      type: 'badge_unlocked',
+      title: 'Badge unlocked',
+      detail: `${badge.title}: ${badge.detail}`,
+    })
+  }
 }
 
 function markGameOwned(id: string, editionStatus: EditionStatus) {
@@ -3706,6 +3942,30 @@ async function handleAuthForm(form: HTMLFormElement) {
     state.authLoading = false
     render()
   }
+}
+
+async function handleNewsletterForm(form: HTMLFormElement) {
+  const formData = new FormData(form)
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  const emailError = validateAuthEmail(email)
+
+  if (emailError) {
+    state.newsletterStatus = emailError
+    render()
+    return
+  }
+
+  state.newsletterStatus = 'Joining the weekly movers list...'
+  render()
+
+  try {
+    const response = await subscribeToNewsletter(email, 'app-dashboard')
+    state.newsletterStatus = response.message
+  } catch (error) {
+    state.newsletterStatus = getFriendlyAuthError(error)
+  }
+
+  render()
 }
 
 async function logoutCurrentAccount() {
