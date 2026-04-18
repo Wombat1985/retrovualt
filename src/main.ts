@@ -75,6 +75,17 @@ type VisitStreak = {
   weekStartDate: string
 }
 
+type CollectorBadge = {
+  id: string
+  title: string
+  detail: string
+  hint: string
+  progress: number
+  target: number
+  unlocked: boolean
+  tone: 'gold' | 'teal' | 'crimson' | 'blue'
+}
+
 type CollectorAchievement = {
   title: string
   detail: string
@@ -206,6 +217,7 @@ const state = {
   cachedConsoleProgress: [] as ConsoleProgress[],
   cachedConsoleProgressKey: '',
   selectedGameId: null as string | null,
+  badgesOpen: false,
   ownershipPickerGameId: null as string | null,
   justOwnedGameId: null as string | null,
   scannerOpen: false,
@@ -1065,6 +1077,75 @@ function getWeeklyRecapHighlights() {
     rarest: lines[9],
     alerts: lines[10],
   }
+}
+
+function createBadge(
+  id: string,
+  title: string,
+  detail: string,
+  hint: string,
+  progress: number,
+  target: number,
+  tone: CollectorBadge['tone'],
+): CollectorBadge {
+  const safeProgress = Math.max(0, Math.min(progress, target))
+
+  return {
+    id,
+    title,
+    detail,
+    hint,
+    progress: safeProgress,
+    target,
+    unlocked: safeProgress >= target,
+    tone,
+  }
+}
+
+function getCollectorBadges(): CollectorBadge[] {
+  const ownedGames = getOwnedGames()
+  const wantedGames = getWantedGames()
+  const grailsOwned = ownedGames.filter((game) => game.rarity === 'Grail').length
+  const cibCount = ownedGames.filter((game) => isCompleteEdition(getRecord(game.id))).length
+  const paidPriceCount = getPaidPriceCount()
+  const favoriteCount = getFavoriteCount()
+  const alertCount = getAlertMatches().length
+  const dominantConsole = getDominantConsole()
+  const completionProgress = dominantConsole?.progress ?? 0
+  const positiveDelta = getCollectionDelta() > 0 ? 1 : 0
+
+  return [
+    createBadge('first-pickup', 'First Pickup', 'Your first game is officially on the shelf.', 'Mark any game as owned.', ownedGames.length, 1, 'gold'),
+    createBadge('ten-owned', '10 Owned', 'The shelf is starting to look real.', 'Own 10 games.', ownedGames.length, 10, 'teal'),
+    createBadge('fifty-owned', '50 Owned', 'A proper collector library is forming.', 'Own 50 games.', ownedGames.length, 50, 'teal'),
+    createBadge('hundred-owned', '100 Owned', 'A serious vault with real depth.', 'Own 100 games.', ownedGames.length, 100, 'gold'),
+    createBadge('first-grail', 'First Grail', 'You secured a true standout piece.', 'Own one Grail rarity game.', grailsOwned, 1, 'crimson'),
+    createBadge('grail-keeper', 'Grail Keeper', 'Multiple grails now live in your vault.', 'Own 5 Grail rarity games.', grailsOwned, 5, 'crimson'),
+    createBadge('cib-collector', 'CIB Collector', 'Condition tracking is becoming part of your collector identity.', 'Track 10 complete, sealed, or graded games.', cibCount, 10, 'gold'),
+    createBadge('wishlist-hunter', 'Wishlist Hunter', 'Your hunt list has real targets.', 'Add 10 wanted games.', wantedGames.length, 10, 'blue'),
+    createBadge('value-tracker', 'Value Tracker', 'You are tracking paid prices like a market-minded collector.', 'Add paid prices to 10 owned games.', paidPriceCount, 10, 'teal'),
+    createBadge('bargain-finder', 'Bargain Finder', 'Your tracked paid prices show market edge.', 'Enter paid prices until your market edge turns positive.', positiveDelta, 1, 'blue'),
+    createBadge('top-shelf-built', 'Top Shelf Built', 'Your favourites row has personality.', 'Favourite 5 standout games.', favoriteCount, 5, 'gold'),
+    createBadge('deal-watcher', 'Deal Watcher', 'Your wishlist is watching for price hits.', 'Create at least one target price alert hit.', alertCount, 1, 'blue'),
+    createBadge('console-specialist', 'Console Specialist', `${dominantConsole?.consoleName ?? 'One console'} is becoming your signature shelf.`, 'Reach 25% completion on any console.', completionProgress, 25, 'teal'),
+    createBadge('daily-seven', '7-Day Streak', 'You kept the collector rhythm alive for a full week.', 'Open the vault 7 days in a row.', state.visitStreak.current, 7, 'crimson'),
+    createBadge('daily-thirty', '30-Day Streak', 'A month-long vault habit. Serious collector energy.', 'Open the vault 30 days in a row.', state.visitStreak.current, 30, 'gold'),
+  ]
+}
+
+function getUnlockedBadges() {
+  return getCollectorBadges().filter((badge) => badge.unlocked)
+}
+
+function getNextBadges() {
+  return getCollectorBadges()
+    .filter((badge) => !badge.unlocked)
+    .sort((left, right) => right.progress / right.target - left.progress / left.target)
+    .slice(0, 4)
+}
+
+function getBadgePercent(badge: CollectorBadge) {
+  return Math.min(100, Math.round((badge.progress / badge.target) * 100))
 }
 
 function getTopShelfGames() {
@@ -2425,6 +2506,102 @@ function renderRetentionRecap() {
   `
 }
 
+function renderBadgePreview() {
+  const unlockedBadges = getUnlockedBadges()
+  const nextBadges = getNextBadges()
+  const previewBadges = unlockedBadges.slice(0, 4)
+  const totalBadges = getCollectorBadges().length
+
+  return `
+    <section class="badge-preview" aria-label="Collector badges">
+      <div class="badge-preview-copy">
+        <p class="kicker">Collector badges</p>
+        <h2>${unlockedBadges.length}/${totalBadges} unlocked</h2>
+        <p class="subtle">Badges turn collection habits into goals: owned counts, grails, CIB tracking, wishlist alerts, streaks, value tracking, and console mastery.</p>
+        <div class="card-actions">
+          <button class="toggle-button" type="button" data-action="open-badges">View badges</button>
+          <button class="ghost-button" type="button" data-action="share-badges">Share badges</button>
+        </div>
+      </div>
+      <div class="badge-preview-list">
+        ${
+          previewBadges.length
+            ? previewBadges.map(renderBadgePill).join('')
+            : '<p class="subtle">No badges unlocked yet. Mark your first owned game to start the shelf.</p>'
+        }
+      </div>
+      <div class="next-badge-list">
+        <strong>Closest next</strong>
+        ${
+          nextBadges.length
+            ? nextBadges
+                .map(
+                  (badge) => `
+                    <div class="next-badge">
+                      <span>${escapeHtml(badge.title)}</span>
+                      <em>${badge.progress}/${badge.target}</em>
+                      <div class="badge-progress" aria-hidden="true"><span style="width:${getBadgePercent(badge)}%"></span></div>
+                    </div>
+                  `,
+                )
+                .join('')
+            : '<p class="subtle">Every badge is unlocked. Legendary shelf behavior.</p>'
+        }
+      </div>
+    </section>
+  `
+}
+
+function renderBadgePill(badge: CollectorBadge) {
+  return `
+    <article class="badge-pill badge-pill--${badge.tone}">
+      <span>${badge.unlocked ? 'Unlocked' : `${badge.progress}/${badge.target}`}</span>
+      <strong>${escapeHtml(badge.title)}</strong>
+    </article>
+  `
+}
+
+function renderBadgesModal() {
+  if (!state.badgesOpen) {
+    return ''
+  }
+
+  const badges = getCollectorBadges()
+  const unlockedCount = badges.filter((badge) => badge.unlocked).length
+
+  return `
+    <div class="game-modal-backdrop" data-action="close-badges">
+      <section class="badges-modal" role="dialog" aria-modal="true" aria-labelledby="badges-title" onclick="event.stopPropagation()">
+        <button class="modal-close" type="button" data-action="close-badges" aria-label="Close badges">Close</button>
+        <p class="kicker">Collector badges</p>
+        <h2 id="badges-title">${unlockedCount}/${badges.length} badges unlocked</h2>
+        <p class="modal-description">Every badge is a reason to keep building: own more games, track condition, chase grails, add wanted targets, and keep your daily streak alive.</p>
+        <div class="card-actions">
+          <button class="toggle-button" type="button" data-action="share-badges">Share my badges</button>
+          <button class="ghost-button" type="button" data-action="browse-library">Chase next badge</button>
+        </div>
+        <div class="badge-grid">
+          ${badges
+            .map(
+              (badge) => `
+                <article class="badge-card ${badge.unlocked ? 'is-unlocked' : 'is-locked'} badge-card--${badge.tone}">
+                  <span class="badge-state">${badge.unlocked ? 'Unlocked' : 'Locked'}</span>
+                  <h3>${escapeHtml(badge.title)}</h3>
+                  <p>${escapeHtml(badge.unlocked ? badge.detail : badge.hint)}</p>
+                  <div class="badge-progress" aria-label="${escapeHtml(badge.title)} progress ${badge.progress} of ${badge.target}">
+                    <span style="width:${getBadgePercent(badge)}%"></span>
+                  </div>
+                  <strong>${badge.progress}/${badge.target}</strong>
+                </article>
+              `,
+            )
+            .join('')}
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderScannerModal() {
   if (!state.scannerOpen) {
     return ''
@@ -2585,6 +2762,7 @@ function renderNow() {
       ${renderAchievementStrip()}
       ${renderTodayHunt()}
       ${renderRetentionRecap()}
+      ${renderBadgePreview()}
 
       <section class="toolbar">
         <label class="search-field">
@@ -2714,6 +2892,7 @@ function renderNow() {
       ${renderScannerModal()}
       ${renderOwnershipPickerModal()}
       ${renderSelectedGameModal()}
+      ${renderBadgesModal()}
       ${renderAuthModal()}
     </div>
   `
@@ -3132,6 +3311,14 @@ async function handleAction(element: HTMLElement) {
       state.selectedGameId = null
       render()
       break
+    case 'open-badges':
+      state.badgesOpen = true
+      render()
+      break
+    case 'close-badges':
+      state.badgesOpen = false
+      render()
+      break
     case 'ownership-filter': {
       const filter = element.dataset.filter as OwnershipFilter | undefined
 
@@ -3188,6 +3375,9 @@ async function handleAction(element: HTMLElement) {
       break
     case 'share-weekly-recap':
       await shareWeeklyRecap()
+      break
+    case 'share-badges':
+      await shareBadges()
       break
     case 'share-challenge':
       await shareCollectorChallenge()
@@ -3761,6 +3951,42 @@ async function shareWeeklyRecap() {
   }
 
   window.alert(recap)
+}
+
+async function shareBadges() {
+  const badgesUrl = `${window.location.origin}/collector-challenge.html`
+  const unlockedBadges = getUnlockedBadges()
+  const nextBadges = getNextBadges()
+  const badgeText = [
+    'Retro Vault Elite Badge Shelf',
+    `${unlockedBadges.length}/${getCollectorBadges().length} badges unlocked`,
+    `Collector rank: ${getCollectorRank().title}`,
+    `Unlocked: ${unlockedBadges.map((badge) => badge.title).slice(0, 6).join(', ') || 'First badge still loading'}`,
+    `Next target: ${nextBadges[0] ? `${nextBadges[0].title} (${nextBadges[0].progress}/${nextBadges[0].target})` : 'All badges unlocked'}`,
+    '',
+    `Build your own badge shelf: ${badgesUrl}`,
+  ].join('\n')
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Retro Vault Elite badge shelf',
+        text: badgeText,
+        url: badgesUrl,
+      })
+      return
+    } catch {
+      // fall through to clipboard
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(badgeText)
+    window.alert('Badge shelf copied to your clipboard.')
+    return
+  }
+
+  window.alert(badgeText)
 }
 
 async function shareCollectorChallenge() {

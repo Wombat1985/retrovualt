@@ -72,7 +72,8 @@ a {
 .roadmap-card,
 .daily-hunt,
 .streak-card,
-.weekly-recap-card {
+.weekly-recap-card,
+.badge-preview {
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
@@ -456,6 +457,185 @@ a {
   grid-column: 1 / -1;
 }
 
+.badge-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(280px, 0.7fr) minmax(280px, 0.6fr);
+  gap: 18px;
+  padding: 22px;
+  border-radius: 30px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(255, 214, 110, 0.14), transparent 38%),
+    var(--panel);
+}
+
+.badge-preview-copy h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 0.95;
+}
+
+.badge-preview-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.badge-pill {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-height: 108px;
+  padding: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.badge-pill span,
+.badge-state {
+  color: var(--accent-2);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.badge-pill strong {
+  color: var(--text);
+  font-family: var(--display);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.badge-pill--gold,
+.badge-card--gold.is-unlocked {
+  background: linear-gradient(180deg, rgba(83, 54, 12, 0.76), rgba(20, 19, 24, 0.92));
+}
+
+.badge-pill--teal,
+.badge-card--teal.is-unlocked {
+  background: linear-gradient(180deg, rgba(10, 54, 45, 0.76), rgba(16, 25, 31, 0.92));
+}
+
+.badge-pill--crimson,
+.badge-card--crimson.is-unlocked {
+  background: linear-gradient(180deg, rgba(78, 23, 34, 0.76), rgba(24, 17, 28, 0.92));
+}
+
+.badge-pill--blue,
+.badge-card--blue.is-unlocked {
+  background: linear-gradient(180deg, rgba(20, 48, 84, 0.76), rgba(13, 21, 33, 0.92));
+}
+
+.next-badge-list {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.next-badge-list > strong {
+  color: var(--text);
+  font-family: var(--display);
+  font-size: 1.25rem;
+}
+
+.next-badge {
+  display: grid;
+  gap: 7px;
+}
+
+.next-badge span {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.next-badge em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.86rem;
+}
+
+.badge-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.badge-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+.badges-modal {
+  width: min(1120px, calc(100vw - 28px));
+  max-height: min(88vh, 980px);
+  overflow: auto;
+  position: relative;
+  border-radius: 30px;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 214, 110, 0.14), transparent 36%),
+    var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.badges-modal h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2.2rem, 6vw, 4.6rem);
+  line-height: 0.94;
+}
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.badge-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 210px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.badge-card.is-locked {
+  opacity: 0.72;
+  filter: saturate(0.55);
+}
+
+.badge-card h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.badge-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.badge-card strong {
+  color: var(--text);
+}
+
 .hero-stats strong {
   display: block;
   margin: 8px 0 4px;
@@ -470,6 +650,7 @@ a {
 .identity-card,
 .achievement-strip,
 .retention-grid,
+.badge-preview,
 .trust-strip,
 .onboarding-panel,
 .control-summary,
@@ -1569,6 +1750,8 @@ a {
   .daily-hunt-grid,
   .retention-grid,
   .weekly-recap-card,
+  .badge-preview,
+  .badge-grid,
   .identity-card,
   .trust-strip,
   .onboarding-panel,
@@ -1625,6 +1808,10 @@ a {
   }
 
   .identity-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .badge-preview-list {
     grid-template-columns: 1fr;
   }
 
