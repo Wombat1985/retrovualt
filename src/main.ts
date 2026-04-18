@@ -2691,9 +2691,9 @@ function renderNewsletterCapture() {
   return `
     <section class="newsletter-card" aria-label="Weekly retro market movers email">
       <div>
-        <p class="kicker">Weekly market movers</p>
-        <h2>Bring collectors back with one useful email.</h2>
-        <p class="subtle">Join the free Retro Vault list for weekly grails, market movers, collecting tips, and feature drops. No spam. Just shelf fuel.</p>
+        <p class="kicker">Collector market notes</p>
+        <h2>Get the weekly retro watchlist.</h2>
+        <p class="subtle">A short collector email with notable market movers, grail alerts, checklist ideas, and Retro Vault updates worth knowing about.</p>
         ${state.newsletterStatus ? `<p class="newsletter-status">${escapeHtml(state.newsletterStatus)}</p>` : ''}
       </div>
       <form class="newsletter-form" data-newsletter-form>
@@ -2701,7 +2701,7 @@ function renderNewsletterCapture() {
           <span>Email</span>
           <input name="email" type="email" autocomplete="email" required placeholder="collector@example.com" value="${escapeHtml(state.accountEmail)}" />
         </label>
-        <button class="toggle-button" type="submit">Get weekly movers</button>
+        <button class="toggle-button" type="submit">Join the watchlist</button>
       </form>
     </section>
   `
