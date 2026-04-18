@@ -4,7 +4,18 @@ import { join } from 'node:path'
 const outputDir = join(process.cwd(), 'marketing')
 const outputPath = join(outputDir, 'retro-vault-30-day-calendar.csv')
 const baseUrl = 'https://www.retrovaultelite.com'
-const channels = ['Facebook group', 'Reddit', 'Discord', 'TikTok caption', 'YouTube Short comment', 'X post']
+const channels = [
+  'Facebook group',
+  'Reddit',
+  'Discord',
+  'TikTok caption',
+  'YouTube Short comment',
+  'X post',
+  'Threads post',
+  'Bluesky post',
+  'Creator outreach',
+  'Retro forum',
+]
 const hooks = [
   'What is the rarest game in your retro collection?',
   'Loose carts or complete in box: which collector are you?',
@@ -24,6 +35,10 @@ const angles = [
   'Invite people to build a wishlist of grails.',
   'Ask spreadsheet users what would convert them.',
   'Talk about completion percentage and shelf goals.',
+  'Invite people to test the collector challenge.',
+  'Ask for one feature collectors would add.',
+  'Show why loose and complete-in-box values should stay separate.',
+  'Invite creators to try it as a free audience resource.',
 ]
 
 function csvEscape(value) {
