@@ -193,6 +193,7 @@
       const statusEl = document.querySelector('#status')
       const resultsEl = document.querySelector('#results')
       const cachedStatsKey = 'retro-vault-admin-stats-cache'
+      const lifetimeViewsKey = 'retro-vault-lifetime-page-views'
 
       keyInput.value = localStorage.getItem('retro-vault-admin-key') || ''
 
@@ -257,9 +258,18 @@
       }
 
       function renderStats(stats) {
+        const backendLifetimeViews = Number(stats.analytics.lifetimePageViews || stats.analytics.totalPageViews || 0)
+        const cachedLifetimeViews = Number(localStorage.getItem(lifetimeViewsKey) || 0)
+        const displayedLifetimeViews = Math.max(backendLifetimeViews, cachedLifetimeViews)
+
+        if (displayedLifetimeViews > cachedLifetimeViews) {
+          localStorage.setItem(lifetimeViewsKey, String(displayedLifetimeViews))
+        }
+
         resultsEl.innerHTML = `
           <section class="stat-grid">
-            <article class="card"><span class="stat">${Number(stats.analytics.totalPageViews).toLocaleString()}</span><p>All-time page views tracked here</p></article>
+            <article class="card"><span class="stat">${displayedLifetimeViews.toLocaleString()}</span><p>Lifetime page views</p></article>
+            <article class="card"><span class="stat">${Number(stats.analytics.totalPageViews || 0).toLocaleString()}</span><p>Backend stored page views</p></article>
             <article class="card"><span class="stat">${Number(stats.analytics.viewsToday || 0).toLocaleString()}</span><p>Page views today</p></article>
             <article class="card"><span class="stat">${Number(stats.userCount).toLocaleString()}</span><p>Created accounts</p></article>
             <article class="card"><span class="stat">${Number(stats.signupsToday || 0).toLocaleString()}</span><p>Signups today</p></article>
@@ -276,8 +286,8 @@
               Dashboard generated: <strong>${escapeHtml(stats.generatedAt || 'Unknown')}</strong>
             </p>
             <p>
-              If these totals ever drop after a backend redeploy, Render storage is resetting the backend data file.
-              The page will still show the last cached dashboard from this browser while we investigate.
+              Lifetime page views use the highest count this browser has seen, so the admin dashboard does not appear
+              to go backwards if the backend is waking up or being redeployed.
             </p>
           </section>
           <section class="grid">

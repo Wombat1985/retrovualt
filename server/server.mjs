@@ -42,6 +42,7 @@ function createEmptyDb() {
 function createDefaultAnalyticsState() {
   return {
     totalPageViews: 0,
+    lifetimePageViews: 0,
     firstTrackedAt: null,
     lastTrackedAt: null,
     pages: {},
@@ -101,9 +102,14 @@ function saveDb(db) {
 }
 
 function normalizeAnalyticsState(analytics) {
+  const totalPageViews = Number(analytics?.totalPageViews) || 0
+  const lifetimePageViews = Math.max(Number(analytics?.lifetimePageViews) || 0, totalPageViews)
+
   return {
     ...createDefaultAnalyticsState(),
     ...(analytics && typeof analytics === 'object' ? analytics : {}),
+    totalPageViews,
+    lifetimePageViews,
     pages: analytics?.pages && typeof analytics.pages === 'object' ? analytics.pages : {},
     days: analytics?.days && typeof analytics.days === 'object' ? analytics.days : {},
     referrers: analytics?.referrers && typeof analytics.referrers === 'object' ? analytics.referrers : {},
@@ -354,6 +360,7 @@ function recordPageView(db, request, body) {
   const signedIn = Boolean(body.signedIn)
 
   analytics.totalPageViews = (Number(analytics.totalPageViews) || 0) + 1
+  analytics.lifetimePageViews = Math.max(Number(analytics.lifetimePageViews) || 0, analytics.totalPageViews)
   analytics.firstTrackedAt = analytics.firstTrackedAt ?? now.toISOString()
   analytics.lastTrackedAt = now.toISOString()
   analytics.signedInPageViews = (Number(analytics.signedInPageViews) || 0) + (signedIn ? 1 : 0)
@@ -398,6 +405,7 @@ function getAdminStats(db) {
       })),
     analytics: {
       totalPageViews: analytics.totalPageViews,
+      lifetimePageViews: analytics.lifetimePageViews,
       viewsToday,
       signedInPageViews: analytics.signedInPageViews,
       firstTrackedAt: analytics.firstTrackedAt,
