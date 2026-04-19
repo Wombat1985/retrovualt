@@ -231,6 +231,7 @@ const state = {
   authLoading: false,
   authError: '',
   authSuccess: '',
+  authEmailDraft: '',
   newsletterStatus: '',
   resetToken: getPasswordResetToken(),
   library: loadLibrary(),
@@ -2450,12 +2451,13 @@ function getAuthHelperText() {
 function renderAuthForm() {
   const disabled = state.authLoading ? 'disabled' : ''
   const buttonText = (label: string) => (state.authLoading ? 'Working...' : label)
+  const emailDraft = escapeHtml(state.authEmailDraft)
 
   if (state.authView === 'register') {
     return `
       <form class="auth-form" data-auth-form="register">
         <label><span>Display name</span><input name="displayName" autocomplete="name" placeholder="Retro collector name" /></label>
-        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" value="${emailDraft}" /></label>
         <label><span>Password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" /></label>
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Create account')}</button>
         <button class="ghost-button" type="button" data-action="open-login">Already have an account?</button>
@@ -2466,11 +2468,11 @@ function renderAuthForm() {
   if (state.authView === 'login') {
     return `
       <form class="auth-form" data-auth-form="login">
-        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" value="${emailDraft}" /></label>
         <label><span>Password</span><input name="password" type="password" autocomplete="current-password" required /></label>
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Sign in')}</button>
         <button class="ghost-button" type="button" data-action="open-reset">Forgot password?</button>
-        <button class="ghost-button" type="button" data-action="open-register">Create account</button>
+        <button class="ghost-button" type="button" data-action="open-register">Create or recover account</button>
       </form>
     `
   }
@@ -2478,7 +2480,7 @@ function renderAuthForm() {
   if (state.authView === 'reset') {
     return `
       <form class="auth-form" data-auth-form="reset">
-        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" value="${emailDraft}" /></label>
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Send reset email')}</button>
         <button class="ghost-button" type="button" data-action="open-login">Back to sign in</button>
       </form>
@@ -3885,6 +3887,10 @@ function validateAuthPassword(password: string) {
 function getFriendlyAuthError(error: unknown) {
   const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.'
 
+  if (message.toLowerCase().includes('no account was found')) {
+    return 'No account was found for that email. If you created it before, the hosted backend may have reset. Tap "Create or recover account" and use the same email to sync the collection saved on this device.'
+  }
+
   if (message.toLowerCase().includes('could not reach')) {
     return 'Retro Vault sync could not be reached. Your collection is still safe on this device; try again in a moment.'
   }
@@ -3912,6 +3918,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       const displayName = String(formData.get('displayName') ?? '').trim()
       const email = String(formData.get('email') ?? '').trim().toLowerCase()
       const password = String(formData.get('password') ?? '')
+      state.authEmailDraft = email
       const emailError = validateAuthEmail(email)
       const passwordError = validateAuthPassword(password)
 
@@ -3934,6 +3941,7 @@ async function handleAuthForm(form: HTMLFormElement) {
     if (formType === 'login') {
       const email = String(formData.get('email') ?? '').trim().toLowerCase()
       const password = String(formData.get('password') ?? '')
+      state.authEmailDraft = email
       const emailError = validateAuthEmail(email)
 
       if (emailError) {
@@ -3953,6 +3961,7 @@ async function handleAuthForm(form: HTMLFormElement) {
 
     if (formType === 'reset') {
       const email = String(formData.get('email') ?? '').trim().toLowerCase()
+      state.authEmailDraft = email
       const emailError = validateAuthEmail(email)
 
       if (emailError) {
