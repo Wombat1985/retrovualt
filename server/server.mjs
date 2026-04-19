@@ -15,6 +15,10 @@ const dbBackupPath = join(dataDir, 'db.backup.json')
 const port = Number(process.env.PORT ?? 8787)
 const sessionTtlMs = Number(process.env.SESSION_TTL_DAYS ?? 30) * 24 * 60 * 60 * 1000
 const resetTtlMs = Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 30) * 60 * 1000
+const supabaseUrl = String(process.env.SUPABASE_URL ?? '').replace(/\/$/, '')
+const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '')
+const supabaseStateTable = String(process.env.SUPABASE_STATE_TABLE ?? 'retro_vault_state')
+const supabaseStateId = String(process.env.SUPABASE_STATE_ID ?? 'main')
 const requestLimits = new Map()
 const defaultAllowedOrigins = [
   'https://www.retrovaultelite.com',
@@ -53,7 +57,89 @@ function createDefaultAnalyticsState() {
   }
 }
 
-function loadDb() {
+function normalizeDb(parsed) {
+  return {
+    users: Array.isArray(parsed?.users) ? parsed.users : [],
+    sessions: Array.isArray(parsed?.sessions) ? parsed.sessions : [],
+    passwordResets: Array.isArray(parsed?.passwordResets) ? parsed.passwordResets : [],
+    newsletterSubscribers: Array.isArray(parsed?.newsletterSubscribers) ? parsed.newsletterSubscribers : [],
+    analytics: normalizeAnalyticsState(parsed?.analytics),
+  }
+}
+
+function isSupabaseConfigured() {
+  return Boolean(supabaseUrl && supabaseServiceRoleKey)
+}
+
+function hasMeaningfulDbData(db) {
+  return (
+    db.users.length > 0 ||
+    db.newsletterSubscribers.length > 0 ||
+    Number(db.analytics?.lifetimePageViews) > 0 ||
+    Number(db.analytics?.totalPageViews) > 0
+  )
+}
+
+async function supabaseRequest(path, init = {}) {
+  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: supabaseServiceRoleKey,
+      Authorization: `Bearer ${supabaseServiceRoleKey}`,
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '')
+    throw new Error(`Supabase request failed (${response.status}): ${errorText || response.statusText}`)
+  }
+
+  if (response.status === 204) {
+    return null
+  }
+
+  return response.json()
+}
+
+async function loadSupabaseDb() {
+  const rows = await supabaseRequest(
+    `${encodeURIComponent(supabaseStateTable)}?id=eq.${encodeURIComponent(supabaseStateId)}&select=data&limit=1`,
+  )
+
+  if (Array.isArray(rows) && rows[0]?.data) {
+    const remoteDb = normalizeDb(rows[0].data)
+    const localDb = loadLocalDb()
+
+    if (!hasMeaningfulDbData(remoteDb) && hasMeaningfulDbData(localDb)) {
+      await saveSupabaseDb(localDb)
+      return normalizeDb(localDb)
+    }
+
+    return remoteDb
+  }
+
+  const emptyDb = createEmptyDb()
+  await saveSupabaseDb(emptyDb)
+  return emptyDb
+}
+
+async function saveSupabaseDb(db) {
+  await supabaseRequest(encodeURIComponent(supabaseStateTable), {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=minimal',
+    },
+    body: JSON.stringify({
+      id: supabaseStateId,
+      data: normalizeDb(db),
+      updated_at: new Date().toISOString(),
+    }),
+  })
+}
+
+function loadLocalDb() {
   if (!existsSync(dbPath)) {
     const emptyDb = createEmptyDb()
     writeFileSync(dbPath, JSON.stringify(emptyDb, null, 2))
@@ -62,25 +148,13 @@ function loadDb() {
 
   try {
     const parsed = JSON.parse(readFileSync(dbPath, 'utf8'))
-    return {
-      users: Array.isArray(parsed.users) ? parsed.users : [],
-      sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
-      passwordResets: Array.isArray(parsed.passwordResets) ? parsed.passwordResets : [],
-      newsletterSubscribers: Array.isArray(parsed.newsletterSubscribers) ? parsed.newsletterSubscribers : [],
-      analytics: normalizeAnalyticsState(parsed.analytics),
-    }
+    return normalizeDb(parsed)
   } catch {
     if (existsSync(dbBackupPath)) {
       try {
         const parsed = JSON.parse(readFileSync(dbBackupPath, 'utf8'))
-        const recoveredDb = {
-          users: Array.isArray(parsed.users) ? parsed.users : [],
-          sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
-          passwordResets: Array.isArray(parsed.passwordResets) ? parsed.passwordResets : [],
-          newsletterSubscribers: Array.isArray(parsed.newsletterSubscribers) ? parsed.newsletterSubscribers : [],
-          analytics: normalizeAnalyticsState(parsed.analytics),
-        }
-        saveDb(recoveredDb)
+        const recoveredDb = normalizeDb(parsed)
+        saveLocalDb(recoveredDb)
         return recoveredDb
       } catch {
         // Fall through to a clean database if both files are unreadable.
@@ -88,17 +162,43 @@ function loadDb() {
     }
 
     const emptyDb = createEmptyDb()
-    saveDb(emptyDb)
+    saveLocalDb(emptyDb)
     return emptyDb
   }
 }
 
-function saveDb(db) {
+function saveLocalDb(db) {
   const tmpPath = `${dbPath}.tmp`
-  const serialized = JSON.stringify(db, null, 2)
+  const serialized = JSON.stringify(normalizeDb(db), null, 2)
   writeFileSync(tmpPath, serialized)
   renameSync(tmpPath, dbPath)
   writeFileSync(dbBackupPath, serialized)
+}
+
+async function loadDb() {
+  if (isSupabaseConfigured()) {
+    try {
+      return await loadSupabaseDb()
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : error)
+    }
+  }
+
+  return loadLocalDb()
+}
+
+async function saveDb(db) {
+  saveLocalDb(db)
+
+  if (!isSupabaseConfigured()) {
+    return
+  }
+
+  try {
+    await saveSupabaseDb(db)
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error)
+  }
 }
 
 function normalizeAnalyticsState(analytics) {
@@ -220,7 +320,7 @@ function readBody(request) {
   })
 }
 
-function getSessionUser(request, db) {
+async function getSessionUser(request, db) {
   const authHeader = request.headers.authorization
 
   if (!authHeader?.startsWith('Bearer ')) {
@@ -236,7 +336,7 @@ function getSessionUser(request, db) {
 
   if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) {
     db.sessions = db.sessions.filter((entry) => entry.token !== token)
-    saveDb(db)
+    await saveDb(db)
     return null
   }
 
@@ -481,7 +581,7 @@ const server = createServer(async (request, response) => {
     return
   }
 
-  const db = loadDb()
+  const db = await loadDb()
   pruneSecurityState(db)
   const url = new URL(request.url, `http://${request.headers.host}`)
 
@@ -499,7 +599,7 @@ const server = createServer(async (request, response) => {
 
       const body = await readBody(request)
       recordPageView(db, request, body)
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 200, { ok: true })
       return
     }
@@ -532,7 +632,7 @@ const server = createServer(async (request, response) => {
         })
       }
 
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 200, { ok: true, message: 'You are on the Retro Vault market movers list.' })
       return
     }
@@ -597,7 +697,7 @@ const server = createServer(async (request, response) => {
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
       })
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 201, { token, user: sanitizeUser(user), syncState: user.syncState })
       return
     }
@@ -630,7 +730,7 @@ const server = createServer(async (request, response) => {
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
       })
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 200, { token, user: sanitizeUser(user), syncState: user.syncState })
       return
     }
@@ -641,7 +741,7 @@ const server = createServer(async (request, response) => {
 
       if (token) {
         db.sessions = db.sessions.filter((entry) => entry.token !== token)
-        saveDb(db)
+        await saveDb(db)
       }
 
       json(request, response, 200, { ok: true })
@@ -674,7 +774,7 @@ const server = createServer(async (request, response) => {
           createdAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + resetTtlMs).toISOString(),
         })
-        saveDb(db)
+        await saveDb(db)
         const resetLink = `${appUrl || `http://${request.headers.host}`}/?resetToken=${encodeURIComponent(token)}`
         await sendPasswordResetEmail(email, resetLink)
       }
@@ -709,13 +809,13 @@ const server = createServer(async (request, response) => {
       user.passwordHash = hashPassword(password)
       db.passwordResets = db.passwordResets.filter((entry) => entry.tokenHash !== hashToken(token))
       db.sessions = db.sessions.filter((entry) => entry.userId !== user.id)
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 200, { ok: true })
       return
     }
 
     if (request.method === 'GET' && url.pathname === '/auth/me') {
-      const user = getSessionUser(request, db)
+      const user = await getSessionUser(request, db)
 
       if (!user) {
         json(request, response, 401, { error: 'Not signed in.' })
@@ -727,7 +827,7 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'PATCH' && url.pathname === '/auth/me') {
-      const user = getSessionUser(request, db)
+      const user = await getSessionUser(request, db)
 
       if (!user) {
         json(request, response, 401, { error: 'Not signed in.' })
@@ -746,13 +846,13 @@ const server = createServer(async (request, response) => {
         },
         updatedAt: new Date().toISOString(),
       }
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 200, { user: sanitizeUser(user), syncState: user.syncState })
       return
     }
 
     if (request.method === 'POST' && url.pathname === '/auth/change-password') {
-      const user = getSessionUser(request, db)
+      const user = await getSessionUser(request, db)
 
       if (!user) {
         json(request, response, 401, { error: 'Not signed in.' })
@@ -775,13 +875,13 @@ const server = createServer(async (request, response) => {
       }
 
       user.passwordHash = hashPassword(nextPassword)
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 200, { ok: true })
       return
     }
 
     if (request.method === 'DELETE' && url.pathname === '/auth/me') {
-      const user = getSessionUser(request, db)
+      const user = await getSessionUser(request, db)
 
       if (!user) {
         json(request, response, 401, { error: 'Not signed in.' })
@@ -791,13 +891,13 @@ const server = createServer(async (request, response) => {
       db.users = db.users.filter((entry) => entry.id !== user.id)
       db.sessions = db.sessions.filter((entry) => entry.userId !== user.id)
       db.passwordResets = db.passwordResets.filter((entry) => entry.userId !== user.id)
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 200, { ok: true })
       return
     }
 
     if (request.method === 'GET' && url.pathname === '/sync') {
-      const user = getSessionUser(request, db)
+      const user = await getSessionUser(request, db)
 
       if (!user) {
         json(request, response, 401, { error: 'Not signed in.' })
@@ -809,7 +909,7 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'PUT' && url.pathname === '/sync') {
-      const user = getSessionUser(request, db)
+      const user = await getSessionUser(request, db)
 
       if (!user) {
         json(request, response, 401, { error: 'Not signed in.' })
@@ -828,13 +928,13 @@ const server = createServer(async (request, response) => {
         profile: body.profile ?? user.syncState?.profile ?? { displayName: user.displayName ?? '', shelfTagline: '' },
         updatedAt: new Date().toISOString(),
       }
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 200, { syncState: user.syncState })
       return
     }
 
     if (request.method === 'GET' && url.pathname.startsWith('/barcode/')) {
-      const user = getSessionUser(request, db)
+      const user = await getSessionUser(request, db)
 
       if (!user) {
         json(request, response, 401, { error: 'Not signed in.' })
@@ -848,7 +948,7 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'PUT' && url.pathname.startsWith('/barcode/')) {
-      const user = getSessionUser(request, db)
+      const user = await getSessionUser(request, db)
 
       if (!user) {
         json(request, response, 401, { error: 'Not signed in.' })
@@ -869,7 +969,7 @@ const server = createServer(async (request, response) => {
         [code]: gameId,
       }
       user.syncState.updatedAt = new Date().toISOString()
-      saveDb(db)
+      await saveDb(db)
       json(request, response, 200, { code, gameId })
       return
     }
