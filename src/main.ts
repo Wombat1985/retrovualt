@@ -168,6 +168,13 @@ let pendingBarcodeSearchRender = 0
 let libraryRevision = 0
 let appEventsBound = false
 
+type FocusSnapshot = {
+  id: string
+  value: string
+  selectionStart: number | null
+  selectionEnd: number | null
+}
+
 if (!appElement) {
   throw new Error('App root was not found.')
 }
@@ -2847,7 +2854,46 @@ function renderSpotlight(spotlight: Spotlight | null) {
   `
 }
 
+function captureFocusSnapshot(): FocusSnapshot | null {
+  const activeElement = document.activeElement
+
+  if (!(activeElement instanceof HTMLInputElement) || !app.contains(activeElement) || !activeElement.id) {
+    return null
+  }
+
+  if (!['search-input', 'barcode-search'].includes(activeElement.id)) {
+    return null
+  }
+
+  return {
+    id: activeElement.id,
+    value: activeElement.value,
+    selectionStart: activeElement.selectionStart,
+    selectionEnd: activeElement.selectionEnd,
+  }
+}
+
+function restoreFocusSnapshot(snapshot: FocusSnapshot | null) {
+  if (!snapshot) {
+    return
+  }
+
+  const element = document.getElementById(snapshot.id)
+
+  if (!(element instanceof HTMLInputElement)) {
+    return
+  }
+
+  element.value = snapshot.value
+  element.focus({ preventScroll: true })
+
+  if (snapshot.selectionStart !== null && snapshot.selectionEnd !== null) {
+    element.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd)
+  }
+}
+
 function renderNow() {
+  const focusSnapshot = captureFocusSnapshot()
   const catalog = getCatalog()
   const filteredGames = getFilteredGames()
   const visibleGames = filteredGames.slice(0, state.visibleGameCount)
@@ -3062,6 +3108,7 @@ function renderNow() {
   `
 
   bindEvents()
+  restoreFocusSnapshot(focusSnapshot)
 }
 
 function render() {
