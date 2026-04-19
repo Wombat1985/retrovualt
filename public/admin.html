@@ -192,6 +192,7 @@
       const form = document.querySelector('#admin-form')
       const statusEl = document.querySelector('#status')
       const resultsEl = document.querySelector('#results')
+      const cachedStatsKey = 'retro-vault-admin-stats-cache'
 
       keyInput.value = localStorage.getItem('retro-vault-admin-key') || ''
 
@@ -267,6 +268,18 @@
             <article class="card"><span class="stat">${Number(stats.newsletterToday || 0).toLocaleString()}</span><p>Newsletter signups today</p></article>
             <article class="card"><span class="stat">${Number(stats.activeSessionCount).toLocaleString()}</span><p>Active sessions</p></article>
           </section>
+          <section class="card" style="margin-bottom: 18px">
+            <h2>Tracking window</h2>
+            <p>
+              First tracked: <strong>${escapeHtml(stats.analytics.firstTrackedAt || 'Not tracked yet')}</strong><br />
+              Last tracked: <strong>${escapeHtml(stats.analytics.lastTrackedAt || 'Not tracked yet')}</strong><br />
+              Dashboard generated: <strong>${escapeHtml(stats.generatedAt || 'Unknown')}</strong>
+            </p>
+            <p>
+              If these totals ever drop after a backend redeploy, Render storage is resetting the backend data file.
+              The page will still show the last cached dashboard from this browser while we investigate.
+            </p>
+          </section>
           <section class="grid">
             <article class="card">
               <h2>Top pages</h2>
@@ -321,8 +334,26 @@
         `
       }
 
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault()
+      function renderCachedStats() {
+        const cached = localStorage.getItem(cachedStatsKey)
+
+        if (!cached) {
+          return false
+        }
+
+        try {
+          const stats = JSON.parse(cached)
+          renderStats(stats)
+          statusEl.className = 'ok'
+          statusEl.textContent = `Showing last cached owner stats from ${stats.generatedAt || 'an earlier visit'}. Refreshing...`
+          return true
+        } catch {
+          localStorage.removeItem(cachedStatsKey)
+          return false
+        }
+      }
+
+      async function loadStats() {
         const key = keyInput.value.trim()
 
         if (!key) {
@@ -347,14 +378,26 @@
           }
 
           localStorage.setItem('retro-vault-admin-key', key)
+          localStorage.setItem(cachedStatsKey, JSON.stringify(stats))
           statusEl.className = 'ok'
           statusEl.textContent = `Loaded. Last updated ${stats.generatedAt}.`
           renderStats(stats)
         } catch (error) {
           statusEl.className = 'error'
-          statusEl.textContent = error instanceof Error ? error.message : 'Could not load stats.'
+          statusEl.textContent = error instanceof Error ? `${error.message} Showing cached stats if available.` : 'Could not load stats.'
+          renderCachedStats()
         }
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault()
+        await loadStats()
       })
+
+      if (keyInput.value.trim()) {
+        renderCachedStats()
+        loadStats()
+      }
     </script>
   </body>
 </html>

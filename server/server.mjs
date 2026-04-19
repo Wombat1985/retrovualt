@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs'
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,6 +11,7 @@ const dataDir = process.env.DATA_DIR
     : join(process.cwd(), process.env.DATA_DIR)
   : join(__dirname, 'data')
 const dbPath = join(dataDir, 'db.json')
+const dbBackupPath = join(dataDir, 'db.backup.json')
 const port = Number(process.env.PORT ?? 8787)
 const sessionTtlMs = Number(process.env.SESSION_TTL_DAYS ?? 30) * 24 * 60 * 60 * 1000
 const resetTtlMs = Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 30) * 60 * 1000
@@ -68,14 +69,35 @@ function loadDb() {
       analytics: normalizeAnalyticsState(parsed.analytics),
     }
   } catch {
+    if (existsSync(dbBackupPath)) {
+      try {
+        const parsed = JSON.parse(readFileSync(dbBackupPath, 'utf8'))
+        const recoveredDb = {
+          users: Array.isArray(parsed.users) ? parsed.users : [],
+          sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+          passwordResets: Array.isArray(parsed.passwordResets) ? parsed.passwordResets : [],
+          newsletterSubscribers: Array.isArray(parsed.newsletterSubscribers) ? parsed.newsletterSubscribers : [],
+          analytics: normalizeAnalyticsState(parsed.analytics),
+        }
+        saveDb(recoveredDb)
+        return recoveredDb
+      } catch {
+        // Fall through to a clean database if both files are unreadable.
+      }
+    }
+
     const emptyDb = createEmptyDb()
-    writeFileSync(dbPath, JSON.stringify(emptyDb, null, 2))
+    saveDb(emptyDb)
     return emptyDb
   }
 }
 
 function saveDb(db) {
-  writeFileSync(dbPath, JSON.stringify(db, null, 2))
+  const tmpPath = `${dbPath}.tmp`
+  const serialized = JSON.stringify(db, null, 2)
+  writeFileSync(tmpPath, serialized)
+  renameSync(tmpPath, dbPath)
+  writeFileSync(dbBackupPath, serialized)
 }
 
 function normalizeAnalyticsState(analytics) {
