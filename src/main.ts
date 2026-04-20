@@ -611,10 +611,24 @@ function clearAuthFeedback() {
 }
 
 function resetLocalCollectionState() {
+  if (syncTimeout !== null) {
+    window.clearTimeout(syncTimeout)
+    syncTimeout = null
+  }
+
+  if (pendingSyncStatusRender) {
+    window.clearTimeout(pendingSyncStatusRender)
+    pendingSyncStatusRender = 0
+  }
+
   state.library = {}
   state.customCatalog = []
   state.barcodeMappings = {}
   state.activityEvents = []
+  state.justOwnedGameId = ''
+  state.selectedGameId = ''
+  libraryRevision += 1
+  invalidateCatalogCache()
   saveLocalCollectionState()
 }
 
