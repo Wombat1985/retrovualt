@@ -1,10 +1,12 @@
 import { createServer } from 'node:http'
+import { setDefaultResultOrder } from 'node:dns'
 import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs'
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+setDefaultResultOrder('ipv4first')
 const dataDir = process.env.DATA_DIR
   ? isAbsolute(process.env.DATA_DIR)
     ? process.env.DATA_DIR
@@ -83,6 +85,15 @@ function updateStorageStatus(status) {
     ...status,
     checkedAt: new Date().toISOString(),
   }
+}
+
+function getErrorMessage(error, fallback) {
+  if (!(error instanceof Error)) {
+    return fallback
+  }
+
+  const cause = error.cause instanceof Error ? ` (${error.cause.message})` : ''
+  return `${error.message}${cause}`
 }
 
 function hasMeaningfulDbData(db) {
@@ -200,7 +211,7 @@ async function loadDb(options = {}) {
       })
       return db
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Supabase storage failed.'
+      const message = getErrorMessage(error, 'Supabase storage failed.')
       updateStorageStatus({
         mode: 'supabase',
         ok: false,
@@ -246,7 +257,7 @@ async function saveDb(db, options = {}) {
       message: 'Supabase persistent storage is connected.',
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Supabase save failed.'
+    const message = getErrorMessage(error, 'Supabase save failed.')
     updateStorageStatus({
       mode: 'supabase',
       ok: false,
