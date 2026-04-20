@@ -15,8 +15,8 @@ const dbBackupPath = join(dataDir, 'db.backup.json')
 const port = Number(process.env.PORT ?? 8787)
 const sessionTtlMs = Number(process.env.SESSION_TTL_DAYS ?? 30) * 24 * 60 * 60 * 1000
 const resetTtlMs = Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 30) * 60 * 1000
-const supabaseUrl = String(process.env.SUPABASE_URL ?? '').replace(/\/$/, '')
-const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '')
+const supabaseUrl = String(process.env.SUPABASE_URL ?? '').replace(/\s+/g, '').replace(/\/$/, '')
+const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').replace(/\s+/g, '')
 const supabaseStateTable = String(process.env.SUPABASE_STATE_TABLE ?? 'retro_vault_state')
 const supabaseStateId = String(process.env.SUPABASE_STATE_ID ?? 'main')
 const requestLimits = new Map()
@@ -211,6 +211,8 @@ async function loadDb(options = {}) {
       if (options.required) {
         throw new Error('Permanent account database is not reachable. Please check the Supabase key in Render.')
       }
+
+      return loadLocalDb()
     }
   }
 
