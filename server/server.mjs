@@ -154,6 +154,27 @@ async function loadSupabaseDb() {
 }
 
 async function saveSupabaseDb(db) {
+  const payload = {
+    data: normalizeDb(db),
+    updated_at: new Date().toISOString(),
+  }
+
+  try {
+    await supabaseRequest(
+      `${encodeURIComponent(supabaseStateTable)}?id=eq.${encodeURIComponent(supabaseStateId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify(payload),
+      },
+    )
+    return
+  } catch (error) {
+    console.error(getErrorMessage(error, 'Supabase update failed.'))
+  }
+
   await supabaseRequest(encodeURIComponent(supabaseStateTable), {
     method: 'POST',
     headers: {
@@ -161,8 +182,7 @@ async function saveSupabaseDb(db) {
     },
     body: JSON.stringify({
       id: supabaseStateId,
-      data: normalizeDb(db),
-      updated_at: new Date().toISOString(),
+      ...payload,
     }),
   })
 }
@@ -269,7 +289,7 @@ async function saveDb(db, options = {}) {
     console.error(message)
 
     if (options.required) {
-      throw new Error('Permanent account database could not save. Please check the Supabase service role key in Render.')
+      throw new Error(`Permanent account database could not save. ${message}`)
     }
   }
 }
