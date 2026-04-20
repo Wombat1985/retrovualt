@@ -20,6 +20,12 @@ const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '
 const supabaseStateTable = String(process.env.SUPABASE_STATE_TABLE ?? 'retro_vault_state')
 const supabaseStateId = String(process.env.SUPABASE_STATE_ID ?? 'main')
 const requestLimits = new Map()
+let lastStorageStatus = {
+  mode: 'local',
+  ok: true,
+  message: 'Using local JSON storage.',
+  checkedAt: null,
+}
 const defaultAllowedOrigins = [
   'https://www.retrovaultelite.com',
   'https://retrovaultelite.com',
@@ -69,6 +75,14 @@ function normalizeDb(parsed) {
 
 function isSupabaseConfigured() {
   return Boolean(supabaseUrl && supabaseServiceRoleKey)
+}
+
+function updateStorageStatus(status) {
+  lastStorageStatus = {
+    ...lastStorageStatus,
+    ...status,
+    checkedAt: new Date().toISOString(),
+  }
 }
 
 function hasMeaningfulDbData(db) {
@@ -175,29 +189,72 @@ function saveLocalDb(db) {
   writeFileSync(dbBackupPath, serialized)
 }
 
-async function loadDb() {
+async function loadDb(options = {}) {
   if (isSupabaseConfigured()) {
     try {
-      return await loadSupabaseDb()
+      const db = await loadSupabaseDb()
+      updateStorageStatus({
+        mode: 'supabase',
+        ok: true,
+        message: 'Supabase persistent storage is connected.',
+      })
+      return db
     } catch (error) {
-      console.error(error instanceof Error ? error.message : error)
+      const message = error instanceof Error ? error.message : 'Supabase storage failed.'
+      updateStorageStatus({
+        mode: 'supabase',
+        ok: false,
+        message,
+      })
+      console.error(message)
+
+      if (options.required) {
+        throw new Error('Permanent account database is not reachable. Please check the Supabase key in Render.')
+      }
     }
   }
 
+  updateStorageStatus({
+    mode: 'local',
+    ok: true,
+    message: isSupabaseConfigured()
+      ? 'Using temporary local fallback because Supabase is unavailable.'
+      : 'Using local JSON storage.',
+  })
   return loadLocalDb()
 }
 
-async function saveDb(db) {
+async function saveDb(db, options = {}) {
   saveLocalDb(db)
 
   if (!isSupabaseConfigured()) {
+    updateStorageStatus({
+      mode: 'local',
+      ok: true,
+      message: 'Using local JSON storage.',
+    })
     return
   }
 
   try {
     await saveSupabaseDb(db)
+    updateStorageStatus({
+      mode: 'supabase',
+      ok: true,
+      message: 'Supabase persistent storage is connected.',
+    })
   } catch (error) {
-    console.error(error instanceof Error ? error.message : error)
+    const message = error instanceof Error ? error.message : 'Supabase save failed.'
+    updateStorageStatus({
+      mode: 'supabase',
+      ok: false,
+      message,
+    })
+    console.error(message)
+
+    if (options.required) {
+      throw new Error('Permanent account database could not save. Please check the Supabase service role key in Render.')
+    }
   }
 }
 
@@ -491,6 +548,7 @@ function getAdminStats(db) {
     userCount: users.length,
     signupsToday,
     activeSessionCount: db.sessions.length,
+    storage: lastStorageStatus,
     newsletterSubscriberCount: db.newsletterSubscribers.length,
     newsletterToday,
     signupConversionRate: viewsToday ? Number(((signupsToday / viewsToday) * 100).toFixed(2)) : 0,
@@ -581,13 +639,19 @@ const server = createServer(async (request, response) => {
     return
   }
 
-  const db = await loadDb()
-  pruneSecurityState(db)
   const url = new URL(request.url, `http://${request.headers.host}`)
 
   try {
+    const accountRoute =
+      url.pathname.startsWith('/auth') ||
+      url.pathname === '/sync' ||
+      url.pathname.startsWith('/barcode/') ||
+      url.pathname === '/admin/stats'
+    const db = await loadDb({ required: accountRoute })
+    pruneSecurityState(db)
+
     if (request.method === 'GET' && url.pathname === '/health') {
-      json(request, response, 200, { ok: true })
+      json(request, response, 200, { ok: true, storage: lastStorageStatus })
       return
     }
 
@@ -697,7 +761,7 @@ const server = createServer(async (request, response) => {
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
       })
-      await saveDb(db)
+      await saveDb(db, { required: true })
       json(request, response, 201, { token, user: sanitizeUser(user), syncState: user.syncState })
       return
     }
@@ -730,7 +794,7 @@ const server = createServer(async (request, response) => {
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
       })
-      await saveDb(db)
+      await saveDb(db, { required: true })
       json(request, response, 200, { token, user: sanitizeUser(user), syncState: user.syncState })
       return
     }
@@ -741,7 +805,7 @@ const server = createServer(async (request, response) => {
 
       if (token) {
         db.sessions = db.sessions.filter((entry) => entry.token !== token)
-        await saveDb(db)
+        await saveDb(db, { required: true })
       }
 
       json(request, response, 200, { ok: true })
@@ -774,7 +838,7 @@ const server = createServer(async (request, response) => {
           createdAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + resetTtlMs).toISOString(),
         })
-        await saveDb(db)
+        await saveDb(db, { required: true })
         const resetLink = `${appUrl || `http://${request.headers.host}`}/?resetToken=${encodeURIComponent(token)}`
         await sendPasswordResetEmail(email, resetLink)
       }
@@ -809,7 +873,7 @@ const server = createServer(async (request, response) => {
       user.passwordHash = hashPassword(password)
       db.passwordResets = db.passwordResets.filter((entry) => entry.tokenHash !== hashToken(token))
       db.sessions = db.sessions.filter((entry) => entry.userId !== user.id)
-      await saveDb(db)
+      await saveDb(db, { required: true })
       json(request, response, 200, { ok: true })
       return
     }
@@ -846,7 +910,7 @@ const server = createServer(async (request, response) => {
         },
         updatedAt: new Date().toISOString(),
       }
-      await saveDb(db)
+      await saveDb(db, { required: true })
       json(request, response, 200, { user: sanitizeUser(user), syncState: user.syncState })
       return
     }
@@ -875,7 +939,7 @@ const server = createServer(async (request, response) => {
       }
 
       user.passwordHash = hashPassword(nextPassword)
-      await saveDb(db)
+      await saveDb(db, { required: true })
       json(request, response, 200, { ok: true })
       return
     }
@@ -891,7 +955,7 @@ const server = createServer(async (request, response) => {
       db.users = db.users.filter((entry) => entry.id !== user.id)
       db.sessions = db.sessions.filter((entry) => entry.userId !== user.id)
       db.passwordResets = db.passwordResets.filter((entry) => entry.userId !== user.id)
-      await saveDb(db)
+      await saveDb(db, { required: true })
       json(request, response, 200, { ok: true })
       return
     }
@@ -928,7 +992,7 @@ const server = createServer(async (request, response) => {
         profile: body.profile ?? user.syncState?.profile ?? { displayName: user.displayName ?? '', shelfTagline: '' },
         updatedAt: new Date().toISOString(),
       }
-      await saveDb(db)
+      await saveDb(db, { required: true })
       json(request, response, 200, { syncState: user.syncState })
       return
     }
@@ -969,7 +1033,7 @@ const server = createServer(async (request, response) => {
         [code]: gameId,
       }
       user.syncState.updatedAt = new Date().toISOString()
-      await saveDb(db)
+      await saveDb(db, { required: true })
       json(request, response, 200, { code, gameId })
       return
     }

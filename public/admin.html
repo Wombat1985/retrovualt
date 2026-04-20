@@ -261,12 +261,25 @@
         const backendLifetimeViews = Number(stats.analytics.lifetimePageViews || stats.analytics.totalPageViews || 0)
         const cachedLifetimeViews = Number(localStorage.getItem(lifetimeViewsKey) || 0)
         const displayedLifetimeViews = Math.max(backendLifetimeViews, cachedLifetimeViews)
+        const storage = stats.storage || {}
+        const storageOk = storage.ok !== false
+        const storageLabel = storage.mode === 'supabase' ? 'Supabase' : 'Local fallback'
 
         if (displayedLifetimeViews > cachedLifetimeViews) {
           localStorage.setItem(lifetimeViewsKey, String(displayedLifetimeViews))
         }
 
         resultsEl.innerHTML = `
+          <section class="card" style="margin-bottom: 18px; border-color: ${storageOk ? 'rgba(105, 255, 190, 0.35)' : 'rgba(255, 92, 124, 0.55)'}">
+            <h2>Storage health</h2>
+            <p>
+              <strong>${escapeHtml(storageLabel)}</strong> -
+              ${escapeHtml(storage.message || 'Storage status not reported yet.')}
+            </p>
+            <p>
+              Last checked: <strong>${escapeHtml(storage.checkedAt || 'Not checked yet')}</strong>
+            </p>
+          </section>
           <section class="stat-grid">
             <article class="card"><span class="stat">${displayedLifetimeViews.toLocaleString()}</span><p>Lifetime page views</p></article>
             <article class="card"><span class="stat">${Number(stats.analytics.totalPageViews || 0).toLocaleString()}</span><p>Backend stored page views</p></article>
