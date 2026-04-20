@@ -17,7 +17,10 @@ const dbBackupPath = join(dataDir, 'db.backup.json')
 const port = Number(process.env.PORT ?? 8787)
 const sessionTtlMs = Number(process.env.SESSION_TTL_DAYS ?? 30) * 24 * 60 * 60 * 1000
 const resetTtlMs = Number(process.env.PASSWORD_RESET_TTL_MINUTES ?? 30) * 60 * 1000
-const supabaseUrl = String(process.env.SUPABASE_URL ?? '').replace(/\s+/g, '').replace(/\/$/, '')
+const supabaseUrl = String(process.env.SUPABASE_URL ?? '')
+  .replace(/\s+/g, '')
+  .replace(/\/rest\/v1\/?$/i, '')
+  .replace(/\/$/, '')
 const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').replace(/\s+/g, '')
 const supabaseStateTable = String(process.env.SUPABASE_STATE_TABLE ?? 'retro_vault_state')
 const supabaseStateId = String(process.env.SUPABASE_STATE_ID ?? 'main')
