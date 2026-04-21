@@ -3080,6 +3080,28 @@ function renderNow() {
         <input id="catalog-import" type="file" accept=".json,application/json" hidden />
       </section>
 
+      <section class="catalog-section">
+        <div class="section-heading">
+          <div>
+            <p class="kicker">Collection grid</p>
+            <h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>
+          </div>
+          <p class="section-note">Showing ${visibleGames.length.toLocaleString()} at a time for speed. Every cover stays in full color, and owned games get a strong vault stamp.</p>
+        </div>
+        <div class="catalog-grid">
+          ${
+            visibleGames.length
+              ? visibleGames.map(renderCard).join('')
+              : '<div class="empty-state"><h3>No matches</h3><p>Try another search, console, or collector filter.</p></div>'
+          }
+        </div>
+        ${
+          filteredGames.length > visibleGames.length
+            ? `<div class="load-more-row"><button class="secondary-button" data-action="load-more-games" type="button">Load more games (${(filteredGames.length - visibleGames.length).toLocaleString()} left)</button></div>`
+            : ''
+        }
+      </section>
+
       ${renderOnboardingPanel()}
 
       <section class="smart-grid">
@@ -3104,28 +3126,6 @@ function renderNow() {
         ${renderSmartList('Top shelf', getTopShelfGames(), 'Favorite or own some games to build your brag shelf.')}
         ${renderSmartList('Price alert hits', alertMatches, 'Set a target price on wanted games to surface deals here.')}
         ${renderConsolePush('Close to completion', nearCompleteConsoles, 'Own some games on a console and this will surface the easiest set to finish next.')}
-      </section>
-
-      <section class="catalog-section">
-        <div class="section-heading">
-          <div>
-            <p class="kicker">Collection grid</p>
-            <h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>
-          </div>
-          <p class="section-note">Showing ${visibleGames.length.toLocaleString()} at a time for speed. Every cover stays in full color, and owned games get a strong vault stamp.</p>
-        </div>
-        <div class="catalog-grid">
-          ${
-            visibleGames.length
-              ? visibleGames.map(renderCard).join('')
-              : '<div class="empty-state"><h3>No matches</h3><p>Try another search, console, or collector filter.</p></div>'
-          }
-        </div>
-        ${
-          filteredGames.length > visibleGames.length
-            ? `<div class="load-more-row"><button class="secondary-button" data-action="load-more-games" type="button">Load more games (${(filteredGames.length - visibleGames.length).toLocaleString()} left)</button></div>`
-            : ''
-        }
       </section>
 
       ${renderAchievementStrip()}

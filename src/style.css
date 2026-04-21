@@ -2000,11 +2000,11 @@ a {
 
   .hero-copy h1 {
     max-width: none;
-    font-size: clamp(2.15rem, 13vw, 3.35rem);
+    font-size: clamp(1.95rem, 11vw, 2.85rem);
   }
 
   .hero-text {
-    margin-top: 12px;
+    margin-top: 10px;
     font-size: 0.98rem;
   }
 
@@ -2031,10 +2031,13 @@ a {
     display: none;
   }
 
-  .toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
+  .account-status-pill,
+  .hero-stats {
+    display: none;
+  }
+
+  .toolbar,
+  .filters {
     margin-top: 10px;
   }
 
