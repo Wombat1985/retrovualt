@@ -16,7 +16,8 @@
     "catalog:rebuild-index": "node scripts/rebuild-catalog-index.mjs",
     "catalog:enrich-years": "node scripts/enrich-retro-years.mjs",
     "marketing:calendar": "node scripts/generate-marketing-calendar.mjs",
-    "catalog:enrich-years:ps": "powershell -ExecutionPolicy Bypass -File scripts/enrich-retro-years.ps1"
+    "catalog:enrich-years:ps": "powershell -ExecutionPolicy Bypass -File scripts/enrich-retro-years.ps1",
+    "load:test": "node scripts/load-test.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",
