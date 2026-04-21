@@ -388,6 +388,24 @@ function validatePassword(password) {
   return ''
 }
 
+function normalizeDisplayName(displayName) {
+  return String(displayName ?? '').trim().replace(/\s+/g, ' ')
+}
+
+function getDisplayNameKey(displayName) {
+  return normalizeDisplayName(displayName).toLowerCase()
+}
+
+function isDisplayNameTaken(db, displayName, currentUserId = '') {
+  const displayNameKey = getDisplayNameKey(displayName)
+
+  if (!displayNameKey) {
+    return false
+  }
+
+  return db.users.some((entry) => entry.id !== currentUserId && getDisplayNameKey(entry.displayName) === displayNameKey)
+}
+
 function readBody(request) {
   return new Promise((resolve, reject) => {
     let body = ''
@@ -761,7 +779,7 @@ const server = createServer(async (request, response) => {
       const body = await readBody(request)
       const email = String(body.email ?? '').trim().toLowerCase()
       const password = String(body.password ?? '')
-      const displayName = String(body.displayName ?? '').trim()
+      const displayName = normalizeDisplayName(body.displayName)
 
       if (!isValidEmail(email)) {
         json(request, response, 400, { error: 'Enter a valid email address.' })
@@ -776,6 +794,11 @@ const server = createServer(async (request, response) => {
 
       if (db.users.some((entry) => entry.email === email)) {
         json(request, response, 409, { error: 'An account already exists for that email.' })
+        return
+      }
+
+      if (isDisplayNameTaken(db, displayName)) {
+        json(request, response, 409, { error: 'That display name is already taken.' })
         return
       }
 
@@ -935,7 +958,13 @@ const server = createServer(async (request, response) => {
       }
 
       const body = await readBody(request)
-      const displayName = String(body.displayName ?? '').trim()
+      const displayName = normalizeDisplayName(body.displayName)
+
+      if (isDisplayNameTaken(db, displayName, user.id)) {
+        json(request, response, 409, { error: 'That display name is already taken.' })
+        return
+      }
+
       user.displayName = displayName
       user.syncState = {
         ...createDefaultSyncState(),

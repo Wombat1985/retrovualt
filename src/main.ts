@@ -2486,7 +2486,7 @@ function renderAuthForm() {
   if (state.authView === 'register') {
     return `
       <form class="auth-form" data-auth-form="register">
-        <label><span>Display name</span><input name="displayName" autocomplete="name" placeholder="Retro collector name" /><small>Display names do not need to be unique. Your email protects the account.</small></label>
+        <label><span>Display name</span><input name="displayName" autocomplete="name" placeholder="Retro collector name" /><small>Display names must be unique. Your email must also be unique and protects the account.</small></label>
         <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" value="${emailDraft}" /></label>
         <label><span>Password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" /></label>
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Create account')}</button>
@@ -2528,7 +2528,7 @@ function renderAuthForm() {
 
   return `
     <form class="auth-form" data-auth-form="account">
-      <label><span>Display name</span><input name="displayName" autocomplete="name" value="${escapeHtml(state.accountDisplayName)}" /><small>You can share a display name with another collector. Your email stays unique.</small></label>
+      <label><span>Display name</span><input name="displayName" autocomplete="name" value="${escapeHtml(state.accountDisplayName)}" /><small>Display names and emails must be unique across Retro Vault accounts.</small></label>
       <label><span>Email</span><input value="${escapeHtml(state.accountEmail)}" disabled /></label>
       <div class="auth-settings-grid">
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Save profile')}</button>

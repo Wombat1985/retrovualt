@@ -66,6 +66,25 @@ async function request(pathname, init = {}, token = '') {
   return json
 }
 
+async function expectRequestFailure(pathname, init = {}, expectedText = '') {
+  const response = await fetch(`${baseUrl}${pathname}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  })
+  const json = await response.json().catch(() => ({}))
+
+  if (response.ok) {
+    throw new Error(`Expected request to fail: ${pathname}`)
+  }
+
+  if (expectedText && !String(json.error ?? '').toLowerCase().includes(expectedText.toLowerCase())) {
+    throw new Error(`Expected error to include "${expectedText}", got "${json.error ?? 'unknown'}".`)
+  }
+}
+
 function stableJson(value) {
   return JSON.stringify(value, Object.keys(value).sort())
 }
@@ -129,6 +148,15 @@ async function main() {
       method: 'POST',
       body: JSON.stringify({ email, password, displayName: 'Sync Test Collector' }),
     })
+
+    await expectRequestFailure('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: `sync-duplicate-${Date.now()}@example.com`,
+        password,
+        displayName: ' sync   test collector ',
+      }),
+    }, 'display name')
 
     await request('/sync', {
       method: 'PUT',
