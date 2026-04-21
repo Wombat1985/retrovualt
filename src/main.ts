@@ -1459,7 +1459,7 @@ function getCollectorRank() {
 
   return {
     title: 'Rising retro scout',
-    detail: 'The foundation is there, and every pickup is starting to define the shelf.',
+    detail: 'A focused starter shelf with clear priorities and room for the next great pickup.',
   }
 }
 
@@ -3134,12 +3134,12 @@ function renderNow() {
 
       <section class="roadmap-strip">
         <article class="roadmap-card">
-          <h3>Designed to feel considered</h3>
-          <p>Every part of the app is tuned around the collector experience: clean cover browsing, stronger ownership cues, richer game detail, and smarter views of what matters next without visual clutter.</p>
+          <h3>Collector-first browsing</h3>
+          <p>Browse clean cover grids, jump between console libraries, and see owned, wanted, favourite, loose, CIB, sealed, graded, paid-price, and alert states without losing the thread of the hunt.</p>
         </article>
         <article class="roadmap-card">
-          <h3>Built to keep improving</h3>
-          <p>The foundation is now in place for richer price history, deeper metadata, hosted sync, region-specific editions, and sharper collector alerts while keeping the product cohesive as it grows.</p>
+          <h3>Account-backed collection sync</h3>
+          <p>Sign in to protect your collection, wishlist, paid prices, favourites, alerts, barcode links, notes, profile details, and regional library progress across devices.</p>
         </article>
       </section>
       <footer class="app-footer">
@@ -4370,7 +4370,7 @@ async function shareBadges() {
 async function shareCollectorChallenge() {
   const challengeUrl = `${window.location.origin}/collector-challenge.html`
   const shareText = [
-    'I am building my retro game vault on Retro Vault Elite.',
+    'I track my retro game vault on Retro Vault Elite.',
     ...getViralShareLines(),
     '',
     'Start yours, build your shelf, and compare collector rank.',
