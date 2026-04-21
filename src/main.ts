@@ -167,6 +167,7 @@ let pendingSearchRender = 0
 let pendingBarcodeSearchRender = 0
 let libraryRevision = 0
 let appEventsBound = false
+let lastInputFocusSnapshot: FocusSnapshot | null = null
 
 type FocusSnapshot = {
   id: string
@@ -424,6 +425,16 @@ function saveAuthProfile(email: string, displayName = '') {
   state.accountEmail = email
   state.accountDisplayName = displayName
   localStorage.setItem(AUTH_PROFILE_STORAGE_KEY, JSON.stringify({ email, displayName }))
+}
+
+function getAccountIdentityLabel() {
+  if (!state.authToken) {
+    return ''
+  }
+
+  return state.accountDisplayName
+    ? `${state.accountDisplayName} (${state.accountEmail})`
+    : state.accountEmail || 'collector'
 }
 
 function loadOnboardingDismissed() {
@@ -2206,6 +2217,7 @@ function renderTrustStrip() {
   const syncCopy = state.authToken
     ? state.syncStatus
     : 'Device-only until you create an account'
+  const accountIdentity = getAccountIdentityLabel()
   const ownershipMode = getOwnedGames().some((game) => isCompleteEdition(getRecord(game.id)))
     ? 'Loose and complete values active'
     : 'Loose values active'
@@ -2215,6 +2227,10 @@ function renderTrustStrip() {
       <article>
         <span>Secure sync</span>
         <strong>${escapeHtml(syncCopy)}</strong>
+      </article>
+      <article>
+        <span>Account</span>
+        <strong>${state.authToken ? `Signed in as ${escapeHtml(accountIdentity)}` : 'Not signed in'}</strong>
       </article>
       <article>
         <span>Market snapshot</span>
@@ -2470,7 +2486,7 @@ function renderAuthForm() {
   if (state.authView === 'register') {
     return `
       <form class="auth-form" data-auth-form="register">
-        <label><span>Display name</span><input name="displayName" autocomplete="name" placeholder="Retro collector name" /></label>
+        <label><span>Display name</span><input name="displayName" autocomplete="name" placeholder="Retro collector name" /><small>Display names do not need to be unique. Your email protects the account.</small></label>
         <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" value="${emailDraft}" /></label>
         <label><span>Password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" /></label>
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Create account')}</button>
@@ -2512,7 +2528,7 @@ function renderAuthForm() {
 
   return `
     <form class="auth-form" data-auth-form="account">
-      <label><span>Display name</span><input name="displayName" autocomplete="name" value="${escapeHtml(state.accountDisplayName)}" /></label>
+      <label><span>Display name</span><input name="displayName" autocomplete="name" value="${escapeHtml(state.accountDisplayName)}" /><small>You can share a display name with another collector. Your email stays unique.</small></label>
       <label><span>Email</span><input value="${escapeHtml(state.accountEmail)}" disabled /></label>
       <div class="auth-settings-grid">
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Save profile')}</button>
@@ -2874,7 +2890,7 @@ function captureFocusSnapshot(): FocusSnapshot | null {
   const activeElement = document.activeElement
 
   if (!(activeElement instanceof HTMLInputElement) || !app.contains(activeElement) || !activeElement.id) {
-    return null
+    return lastInputFocusSnapshot
   }
 
   if (!['search-input', 'barcode-search'].includes(activeElement.id)) {
@@ -2906,6 +2922,17 @@ function restoreFocusSnapshot(snapshot: FocusSnapshot | null) {
   if (snapshot.selectionStart !== null && snapshot.selectionEnd !== null) {
     element.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd)
   }
+
+  lastInputFocusSnapshot = null
+}
+
+function rememberInputFocus(input: HTMLInputElement) {
+  lastInputFocusSnapshot = {
+    id: input.id,
+    value: input.value,
+    selectionStart: input.selectionStart,
+    selectionEnd: input.selectionEnd,
+  }
 }
 
 function renderNow() {
@@ -2930,6 +2957,7 @@ function renderNow() {
   const alertMatches = getAlertMatches()
   const nearCompleteConsoles = getNearCompleteConsoles()
   const collectorRank = getCollectorRank()
+  const accountIdentity = getAccountIdentityLabel()
   const catalogStatusText = state.isCatalogLoading
     ? `Loading retro catalog data... ${loadedConsoleCount}/${totalConsoleCount} console libraries ready.`
     : state.catalogLoadError
@@ -2946,6 +2974,11 @@ function renderNow() {
             Track owned, wanted, loose, and complete values across full console libraries. Built for collectors who care about shelf value, progress, and the thrill of the hunt.
           </p>
           <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 10 April 2026.</p>
+          ${
+            state.authToken
+              ? `<p class="account-status-pill"><span>Signed in</span><strong>${escapeHtml(accountIdentity)}</strong></p>`
+              : '<p class="account-status-pill account-status-pill--guest"><span>Guest mode</span><strong>Create an account to sync this vault</strong></p>'
+          }
           <div class="hero-actions">
             ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button>'}
             <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
@@ -3139,26 +3172,28 @@ function render() {
 }
 
 function scheduleSearchRender(value: string) {
+  state.search = value
+  resetVisibleGameCount()
+
   if (pendingSearchRender) {
     window.clearTimeout(pendingSearchRender)
   }
 
   pendingSearchRender = window.setTimeout(() => {
     pendingSearchRender = 0
-    state.search = value
-    resetVisibleGameCount()
     render()
   }, 140)
 }
 
 function scheduleBarcodeSearchRender(value: string) {
+  state.barcodeSearch = value
+
   if (pendingBarcodeSearchRender) {
     window.clearTimeout(pendingBarcodeSearchRender)
   }
 
   pendingBarcodeSearchRender = window.setTimeout(() => {
     pendingBarcodeSearchRender = 0
-    state.barcodeSearch = value
     render()
   }, 140)
 }
@@ -3174,8 +3209,10 @@ function bindEvents() {
     const target = event.target as HTMLInputElement
 
     if (target.id === 'search-input') {
+      rememberInputFocus(target)
       scheduleSearchRender(target.value)
     } else if (target.id === 'barcode-search') {
+      rememberInputFocus(target)
       scheduleBarcodeSearchRender(target.value)
     }
   })

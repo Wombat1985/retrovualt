@@ -161,6 +161,42 @@ a {
   font-size: 0.9rem;
 }
 
+.account-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(88, 216, 170, 0.28);
+  border-radius: 999px;
+  background: rgba(88, 216, 170, 0.09);
+  color: var(--text);
+}
+
+.account-status-pill span {
+  color: var(--good);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.account-status-pill strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-status-pill--guest {
+  border-color: rgba(255, 214, 110, 0.26);
+  background: rgba(255, 214, 110, 0.08);
+}
+
+.account-status-pill--guest span {
+  color: var(--accent-2);
+}
+
 .hero-actions,
 .filters,
 .card-actions {
@@ -1659,6 +1695,11 @@ a {
   gap: 8px;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.auth-form small {
+  color: rgba(168, 184, 202, 0.82);
+  line-height: 1.4;
 }
 
 .auth-form input {
