@@ -3016,12 +3016,6 @@ function renderNow() {
       </header>
 
       ${renderTrustStrip()}
-      ${renderOnboardingPanel()}
-      ${renderAchievementStrip()}
-      ${renderTodayHunt()}
-      ${renderRetentionRecap()}
-      ${renderBadgePreview()}
-      ${renderNewsletterCapture()}
 
       <section class="toolbar">
         <label class="search-field">
@@ -3086,6 +3080,8 @@ function renderNow() {
         <input id="catalog-import" type="file" accept=".json,application/json" hidden />
       </section>
 
+      ${renderOnboardingPanel()}
+
       <section class="smart-grid">
         ${renderSmartList('Top grails still missing', getMissingGrails(), 'You already own every seeded grail.')}
         ${renderAccountCard()}
@@ -3131,6 +3127,12 @@ function renderNow() {
             : ''
         }
       </section>
+
+      ${renderAchievementStrip()}
+      ${renderTodayHunt()}
+      ${renderRetentionRecap()}
+      ${renderBadgePreview()}
+      ${renderNewsletterCapture()}
 
       <section class="roadmap-strip">
         <article class="roadmap-card">

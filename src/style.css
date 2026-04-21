@@ -1980,6 +1980,7 @@ a {
 @media (max-width: 720px) {
   .app-shell {
     width: min(100% - 16px, 1440px);
+    padding-top: 8px;
     padding-bottom: 24px;
   }
 
@@ -1999,10 +2000,46 @@ a {
 
   .hero-copy h1 {
     max-width: none;
+    font-size: clamp(2.15rem, 13vw, 3.35rem);
+  }
+
+  .hero-text {
+    margin-top: 12px;
+    font-size: 0.98rem;
+  }
+
+  .hero-text--tiny {
+    display: none;
+  }
+
+  .hero-actions {
+    margin-top: 14px;
+  }
+
+  .hero-actions .secondary-button,
+  .hero-actions .install-button {
+    flex: 1 1 145px;
+    justify-content: center;
   }
 
   .hero-stats {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .hero-stats article:nth-child(n + 3) {
+    display: none;
+  }
+
+  .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin-top: 10px;
+  }
+
+  .filters {
+    gap: 8px;
   }
 
   .identity-metrics {
