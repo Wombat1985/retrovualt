@@ -2253,7 +2253,7 @@ function renderOnboardingPanel() {
   const completed = steps.filter((step) => step.done).length
   const setupScore = getCollectionCompletenessScore()
 
-  if (state.onboardingDismissed && completed === steps.length) {
+  if (state.onboardingDismissed) {
     return ''
   }
 
