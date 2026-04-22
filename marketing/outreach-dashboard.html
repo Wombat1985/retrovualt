@@ -368,7 +368,9 @@
         <p class="muted">1. Pick a target. 2. Click Copy message. 3. Open target. 4. Paste manually. 5. Review and send yourself. 6. Mark contacted.</p>
         <div class="bulk-actions">
           <button class="primary" type="button" id="copy-selected">Copy selected message</button>
+          <button class="primary" type="button" id="copy-open-selected">Copy + open</button>
           <button type="button" id="open-selected">Open selected target</button>
+          <button type="button" id="open-composer-selected">Open composer</button>
           <button type="button" id="export-csv">Export CSV</button>
           <button class="danger" type="button" id="reset-progress">Reset progress</button>
         </div>
@@ -415,6 +417,8 @@
         <textarea id="message-box" spellcheck="true"></textarea>
         <div class="message-actions">
           <button class="primary" type="button" id="copy-message">Copy message</button>
+          <button class="primary" type="button" id="copy-open-target">Copy + open</button>
+          <button type="button" id="open-composer">Open composer</button>
           <button type="button" id="open-target">Open target</button>
           <button type="button" id="mark-contacted">Mark contacted</button>
           <button type="button" id="mark-replied">Mark replied</button>
@@ -593,6 +597,21 @@ ${trackingUrl(target)}
 No pressure at all. I am just trying to make it genuinely useful for collectors.`
     }
 
+    function composerUrl(target) {
+      const redditMatch = target.url.match(/reddit\.com\/r\/([^/]+)/i)
+      if (redditMatch) {
+        const subreddit = redditMatch[1]
+        const title = 'I built a free retro game collection tracker and would love honest feedback'
+        return `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/submit?selftext=true&title=${encodeURIComponent(title)}&text=${encodeURIComponent(messageFor(target))}`
+      }
+
+      return target.url
+    }
+
+    function hasComposer(target) {
+      return /reddit\.com\/r\/[^/]+/i.test(target.url)
+    }
+
     function initFilters() {
       const categories = ['all', ...Array.from(new Set(targets.map((target) => target.category)))]
       els.category.innerHTML = categories.map((category) => `<option value="${category}">${category === 'all' ? 'All categories' : category}</option>`).join('')
@@ -643,12 +662,15 @@ No pressure at all. I am just trying to make it genuinely useful for collectors.
                   <span class="pill ${status}">${status}</span>
                   ${bestFirstIds.includes(target.id) ? '<span class="pill todo">best first</span>' : ''}
                   ${todayIds().includes(target.id) ? '<span class="pill contacted">today</span>' : ''}
+                  ${hasComposer(target) ? '<span class="pill replied">prefill post</span>' : ''}
                   ${isSelected ? '<span class="pill replied">selected</span>' : ''}
                 </div>
                 <p class="target-note">${escapeHtml(target.note)}</p>
               </div>
               <div class="target-actions">
                 <button type="button" data-action="copy" data-id="${target.id}">Copy</button>
+                <button type="button" data-action="copy-open" data-id="${target.id}">Copy + open</button>
+                ${hasComposer(target) ? `<a class="button" href="${composerUrl(target)}" target="_blank" rel="noreferrer">Composer</a>` : ''}
                 <a class="button" href="${target.url}" target="_blank" rel="noreferrer">Open</a>
                 <button type="button" data-action="contacted" data-id="${target.id}">Contacted</button>
                 <button type="button" data-action="replied" data-id="${target.id}">Replied</button>
@@ -679,6 +701,11 @@ No pressure at all. I am just trying to make it genuinely useful for collectors.
       showToast('Copied. Paste it yourself, review it, then hit Send/Post when ready.')
     }
 
+    async function copyAndOpen(target) {
+      await copyText(messageFor(target))
+      window.open(target.url, '_blank', 'noopener,noreferrer')
+    }
+
     function setStatus(id, status) {
       progress[id] = {
         ...(progress[id] || {}),
@@ -695,6 +722,16 @@ No pressure at all. I am just trying to make it genuinely useful for collectors.
 
     function openSelected() {
       window.open(selectedTarget().url, '_blank', 'noopener,noreferrer')
+    }
+
+    function openSelectedComposer() {
+      const target = selectedTarget()
+      window.open(composerUrl(target), '_blank', 'noopener,noreferrer')
+      if (hasComposer(target)) {
+        showToast('Composer opened with the message prefilled. Review it, then you choose whether to post.')
+      } else {
+        showToast('No direct composer is available for this target, so I opened the target page instead.')
+      }
     }
 
     function exportCsv() {
@@ -755,6 +792,8 @@ No pressure at all. I am just trying to make it genuinely useful for collectors.
       selectedId = id
       if (button.dataset.action === 'copy') {
         copyText(messageFor(target))
+      } else if (button.dataset.action === 'copy-open') {
+        copyAndOpen(target)
       } else if (button.dataset.action === 'contacted') {
         setStatus(id, 'contacted')
       } else if (button.dataset.action === 'replied') {
@@ -768,8 +807,12 @@ No pressure at all. I am just trying to make it genuinely useful for collectors.
 
     document.getElementById('copy-message').addEventListener('click', () => copyText(els.message.value))
     document.getElementById('copy-selected').addEventListener('click', () => copyText(els.message.value))
+    document.getElementById('copy-open-target').addEventListener('click', () => copyAndOpen(selectedTarget()))
+    document.getElementById('copy-open-selected').addEventListener('click', () => copyAndOpen(selectedTarget()))
     document.getElementById('open-target').addEventListener('click', openSelected)
     document.getElementById('open-selected').addEventListener('click', openSelected)
+    document.getElementById('open-composer').addEventListener('click', openSelectedComposer)
+    document.getElementById('open-composer-selected').addEventListener('click', openSelectedComposer)
     document.getElementById('mark-contacted').addEventListener('click', () => setStatus(selectedId, 'contacted'))
     document.getElementById('mark-replied').addEventListener('click', () => setStatus(selectedId, 'replied'))
     document.getElementById('mark-skipped').addEventListener('click', () => setStatus(selectedId, 'skipped'))
