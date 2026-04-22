@@ -18,6 +18,7 @@
     "marketing:calendar": "node scripts/generate-marketing-calendar.mjs",
     "outreach:run": "node scripts/outreach-runner.mjs",
     "outreach:night": "node scripts/outreach-runner.mjs --nightly",
+    "outreach:prep": "node scripts/outreach-runner.mjs --nightly --open-all",
     "catalog:enrich-years:ps": "powershell -ExecutionPolicy Bypass -File scripts/enrich-retro-years.ps1",
     "load:test": "node scripts/load-test.mjs"
   },

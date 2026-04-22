@@ -21,6 +21,7 @@ const bestOnly = args.has('best')
 const dryRun = args.has('dry-run')
 const composerOnly = args.has('composer-only')
 const nightly = args.has('nightly')
+const openAll = args.has('open-all') || args.has('prep')
 
 function parseTargets() {
   const markdown = readFileSync(targetFile, 'utf8')
@@ -68,6 +69,10 @@ function saveProgress(progress) {
 
 function statusFor(progress, target) {
   return progress[target.id]?.status || 'todo'
+}
+
+function isOpenStatus(status) {
+  return status === 'todo' || status === 'opened'
 }
 
 function trackingUrl(target) {
@@ -124,9 +129,10 @@ function copyToClipboard(text) {
 
 function openUrl(url) {
   return new Promise((resolve, reject) => {
-    const child = spawn('cmd.exe', ['/c', 'start', '', url], {
+    const child = spawn('powershell.exe', ['-NoProfile', '-Command', 'Start-Process -FilePath $args[0]', url], {
       detached: true,
       stdio: 'ignore',
+      shell: false,
     })
     child.on('error', reject)
     child.unref()
@@ -136,7 +142,7 @@ function openUrl(url) {
 
 function chooseQueue(targets, progress) {
   return targets
-    .filter((target) => statusFor(progress, target) === 'todo')
+    .filter((target) => openAll ? statusFor(progress, target) === 'todo' : isOpenStatus(statusFor(progress, target)))
     .filter((target) => !categoryFilter || target.category.toLowerCase().includes(categoryFilter))
     .filter((target) => !bestOnly || bestFirstIds.has(target.id))
     .filter((target) => !(composerOnly || nightly) || hasComposer(target))
@@ -171,13 +177,41 @@ async function main() {
 
   console.log(`Retro Vault Elite outreach runner`)
   console.log(`Queue: ${queue.length} target${queue.length === 1 ? '' : 's'}`)
-  console.log('Enter = mark contacted and open next. s = skip. r = mark replied. q = quit.')
+  if (openAll) {
+    console.log('Prep mode: opening every ready composer tab now. Review each tab and hit Post/Submit only if happy.')
+  } else {
+    console.log('Enter = mark contacted and open next. s = skip. r = mark replied. q = quit.')
+  }
   console.log(
     nightly
       ? 'Night mode: 4 ready composer targets. Read the drafted post, hit Post if happy, then press Enter here.'
       : 'The message is copied to clipboard before each target opens.',
   )
   console.log('')
+
+  if (openAll) {
+    for (const target of queue) {
+      const message = messageFor(target)
+      const url = composerUrl(target)
+
+      console.log(`#${target.id} ${target.name}`)
+      console.log(url)
+
+      if (!dryRun) {
+        await copyToClipboard(message)
+        await openUrl(url)
+        stamp(progress, target, 'opened')
+      }
+    }
+
+    if (dryRun) {
+      console.log('\nDry-run only. No pages opened and no progress saved.')
+    } else {
+      saveProgress(progress)
+      console.log(`\nOpened ${queue.length} drafted composer tab${queue.length === 1 ? '' : 's'}. Progress saved to ${progressFile}`)
+    }
+    return
+  }
 
   const rl = createInterface({ input, output })
 
