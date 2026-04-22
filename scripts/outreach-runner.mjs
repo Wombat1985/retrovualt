@@ -22,6 +22,7 @@ const dryRun = args.has('dry-run')
 const composerOnly = args.has('composer-only')
 const nightly = args.has('nightly')
 const openAll = args.has('open-all') || args.has('prep')
+const retryOpened = args.has('retry-opened')
 
 function parseTargets() {
   const markdown = readFileSync(targetFile, 'utf8')
@@ -73,6 +74,10 @@ function statusFor(progress, target) {
 
 function isOpenStatus(status) {
   return status === 'todo' || status === 'opened'
+}
+
+function isQueuedStatus(status) {
+  return retryOpened ? isOpenStatus(status) : status === 'todo'
 }
 
 function trackingUrl(target) {
@@ -142,7 +147,7 @@ function openUrl(url) {
 
 function chooseQueue(targets, progress) {
   return targets
-    .filter((target) => isOpenStatus(statusFor(progress, target)))
+    .filter((target) => isQueuedStatus(statusFor(progress, target)))
     .filter((target) => !categoryFilter || target.category.toLowerCase().includes(categoryFilter))
     .filter((target) => !bestOnly || bestFirstIds.has(target.id))
     .filter((target) => !(composerOnly || nightly) || hasComposer(target))
