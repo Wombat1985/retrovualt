@@ -34,6 +34,7 @@ type GameRecord = {
   completeInBox: boolean
   pricePaid: number | null
   favorite: boolean
+  ownedCopies: number
   editionStatus: EditionStatus
   condition: ConditionRating
   targetPrice: number | null
@@ -45,6 +46,7 @@ type ExportEntry = CatalogEntry & {
   completeInBox: boolean
   pricePaid: number | null
   favorite: boolean
+  ownedCopies: number
   editionStatus: EditionStatus
   condition: ConditionRating
   targetPrice: number | null
@@ -280,6 +282,7 @@ function defaultRecord(): GameRecord {
     completeInBox: false,
     pricePaid: null,
     favorite: false,
+    ownedCopies: 1,
     editionStatus: 'loose',
     condition: 'good',
     targetPrice: null,
@@ -312,6 +315,7 @@ function loadLibrary() {
         const completeInBox = entry.completeInBox
         const pricePaid = entry.pricePaid
         const favorite = entry.favorite
+        const ownedCopies = entry.ownedCopies
         const editionStatus = entry.editionStatus
         const condition = entry.condition
         const targetPrice = entry.targetPrice
@@ -329,6 +333,7 @@ function loadLibrary() {
               completeInBox: typeof completeInBox === 'boolean' ? completeInBox : false,
               pricePaid: typeof pricePaid === 'number' ? pricePaid : null,
               favorite: typeof favorite === 'boolean' ? favorite : false,
+              ownedCopies: typeof ownedCopies === 'number' && ownedCopies >= 1 ? Math.min(Math.round(ownedCopies), 99) : 1,
               editionStatus: isEditionStatus(editionStatus) ? editionStatus : 'loose',
               condition: isConditionRating(condition) ? condition : 'good',
               targetPrice: typeof targetPrice === 'number' ? targetPrice : null,
@@ -927,12 +932,43 @@ function isCompleteEdition(record: GameRecord) {
 
 function getOwnedMarketPrice(game: CatalogEntry) {
   const record = getRecord(game.id)
-  return isCompleteEdition(record) ? getReferencePrice(game) : game.priceLoose
+  const singleCopyValue = isCompleteEdition(record) ? getReferencePrice(game) : game.priceLoose
+  return singleCopyValue * getOwnedCopyCount(record)
 }
 
 function getOwnedValueLabel(game: CatalogEntry) {
   const record = getRecord(game.id)
-  return isCompleteEdition(record) ? 'Complete value' : 'Loose value'
+  const baseLabel = isCompleteEdition(record) ? 'Complete value' : 'Loose value'
+  return getOwnedCopyCount(record) > 1 ? `${baseLabel} x${getOwnedCopyCount(record)}` : baseLabel
+}
+
+function getOwnedCopyCount(record: GameRecord) {
+  return record.status === 'owned' ? Math.max(1, Math.min(Math.round(record.ownedCopies || 1), 99)) : 1
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\biii\b/g, ' 3 ')
+    .replace(/\bii\b/g, ' 2 ')
+    .replace(/\biv\b/g, ' 4 ')
+    .replace(/\bv\b/g, ' 5 ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function matchesSearchValue(game: CatalogEntry, searchValue: string) {
+  const normalizedSearch = normalizeSearchText(searchValue)
+
+  if (!normalizedSearch) {
+    return true
+  }
+
+  const haystack = normalizeSearchText([game.title, game.console, game.region, game.rarity, game.id].join(' '))
+  const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean)
+
+  return haystack.includes(normalizedSearch) || searchTokens.every((token) => haystack.split(/\s+/).includes(token))
 }
 
 function getFilteredGames() {
@@ -951,7 +987,7 @@ function getFilteredGames() {
     return filteredGamesCache
   }
 
-  const searchValue = state.search.trim().toLowerCase()
+  const searchValue = state.search.trim()
   const activeCatalog =
     state.consoleFilter === 'All consoles'
       ? getCatalog()
@@ -964,9 +1000,7 @@ function getFilteredGames() {
         return true
       }
 
-      return [game.title, game.console, game.region, game.rarity].some((field) =>
-        field.toLowerCase().includes(searchValue),
-      )
+      return matchesSearchValue(game, searchValue)
     })
     .filter((game) => {
       if (state.ownershipFilter === 'all') {
@@ -1755,11 +1789,13 @@ function getOwnedEditionSummary(record: GameRecord) {
     return getEditionLabel(record.editionStatus)
   }
 
+  const copyText = getOwnedCopyCount(record) > 1 ? ` x${getOwnedCopyCount(record)}` : ''
+
   if (isCompleteEdition(record)) {
-    return `${getEditionLabel(record.editionStatus)} owned`
+    return `${getEditionLabel(record.editionStatus)} owned${copyText}`
   }
 
-  return 'Loose owned'
+  return `Loose owned${copyText}`
 }
 
 function getConditionLabel(condition: ConditionRating) {
@@ -1794,6 +1830,7 @@ function normalizeGameRecord(value: unknown): GameRecord {
     completeInBox: typeof record.completeInBox === 'boolean' ? record.completeInBox : false,
     pricePaid: typeof record.pricePaid === 'number' ? record.pricePaid : null,
     favorite: typeof record.favorite === 'boolean' ? record.favorite : false,
+    ownedCopies: typeof record.ownedCopies === 'number' && record.ownedCopies >= 1 ? Math.min(Math.round(record.ownedCopies), 99) : 1,
     editionStatus: isEditionStatus(record.editionStatus) ? record.editionStatus : 'loose',
     condition: isConditionRating(record.condition) ? record.condition : 'good',
     targetPrice: typeof record.targetPrice === 'number' ? record.targetPrice : null,
@@ -1808,6 +1845,7 @@ function hasMeaningfulRecord(record: GameRecord) {
     safeRecord.status !== 'missing' ||
     safeRecord.completeInBox ||
     safeRecord.favorite ||
+    safeRecord.ownedCopies !== 1 ||
     safeRecord.editionStatus !== 'loose' ||
     safeRecord.condition !== 'good' ||
     safeRecord.pricePaid !== null ||
@@ -1839,6 +1877,7 @@ function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: Game
     completeInBox: safeLocalRecord.completeInBox || safeRemoteRecord.completeInBox,
     pricePaid: safeLocalRecord.pricePaid ?? safeRemoteRecord.pricePaid,
     favorite: safeLocalRecord.favorite || safeRemoteRecord.favorite,
+    ownedCopies: Math.max(getOwnedCopyCount(safeLocalRecord), getOwnedCopyCount(safeRemoteRecord)),
     editionStatus: safeLocalRecord.editionStatus !== 'loose' ? safeLocalRecord.editionStatus : safeRemoteRecord.editionStatus,
     condition: safeLocalRecord.condition !== 'good' ? safeLocalRecord.condition : safeRemoteRecord.condition,
     targetPrice: safeLocalRecord.targetPrice ?? safeRemoteRecord.targetPrice,
@@ -2175,6 +2214,7 @@ function renderSelectedGameModal() {
             <button class="ghost-button" data-action="set-price-paid" data-id="${safeGameId}" type="button">Set paid</button>
             <button class="ghost-button" data-action="set-target-price" data-id="${safeGameId}" type="button">Set alert</button>
             <button class="ghost-button" data-action="set-edition" data-id="${safeGameId}" type="button">Edition</button>
+            <button class="ghost-button" data-action="set-copies" data-id="${safeGameId}" type="button">Copies ${getOwnedCopyCount(record)}</button>
             <button class="ghost-button" data-action="set-condition" data-id="${safeGameId}" type="button">Condition</button>
             <button class="ghost-button" data-action="edit-notes" data-id="${safeGameId}" type="button">Notes</button>
             <a class="link-button" href="${safePriceSourceUrl}" target="_blank" rel="noreferrer">Open market source</a>
@@ -3098,6 +3138,7 @@ function renderNow() {
         ${renderFilterChip('missing', 'Missing')}
         <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
         <button class="secondary-button" data-action="import-catalog" type="button">Import JSON catalog</button>
+        <button class="secondary-button" data-action="export-catalog" type="button">Export collection</button>
         <input id="catalog-import" type="file" accept=".json,application/json" hidden />
       </section>
 
@@ -3392,16 +3433,35 @@ async function importCatalogFile(input: HTMLInputElement) {
     }
 
     const imported = parsed.map(normalizeCatalogEntry).filter(isCatalogEntry)
+    const restoredRecords = new Map<string, GameRecord>()
+
+    for (const item of parsed) {
+      const catalogEntry = normalizeCatalogEntry(item)
+
+      if (!catalogEntry) {
+        continue
+      }
+
+      const restoredRecord = normalizeGameRecord(item)
+
+      if (hasMeaningfulRecord(restoredRecord)) {
+        restoredRecords.set(catalogEntry.id, restoredRecord)
+      }
+    }
 
     if (!imported.length) {
       throw new Error('No valid games were found in the file.')
     }
 
     state.customCatalog = dedupeCatalog([...state.customCatalog, ...imported])
+    for (const [id, record] of restoredRecords) {
+      state.library[id] = mergeGameRecord(state.library[id], record)
+    }
     invalidateCatalogCache()
     saveCustomCatalog()
+    saveLibrary()
     render()
-    alert(`Imported ${imported.length} games into Retro Vault Elite.`)
+    alert(`Imported ${imported.length} games and restored ${restoredRecords.size} collection record${restoredRecords.size === 1 ? '' : 's'} into Retro Vault Elite.`)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Import failed.'
     alert(message)
@@ -3428,6 +3488,7 @@ async function handleAction(element: HTMLElement) {
         setRecord(id, (record) => ({
           ...record,
           status: 'missing',
+          ownedCopies: 1,
         }))
       } else {
         state.ownershipPickerGameId = id
@@ -3577,6 +3638,13 @@ async function handleAction(element: HTMLElement) {
       }
 
       updateEditionStatus(id)
+      break
+    case 'set-copies':
+      if (!id) {
+        return
+      }
+
+      updateOwnedCopies(id)
       break
     case 'set-condition':
       if (!id) {
@@ -3791,6 +3859,7 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
     status: 'owned',
     editionStatus,
     completeInBox,
+    ownedCopies: Math.max(1, record.ownedCopies || 1),
   }))
 
   window.setTimeout(() => {
@@ -3870,6 +3939,31 @@ function updateTargetPrice(id: string) {
     ...record,
     status: record.status === 'missing' ? 'wanted' : record.status,
     targetPrice: usdValue,
+  }))
+}
+
+function updateOwnedCopies(id: string) {
+  const current = getRecord(id)
+  const response = window.prompt(
+    'How many copies of this game do you own? Use notes for copy-specific details like one loose and one CIB.',
+    String(getOwnedCopyCount(current)),
+  )
+
+  if (response === null) {
+    return
+  }
+
+  const value = Number(response.trim())
+
+  if (!Number.isInteger(value) || value < 1 || value > 99) {
+    window.alert('Please enter a whole number from 1 to 99.')
+    return
+  }
+
+  setRecord(id, (record) => ({
+    ...record,
+    status: 'owned',
+    ownedCopies: value,
   }))
 }
 
@@ -4443,6 +4537,7 @@ function exportCatalog() {
       completeInBox: record.completeInBox,
       pricePaid: record.pricePaid,
       favorite: record.favorite,
+      ownedCopies: getOwnedCopyCount(record),
       editionStatus: record.editionStatus,
       condition: record.condition,
       targetPrice: record.targetPrice,
