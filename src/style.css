@@ -209,6 +209,15 @@ a {
   margin-top: 20px;
 }
 
+.mobile-account-bar {
+  display: none;
+}
+
+.mobile-account-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .install-button,
 .secondary-button,
 .chip,
@@ -1982,6 +1991,44 @@ a {
     width: min(100% - 16px, 1440px);
     padding-top: 8px;
     padding-bottom: 24px;
+  }
+
+  .mobile-account-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 12px;
+    border: 1px solid rgba(88, 216, 170, 0.26);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(88, 216, 170, 0.12), rgba(12, 24, 34, 0.96));
+    box-shadow: var(--shadow);
+  }
+
+  .mobile-account-bar span {
+    display: block;
+    color: var(--accent-2);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .mobile-account-bar strong {
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    color: var(--text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-account-actions .install-button,
+  .mobile-account-actions .secondary-button {
+    min-width: 0;
+    padding: 10px 12px;
+    white-space: nowrap;
   }
 
   .hero-panel,

@@ -2431,6 +2431,26 @@ function renderAccountCard() {
   `
 }
 
+function renderMobileAccountBar() {
+  const accountIdentity = getAccountIdentityLabel()
+
+  return `
+    <section class="mobile-account-bar" aria-label="Account access">
+      <div>
+        <span>${state.authToken ? 'Signed in' : 'Account sync'}</span>
+        <strong>${state.authToken ? escapeHtml(accountIdentity) : 'Sign in to protect your vault'}</strong>
+      </div>
+      <div class="mobile-account-actions">
+        ${
+          state.authToken
+            ? '<button class="install-button" type="button" data-action="open-account-settings">Account</button>'
+            : '<button class="install-button" type="button" data-action="open-login">Sign in</button><button class="secondary-button" type="button" data-action="open-register">Create</button>'
+        }
+      </div>
+    </section>
+  `
+}
+
 function renderAuthModal() {
   if (state.authView === 'none') {
     return ''
@@ -2966,6 +2986,7 @@ function renderNow() {
 
   app.innerHTML = `
     <div class="app-shell">
+      ${renderMobileAccountBar()}
       <header class="hero-panel">
         <div class="hero-copy">
           <p class="kicker">Retro Vault Elite</p>
