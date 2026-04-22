@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Retro Vault Elite Outreach Dashboard</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071017;
+      --panel: #111c27;
+      --panel-soft: #172433;
+      --text: #edf4fb;
+      --muted: #a9b8c8;
+      --line: rgba(255, 255, 255, 0.1);
+      --accent: #ffd66e;
+      --good: #58d8aa;
+      --warn: #ff9f5f;
+      --danger: #ff8f8f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(88, 216, 170, 0.12), transparent 32rem),
+        linear-gradient(135deg, #071017, #0d1520 52%, #081018);
+      color: var(--text);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button,
+    a.button {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0.72rem 0.95rem;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.055);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    button:hover,
+    a.button:hover {
+      border-color: rgba(255, 214, 110, 0.45);
+    }
+
+    .primary {
+      color: #241300;
+      border-color: transparent;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--good));
+    }
+
+    .danger {
+      color: #ffdada;
+      border-color: rgba(255, 143, 143, 0.28);
+      background: rgba(90, 26, 35, 0.55);
+    }
+
+    .shell {
+      width: min(100% - 2rem, 1380px);
+      margin: 0 auto;
+      padding: 1rem 0 2rem;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .panel,
+    .target-card,
+    .message-panel {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(17, 28, 39, 0.92);
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+    }
+
+    .panel {
+      padding: 1rem;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 12ch;
+      margin-bottom: 0.8rem;
+      font-size: clamp(2.4rem, 7vw, 5rem);
+      line-height: 0.95;
+    }
+
+    h2 {
+      margin-bottom: 0.75rem;
+      font-size: 1.25rem;
+    }
+
+    .muted,
+    .target-meta,
+    .target-note {
+      color: var(--muted);
+    }
+
+    .quick-grid,
+    .stats-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .stats-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 1rem;
+    }
+
+    .stat {
+      padding: 0.9rem;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 1.7rem;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) repeat(3, minmax(150px, 0.25fr));
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    .controls label {
+      display: grid;
+      gap: 0.35rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 0.85rem;
+      color: var(--text);
+      background: rgba(7, 12, 18, 0.9);
+    }
+
+    textarea {
+      min-height: 240px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(330px, 0.45fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .target-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .target-card {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 0.9rem;
+      padding: 0.9rem;
+      align-items: center;
+    }
+
+    .target-index {
+      display: grid;
+      place-items: center;
+      width: 2.6rem;
+      aspect-ratio: 1;
+      border-radius: 999px;
+      color: #221303;
+      font-weight: 900;
+      background: var(--accent);
+    }
+
+    .target-copy {
+      min-width: 0;
+    }
+
+    .target-copy h3 {
+      margin-bottom: 0.3rem;
+      font-size: 1.08rem;
+    }
+
+    .target-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.45rem;
+      font-size: 0.82rem;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0.28rem 0.55rem;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .pill.todo {
+      color: var(--accent);
+      border-color: rgba(255, 214, 110, 0.22);
+    }
+
+    .pill.contacted {
+      color: var(--good);
+      border-color: rgba(88, 216, 170, 0.25);
+    }
+
+    .pill.replied {
+      color: #c6fff0;
+      border-color: rgba(88, 216, 170, 0.45);
+      background: rgba(88, 216, 170, 0.11);
+    }
+
+    .pill.skipped {
+      color: var(--danger);
+      border-color: rgba(255, 143, 143, 0.25);
+    }
+
+    .target-note {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .target-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.45rem;
+    }
+
+    .message-panel {
+      position: sticky;
+      top: 1rem;
+      padding: 1rem;
+    }
+
+    .message-actions,
+    .bulk-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .today-banner {
+      margin: 1rem 0;
+      padding: 0.8rem 1rem;
+      border: 1px solid rgba(255, 214, 110, 0.22);
+      border-radius: 18px;
+      background: rgba(255, 214, 110, 0.08);
+    }
+
+    .empty {
+      padding: 1rem;
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      z-index: 10;
+      max-width: min(420px, calc(100vw - 2rem));
+      padding: 0.85rem 1rem;
+      border: 1px solid rgba(88, 216, 170, 0.3);
+      border-radius: 16px;
+      color: #dffff3;
+      background: rgba(10, 48, 39, 0.96);
+      opacity: 0;
+      transform: translateY(1rem);
+      transition: 160ms ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .main-grid,
+      .controls,
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .message-panel {
+        position: static;
+      }
+
+      .target-card {
+        grid-template-columns: 1fr;
+      }
+
+      .target-index {
+        width: 2.2rem;
+      }
+
+      .target-actions {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="panel">
+        <h1>Outreach control room</h1>
+        <p class="muted">Open a target, copy the tailored message, paste it yourself, then hit Send only when you are happy. Progress saves in this browser.</p>
+        <div class="stats-grid" aria-label="Outreach progress">
+          <article class="stat"><span>Total</span><strong id="stat-total">0</strong></article>
+          <article class="stat"><span>Contacted</span><strong id="stat-contacted">0</strong></article>
+          <article class="stat"><span>Replies</span><strong id="stat-replied">0</strong></article>
+          <article class="stat"><span>Today's queue</span><strong id="stat-today">0</strong></article>
+        </div>
+      </div>
+
+      <aside class="panel quick-grid">
+        <h2>Fast workflow</h2>
+        <p class="muted">1. Pick a target. 2. Click Copy message. 3. Open target. 4. Paste manually. 5. Review and send yourself. 6. Mark contacted.</p>
+        <div class="bulk-actions">
+          <button class="primary" type="button" id="copy-selected">Copy selected message</button>
+          <button type="button" id="open-selected">Open selected target</button>
+          <button type="button" id="export-csv">Export CSV</button>
+          <button class="danger" type="button" id="reset-progress">Reset progress</button>
+        </div>
+      </aside>
+    </section>
+
+    <section class="today-banner" id="today-banner"></section>
+
+    <section class="controls" aria-label="Filters">
+      <label>
+        Search
+        <input id="search" type="search" placeholder="Reddit, Sega, YouTube, shop..." />
+      </label>
+      <label>
+        Category
+        <select id="category-filter"></select>
+      </label>
+      <label>
+        Status
+        <select id="status-filter">
+          <option value="all">All statuses</option>
+          <option value="todo">Todo</option>
+          <option value="contacted">Contacted</option>
+          <option value="replied">Replied</option>
+          <option value="skipped">Skipped</option>
+        </select>
+      </label>
+      <label>
+        Queue
+        <select id="queue-filter">
+          <option value="all">All targets</option>
+          <option value="today">Today only</option>
+          <option value="best">Best first 10</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="main-grid">
+      <div class="target-list" id="target-list"></div>
+
+      <aside class="message-panel" aria-label="Message composer">
+        <h2 id="selected-title">Select a target</h2>
+        <p class="muted" id="selected-meta">Choose any target to prepare a message.</p>
+        <textarea id="message-box" spellcheck="true"></textarea>
+        <div class="message-actions">
+          <button class="primary" type="button" id="copy-message">Copy message</button>
+          <button type="button" id="open-target">Open target</button>
+          <button type="button" id="mark-contacted">Mark contacted</button>
+          <button type="button" id="mark-replied">Mark replied</button>
+          <button type="button" id="mark-skipped">Skip</button>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const siteUrl = 'https://www.retrovaultelite.com/'
+    const storageKey = 'retroVaultOutreachProgressV1'
+    const bestFirstIds = [2, 1, 86, 61, 62, 76, 25, 26, 27, 29]
+
+    const targets = [
+      { id: 1, name: 'r/retrogaming', category: 'Reddit', url: 'https://www.reddit.com/r/retrogaming/', note: 'Check self-promo rules first.' },
+      { id: 2, name: 'r/gamecollecting', category: 'Reddit', url: 'https://www.reddit.com/r/gamecollecting/', note: 'Strong fit for collection tracking feedback.' },
+      { id: 3, name: 'r/retrogames', category: 'Reddit', url: 'https://www.reddit.com/r/retrogames/', note: 'Use a feedback-first post.' },
+      { id: 4, name: 'r/nes', category: 'Reddit', url: 'https://www.reddit.com/r/nes/', note: 'Angle around console completion.' },
+      { id: 5, name: 'r/snes', category: 'Reddit', url: 'https://www.reddit.com/r/snes/', note: 'Angle around SNES library tracking.' },
+      { id: 6, name: 'r/n64', category: 'Reddit', url: 'https://www.reddit.com/r/n64/', note: 'Ask if N64 collectors find it useful.' },
+      { id: 7, name: 'r/Gamecube', category: 'Reddit', url: 'https://www.reddit.com/r/Gamecube/', note: 'GameCube prices are a good hook.' },
+      { id: 8, name: 'r/dreamcast', category: 'Reddit', url: 'https://www.reddit.com/r/dreamcast/', note: 'Ask about Dreamcast set tracking.' },
+      { id: 9, name: 'r/SegaSaturn', category: 'Reddit', url: 'https://www.reddit.com/r/SegaSaturn/', note: 'Good for high-value library feedback.' },
+      { id: 10, name: 'r/SEGAGENESIS', category: 'Reddit', url: 'https://www.reddit.com/r/SEGAGENESIS/', note: 'Genesis/Mega Drive collectors.' },
+      { id: 11, name: 'r/Gameboy', category: 'Reddit', url: 'https://www.reddit.com/r/Gameboy/', note: 'Handheld tracking angle.' },
+      { id: 12, name: 'r/GameboyAdvance', category: 'Reddit', url: 'https://www.reddit.com/r/GameboyAdvance/', note: 'Ask for mobile experience feedback.' },
+      { id: 13, name: 'r/psx', category: 'Reddit', url: 'https://www.reddit.com/r/psx/', note: 'PlayStation library feedback.' },
+      { id: 14, name: 'r/ps2', category: 'Reddit', url: 'https://www.reddit.com/r/ps2/', note: 'Large library tracking angle.' },
+      { id: 15, name: 'r/originalxbox', category: 'Reddit', url: 'https://www.reddit.com/r/originalxbox/', note: 'Original Xbox collectors.' },
+      { id: 16, name: 'r/Atari2600', category: 'Reddit', url: 'https://www.reddit.com/r/Atari2600/', note: 'Atari library tracking angle.' },
+      { id: 17, name: 'r/neogeo', category: 'Reddit', url: 'https://www.reddit.com/r/neogeo/', note: 'High-value collection angle.' },
+      { id: 18, name: 'r/TurboGrafx', category: 'Reddit', url: 'https://www.reddit.com/r/TurboGrafx/', note: 'Niche library feedback.' },
+      { id: 19, name: 'r/crtgaming', category: 'Reddit', url: 'https://www.reddit.com/r/crtgaming/', note: 'Only post if tools are allowed.' },
+      { id: 20, name: 'r/cade', category: 'Reddit', url: 'https://www.reddit.com/r/cade/', note: 'Arcade-adjacent audience.' },
+      { id: 21, name: 'MetalJesusRocks', category: 'YouTube', url: 'https://www.youtube.com/@MetalJesusRocks', note: 'Use channel About/contact route if available.' },
+      { id: 22, name: 'Game Sack', category: 'YouTube', url: 'https://www.youtube.com/@GameSack', note: 'Comment only where relevant.' },
+      { id: 23, name: 'Spawn Wave', category: 'YouTube', url: 'https://www.youtube.com/@SpawnWave', note: 'Better as creator feedback request.' },
+      { id: 24, name: 'John Hancock', category: 'YouTube', url: 'https://www.youtube.com/@swlovinist', note: 'Collector-focused creator.' },
+      { id: 25, name: 'TheGebs24', category: 'YouTube', url: 'https://www.youtube.com/@TheGebs24', note: 'Strong collector fit.' },
+      { id: 26, name: 'Phoenix Resale', category: 'YouTube', url: 'https://www.youtube.com/@PhoenixResale', note: 'Reseller/collector angle.' },
+      { id: 27, name: 'Retro Rick', category: 'YouTube', url: 'https://www.youtube.com/@RetroRick', note: 'Strong collector fit.' },
+      { id: 28, name: 'Chase After The Right Price', category: 'YouTube', url: 'https://www.youtube.com/@ChaseAfterTheRightPrice', note: 'Price/value hook.' },
+      { id: 29, name: 'Pixel Game Squad', category: 'YouTube', url: 'https://www.youtube.com/@PixelGameSquad', note: 'Collector entertainment audience.' },
+      { id: 30, name: 'The Retro Future', category: 'YouTube', url: 'https://www.youtube.com/@TheRetroFuture', note: 'Handheld/retro audience.' },
+      { id: 31, name: 'Retro Dodo', category: 'YouTube', url: 'https://www.youtube.com/@RetroDodo', note: 'Use contact page if available.' },
+      { id: 32, name: 'My Life in Gaming', category: 'YouTube', url: 'https://www.youtube.com/@mylifeingaming', note: 'Technical retro audience.' },
+      { id: 33, name: 'Gaming Off The Grid', category: 'YouTube', url: 'https://www.youtube.com/@GamingOffTheGrid', note: 'Collector channel.' },
+      { id: 34, name: 'Sega Lord X', category: 'YouTube', url: 'https://www.youtube.com/@SegaLordX', note: 'Sega-specific angle.' },
+      { id: 35, name: 'Pat the NES Punk', category: 'YouTube', url: 'https://www.youtube.com/@PatTheNESPunk', note: 'NES collector angle.' },
+      { id: 36, name: 'The Gaming Historian', category: 'YouTube', url: 'https://www.youtube.com/@GamingHistorian', note: 'Use only a polite creator contact route.' },
+      { id: 37, name: 'SNES drunk', category: 'YouTube', url: 'https://www.youtube.com/@SNESdrunk', note: 'SNES feedback angle.' },
+      { id: 38, name: 'Jeremy Parish', category: 'YouTube', url: 'https://www.youtube.com/@JeremyParish', note: 'Historical library angle.' },
+      { id: 39, name: 'Cannot Be Tamed', category: 'YouTube', url: 'https://www.youtube.com/@Cannotbetamed1', note: 'Review/collector audience.' },
+      { id: 40, name: 'Lady Decade', category: 'YouTube', url: 'https://www.youtube.com/@LadyDecade', note: 'Retro history audience.' },
+      { id: 41, name: 'LGR', category: 'YouTube', url: 'https://www.youtube.com/@LGR', note: 'Retro tech/gaming audience.' },
+      { id: 42, name: 'Modern Vintage Gamer', category: 'YouTube', url: 'https://www.youtube.com/@ModernVintageGamer', note: 'Retro tech audience.' },
+      { id: 43, name: 'Game Dave', category: 'YouTube', url: 'https://www.youtube.com/@GameDave', note: 'Collector/review audience.' },
+      { id: 44, name: 'Happy Console Gamer', category: 'YouTube', url: 'https://www.youtube.com/@HappyConsoleGamer', note: 'Collector audience.' },
+      { id: 45, name: 'Adam Koralik', category: 'YouTube', url: 'https://www.youtube.com/@AdamKoralik', note: 'Collector/travel game hunting angle.' },
+      { id: 46, name: 'Radical Reggie', category: 'YouTube', url: 'https://www.youtube.com/@RadicalReggie', note: 'Collector audience.' },
+      { id: 47, name: 'Scott The Woz', category: 'YouTube', url: 'https://www.youtube.com/@ScottTheWoz', note: 'Large audience; use sparingly.' },
+      { id: 48, name: 'Slopes Game Room', category: 'YouTube', url: 'https://www.youtube.com/@slopesgameroom', note: 'Retro/history audience.' },
+      { id: 49, name: 'Kim Justice', category: 'YouTube', url: 'https://www.youtube.com/@Kim_Justice', note: 'Retro audience.' },
+      { id: 50, name: 'Nostalgia Nerd', category: 'YouTube', url: 'https://www.youtube.com/@Nostalgianerd', note: 'Retro tech/gaming audience.' },
+      { id: 51, name: 'Top Hat Gaming Man', category: 'YouTube', url: 'https://www.youtube.com/@TopHatGamingManChannel', note: 'Retro channel.' },
+      { id: 52, name: 'The Retro Hour', category: 'YouTube', url: 'https://www.youtube.com/@TheRetroHour', note: 'Podcast/contact angle.' },
+      { id: 53, name: 'DidYouKnowGaming', category: 'YouTube', url: 'https://www.youtube.com/@DidYouKnowGaming', note: 'Large audience; polite contact only.' },
+      { id: 54, name: 'My Retro Life', category: 'YouTube', url: 'https://www.youtube.com/@MyRetroLife', note: 'Collector nostalgia angle.' },
+      { id: 55, name: 'Classic Gaming Quarterly', category: 'YouTube', url: 'https://www.youtube.com/@CGQuarterly', note: 'Library/history audience.' },
+      { id: 56, name: 'Hard4Games', category: 'YouTube', url: 'https://www.youtube.com/@Hard4Games', note: 'Collector/prototype audience.' },
+      { id: 57, name: 'The Game Chasers', category: 'YouTube', url: 'https://www.youtube.com/@TheGameChasers', note: 'Game hunting audience.' },
+      { id: 58, name: 'Retro Bird', category: 'YouTube', url: 'https://www.youtube.com/@RetroBirdGaming', note: 'Retro commentary audience.' },
+      { id: 59, name: 'RGT 85', category: 'YouTube', url: 'https://www.youtube.com/@RGT85', note: 'Gaming audience.' },
+      { id: 60, name: 'WULFF DEN', category: 'YouTube', url: 'https://www.youtube.com/@WulffDen', note: 'Gaming/handheld audience.' },
+      { id: 61, name: 'AtariAge Forums', category: 'Forum', url: 'https://forums.atariage.com/', note: 'Read posting rules first.' },
+      { id: 62, name: 'Video Game Sage', category: 'Forum', url: 'https://www.videogamesage.com/', note: 'Strong collector fit.' },
+      { id: 63, name: 'Sega-16 Forums', category: 'Forum', url: 'https://www.sega-16.com/forum/', note: 'Sega library angle.' },
+      { id: 64, name: 'Shmups Forum', category: 'Forum', url: 'https://shmups.system11.org/', note: 'Only where tool feedback is relevant.' },
+      { id: 65, name: 'Obscure Gamers', category: 'Forum', url: 'https://www.obscuregamers.com/', note: 'Niche collector audience.' },
+      { id: 66, name: 'VOGONS', category: 'Forum', url: 'https://www.vogons.org/', note: 'Retro PC/tech audience.' },
+      { id: 67, name: 'Neo-Geo Forums', category: 'Forum', url: 'https://www.neo-geo.com/forums/', note: 'High-value collector audience.' },
+      { id: 68, name: 'Racketboy Forums', category: 'Forum', url: 'https://racketboy.com/forum/', note: 'Retro game collecting audience.' },
+      { id: 69, name: 'RF Generation', category: 'Forum', url: 'https://www.rfgeneration.com/', note: 'Collection tracking audience.' },
+      { id: 70, name: 'PriceCharting Video Game Forum', category: 'Forum', url: 'https://www.pricecharting.com/forum', note: 'Price/value audience.' },
+      { id: 71, name: 'Nintendo Life Forums', category: 'Forum', url: 'https://www.nintendolife.com/forums', note: 'Nintendo audience.' },
+      { id: 72, name: 'Pure Xbox Forums', category: 'Forum', url: 'https://www.purexbox.com/forums', note: 'Xbox collector audience.' },
+      { id: 73, name: 'Push Square Forums', category: 'Forum', url: 'https://www.pushsquare.com/forums', note: 'PlayStation collector audience.' },
+      { id: 74, name: 'ResetEra Retro Search', category: 'Forum', url: 'https://www.resetera.com/search/1/?q=retro+gaming', note: 'Find relevant retro threads.' },
+      { id: 75, name: 'NeoGAF Gaming Community', category: 'Forum', url: 'https://www.neogaf.com/forums/gaming-discussion.2/', note: 'Only post if allowed.' },
+      { id: 76, name: 'RetroFriendz Discord', category: 'Discord/Facebook', url: 'https://discord.me/rfz', note: 'Join, read rules, use correct channel.' },
+      { id: 77, name: 'Disboard Retro Gaming Search', category: 'Discord/Facebook', url: 'https://disboard.org/servers/tag/retro-gaming', note: 'Find servers with promo/project channels.' },
+      { id: 78, name: 'Discord.me Retro Gaming Search', category: 'Discord/Facebook', url: 'https://discord.me/servers/tag/retro-gaming', note: 'Find relevant servers.' },
+      { id: 79, name: 'Top.gg Retro Gaming Search', category: 'Discord/Facebook', url: 'https://top.gg/servers/search?q=retro%20gaming', note: 'Find active servers.' },
+      { id: 80, name: 'Discords.com Retro Gaming Search', category: 'Discord/Facebook', url: 'https://discords.com/servers/tag/retro-gaming', note: 'Find servers with feedback channels.' },
+      { id: 81, name: 'Facebook Retro Game Collecting Groups', category: 'Discord/Facebook', url: 'https://www.facebook.com/search/groups/?q=retro%20game%20collecting', note: 'Join groups and check promo rules.' },
+      { id: 82, name: 'Facebook Retro Gaming Groups', category: 'Discord/Facebook', url: 'https://www.facebook.com/search/groups/?q=retro%20gaming', note: 'Use feedback ask, not hard promo.' },
+      { id: 83, name: 'Facebook Video Game Collecting Groups', category: 'Discord/Facebook', url: 'https://www.facebook.com/search/groups/?q=video%20game%20collecting', note: 'Good fit for collector feedback.' },
+      { id: 84, name: 'Facebook Sega Collectors Groups', category: 'Discord/Facebook', url: 'https://www.facebook.com/search/groups/?q=sega%20collectors', note: 'Sega library angle.' },
+      { id: 85, name: 'Facebook Nintendo Collectors Groups', category: 'Discord/Facebook', url: 'https://www.facebook.com/search/groups/?q=nintendo%20collectors', note: 'Nintendo library angle.' },
+      { id: 86, name: 'Retro Games Collector', category: 'Website/Blog', url: 'https://www.retrogamescollector.com/', note: 'Look for contact route.' },
+      { id: 87, name: 'RetroGamingZone', category: 'Website/Blog', url: 'https://retrogamingzone.com/', note: 'Look for contact route.' },
+      { id: 88, name: 'RetroConclave', category: 'Website/Blog', url: 'https://retroconclave.com/', note: 'Look for contact route.' },
+      { id: 89, name: 'How To Retro', category: 'Website/Blog', url: 'https://www.howtoretro.com/', note: 'Look for contact route.' },
+      { id: 90, name: 'Retro Gaming Nerd', category: 'Website/Blog', url: 'https://retrogamingnerd.com/', note: 'Look for contact route.' },
+      { id: 91, name: 'Time Extension', category: 'Website/Blog', url: 'https://www.timeextension.com/', note: 'Editorial/contact route.' },
+      { id: 92, name: 'Retronauts', category: 'Website/Blog', url: 'https://retronauts.com/', note: 'Podcast/contact route.' },
+      { id: 93, name: 'Hardcore Gaming 101', category: 'Website/Blog', url: 'http://www.hardcoregaming101.net/', note: 'Retro history audience.' },
+      { id: 94, name: 'Video Game History Foundation', category: 'Website/Blog', url: 'https://gamehistory.org/', note: 'Archive/history angle.' },
+      { id: 95, name: 'Gaming Alexandria', category: 'Website/Blog', url: 'https://www.gamingalexandria.com/', note: 'Preservation/history angle.' },
+      { id: 96, name: 'Stone Age Gamer', category: 'Shop', url: 'https://stoneagegamer.com/', note: 'Ask if useful for customers.' },
+      { id: 97, name: 'eStarland', category: 'Shop', url: 'https://www.estarland.com/', note: 'Ask for collector/customer feedback.' },
+      { id: 98, name: 'Lukie Games', category: 'Shop', url: 'https://www.lukiegames.com/', note: 'Ask if useful for customers.' },
+      { id: 99, name: 'VideoGamesNewYork', category: 'Shop', url: 'https://videogamesnewyork.com/', note: 'Ask if useful for shop customers.' },
+      { id: 100, name: 'Pink Gorilla Games', category: 'Shop', url: 'https://pinkgorillagames.com/', note: 'Ask if useful for customers.' }
+    ]
+
+    let progress = loadProgress()
+    let selectedId = targets[0].id
+
+    const els = {
+      list: document.getElementById('target-list'),
+      search: document.getElementById('search'),
+      category: document.getElementById('category-filter'),
+      status: document.getElementById('status-filter'),
+      queue: document.getElementById('queue-filter'),
+      message: document.getElementById('message-box'),
+      selectedTitle: document.getElementById('selected-title'),
+      selectedMeta: document.getElementById('selected-meta'),
+      todayBanner: document.getElementById('today-banner'),
+      toast: document.getElementById('toast')
+    }
+
+    function loadProgress() {
+      try {
+        return JSON.parse(localStorage.getItem(storageKey) || '{}')
+      } catch {
+        return {}
+      }
+    }
+
+    function saveProgress() {
+      localStorage.setItem(storageKey, JSON.stringify(progress))
+    }
+
+    function getStatus(id) {
+      return progress[id]?.status || 'todo'
+    }
+
+    function todayIds() {
+      const openTargets = targets.filter((target) => getStatus(target.id) === 'todo')
+      return openTargets.slice(0, 12).map((target) => target.id)
+    }
+
+    function trackingUrl(target) {
+      const source = target.category.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+      const campaign = target.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+      return `${siteUrl}?utm_source=${encodeURIComponent(source)}&utm_medium=review_request&utm_campaign=${encodeURIComponent(campaign)}`
+    }
+
+    function messageFor(target) {
+      const opener = target.category === 'Reddit'
+        ? `Hey everyone, I have been building a free retro game collection tracker called Retro Vault Elite and I would really value feedback from ${target.name} collectors.`
+        : `Hey, I have been building a free retro game collection tracker called Retro Vault Elite and I would really value feedback from someone who actually likes retro games.`
+
+      return `${opener}
+
+It tracks owned games, wanted games, loose/CIB value, paid prices, favourites, and console completion.
+
+Could you have a quick look and tell me what feels good, what feels confusing, or what would make you use it?
+
+${trackingUrl(target)}
+
+No pressure at all. I am just trying to make it genuinely useful for collectors.`
+    }
+
+    function initFilters() {
+      const categories = ['all', ...Array.from(new Set(targets.map((target) => target.category)))]
+      els.category.innerHTML = categories.map((category) => `<option value="${category}">${category === 'all' ? 'All categories' : category}</option>`).join('')
+    }
+
+    function filteredTargets() {
+      const query = els.search.value.trim().toLowerCase()
+      const category = els.category.value
+      const status = els.status.value
+      const queue = els.queue.value
+      const today = new Set(todayIds())
+      const best = new Set(bestFirstIds)
+
+      return targets.filter((target) => {
+        const targetStatus = getStatus(target.id)
+        const haystack = `${target.name} ${target.category} ${target.note}`.toLowerCase()
+        return (!query || haystack.includes(query))
+          && (category === 'all' || target.category === category)
+          && (status === 'all' || targetStatus === status)
+          && (queue === 'all' || (queue === 'today' && today.has(target.id)) || (queue === 'best' && best.has(target.id)))
+      })
+    }
+
+    function renderStats() {
+      const contacted = targets.filter((target) => getStatus(target.id) === 'contacted').length
+      const replied = targets.filter((target) => getStatus(target.id) === 'replied').length
+      document.getElementById('stat-total').textContent = targets.length
+      document.getElementById('stat-contacted').textContent = contacted
+      document.getElementById('stat-replied').textContent = replied
+      document.getElementById('stat-today').textContent = todayIds().length
+      els.todayBanner.textContent = `Today's queue: ${todayIds().map((id) => targets.find((target) => target.id === id)?.name).filter(Boolean).join(', ')}`
+    }
+
+    function renderList() {
+      const rows = filteredTargets()
+
+      els.list.innerHTML = rows.length
+        ? rows.map((target) => {
+          const status = getStatus(target.id)
+          const isSelected = target.id === selectedId
+          return `
+            <article class="target-card" aria-label="${escapeHtml(target.name)}">
+              <button class="target-index" type="button" data-action="select" data-id="${target.id}" aria-label="Select ${escapeHtml(target.name)}">${target.id}</button>
+              <div class="target-copy">
+                <h3>${escapeHtml(target.name)}</h3>
+                <div class="target-meta">
+                  <span class="pill">${escapeHtml(target.category)}</span>
+                  <span class="pill ${status}">${status}</span>
+                  ${bestFirstIds.includes(target.id) ? '<span class="pill todo">best first</span>' : ''}
+                  ${todayIds().includes(target.id) ? '<span class="pill contacted">today</span>' : ''}
+                  ${isSelected ? '<span class="pill replied">selected</span>' : ''}
+                </div>
+                <p class="target-note">${escapeHtml(target.note)}</p>
+              </div>
+              <div class="target-actions">
+                <button type="button" data-action="copy" data-id="${target.id}">Copy</button>
+                <a class="button" href="${target.url}" target="_blank" rel="noreferrer">Open</a>
+                <button type="button" data-action="contacted" data-id="${target.id}">Contacted</button>
+                <button type="button" data-action="replied" data-id="${target.id}">Replied</button>
+                <button type="button" data-action="skipped" data-id="${target.id}">Skip</button>
+              </div>
+            </article>
+          `
+        }).join('')
+        : '<div class="empty">No targets match the current filters.</div>'
+    }
+
+    function renderSelected() {
+      const target = targets.find((item) => item.id === selectedId) || targets[0]
+      selectedId = target.id
+      els.selectedTitle.textContent = target.name
+      els.selectedMeta.textContent = `${target.category} · ${getStatus(target.id)} · ${target.note}`
+      els.message.value = messageFor(target)
+    }
+
+    function render() {
+      renderStats()
+      renderSelected()
+      renderList()
+    }
+
+    async function copyText(text) {
+      await navigator.clipboard.writeText(text)
+      showToast('Copied. Paste it yourself, review it, then hit Send/Post when ready.')
+    }
+
+    function setStatus(id, status) {
+      progress[id] = {
+        ...(progress[id] || {}),
+        status,
+        updatedAt: new Date().toISOString()
+      }
+      saveProgress()
+      render()
+    }
+
+    function selectedTarget() {
+      return targets.find((target) => target.id === selectedId) || targets[0]
+    }
+
+    function openSelected() {
+      window.open(selectedTarget().url, '_blank', 'noopener,noreferrer')
+    }
+
+    function exportCsv() {
+      const header = ['id', 'name', 'category', 'status', 'updatedAt', 'url', 'trackingUrl']
+      const rows = targets.map((target) => {
+        const item = progress[target.id] || {}
+        return [target.id, target.name, target.category, getStatus(target.id), item.updatedAt || '', target.url, trackingUrl(target)]
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')
+      })
+      const csv = [header.join(','), ...rows].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `retro-vault-outreach-${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+      showToast('CSV exported.')
+    }
+
+    function resetProgress() {
+      if (!confirm('Reset all outreach progress in this browser?')) {
+        return
+      }
+      progress = {}
+      saveProgress()
+      render()
+      showToast('Progress reset.')
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message
+      els.toast.classList.add('show')
+      window.clearTimeout(showToast.timer)
+      showToast.timer = window.setTimeout(() => els.toast.classList.remove('show'), 2600)
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      })[char])
+    }
+
+    els.list.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-action]')
+      if (!button) {
+        return
+      }
+      const id = Number(button.dataset.id)
+      const target = targets.find((item) => item.id === id)
+      if (!target) {
+        return
+      }
+      selectedId = id
+      if (button.dataset.action === 'copy') {
+        copyText(messageFor(target))
+      } else if (button.dataset.action === 'contacted') {
+        setStatus(id, 'contacted')
+      } else if (button.dataset.action === 'replied') {
+        setStatus(id, 'replied')
+      } else if (button.dataset.action === 'skipped') {
+        setStatus(id, 'skipped')
+      } else {
+        render()
+      }
+    })
+
+    document.getElementById('copy-message').addEventListener('click', () => copyText(els.message.value))
+    document.getElementById('copy-selected').addEventListener('click', () => copyText(els.message.value))
+    document.getElementById('open-target').addEventListener('click', openSelected)
+    document.getElementById('open-selected').addEventListener('click', openSelected)
+    document.getElementById('mark-contacted').addEventListener('click', () => setStatus(selectedId, 'contacted'))
+    document.getElementById('mark-replied').addEventListener('click', () => setStatus(selectedId, 'replied'))
+    document.getElementById('mark-skipped').addEventListener('click', () => setStatus(selectedId, 'skipped'))
+    document.getElementById('export-csv').addEventListener('click', exportCsv)
+    document.getElementById('reset-progress').addEventListener('click', resetProgress)
+
+    for (const el of [els.search, els.category, els.status, els.queue]) {
+      el.addEventListener('input', render)
+    }
+
+    initFilters()
+    render()
+  </script>
+</body>
+</html>
