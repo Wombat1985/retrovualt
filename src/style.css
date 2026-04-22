@@ -1999,11 +1999,10 @@ a {
     align-items: center;
     gap: 10px;
     margin-bottom: 10px;
-    padding: 12px;
+    padding: 8px 10px;
     border: 1px solid rgba(88, 216, 170, 0.26);
-    border-radius: 18px;
-    background: linear-gradient(135deg, rgba(88, 216, 170, 0.12), rgba(12, 24, 34, 0.96));
-    box-shadow: var(--shadow);
+    border-radius: 14px;
+    background: rgba(12, 24, 34, 0.78);
   }
 
   .mobile-account-bar span {
@@ -2027,7 +2026,7 @@ a {
   .mobile-account-actions .install-button,
   .mobile-account-actions .secondary-button {
     min-width: 0;
-    padding: 10px 12px;
+    padding: 8px 11px;
     white-space: nowrap;
   }
 
@@ -2101,7 +2100,83 @@ a {
   }
 
   .catalog-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .cover-wrap {
+    padding: 6px;
+  }
+
+  .cover-chips {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    gap: 5px;
+  }
+
+  .ownership-pill,
+  .rarity-badge {
+    padding: 5px 7px;
+    font-size: 0.56rem;
+    letter-spacing: 0.08em;
+  }
+
+  .owned-stamp {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    padding: 7px 9px;
+    border-radius: 12px;
+    font-size: 0.58rem;
+  }
+
+  .owned-stamp strong {
+    font-size: 0.78rem;
+  }
+
+  .game-copy {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .game-copy h3 {
+    font-size: 1.05rem;
+    line-height: 1.05;
+  }
+
+  .collector-line,
+  .game-copy .subtle {
+    font-size: 0.76rem;
+  }
+
+  .price-grid {
+    gap: 6px;
+  }
+
+  .price-grid div {
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .price-grid dt {
+    font-size: 0.68rem;
+  }
+
+  .price-grid dd {
+    margin-top: 5px;
+    font-size: 0.88rem;
+  }
+
+  .card-actions {
+    gap: 6px;
+  }
+
+  .card-actions .toggle-button,
+  .card-actions .ghost-button {
+    flex: 1 1 calc(50% - 4px);
+    padding: 8px 9px;
+    font-size: 0.78rem;
   }
 
   .progress-row {

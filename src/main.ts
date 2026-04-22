@@ -1313,7 +1313,7 @@ function getCollectorBadges(): CollectorBadge[] {
     createBadge('wishlist-hunter', 'Wishlist Hunter', 'Your hunt list has real targets.', 'Add 10 wanted games.', 'W', wantedGames.length, 10, 'blue'),
     createBadge('value-tracker', 'Value Tracker', 'You are tracking paid prices like a market-minded collector.', 'Add paid prices to 10 owned games.', '$', paidPriceCount, 10, 'teal'),
     createBadge('bargain-finder', 'Bargain Finder', 'Your tracked paid prices show market edge.', 'Enter paid prices until your market edge turns positive.', 'B', positiveDelta, 1, 'blue'),
-    createBadge('top-shelf-built', 'Top Shelf Built', 'Your favourites row has personality.', 'Favourite 5 standout games.', 'TS', favoriteCount, 5, 'gold'),
+    createBadge('top-shelf-built', 'Top Shelf Built', 'Your favorites row has personality.', 'Favorite 5 standout games.', 'TS', favoriteCount, 5, 'gold'),
     createBadge('deal-watcher', 'Deal Watcher', 'Your wishlist is watching for price hits.', 'Create at least one target price alert hit.', 'DW', alertCount, 1, 'blue'),
     createBadge('console-specialist', 'Console Specialist', `${dominantConsole?.consoleName ?? 'One console'} is becoming your signature shelf.`, 'Reach 25% completion on any console.', '25', completionProgress, 25, 'teal'),
     createBadge('daily-seven', '7-Day Streak', 'You kept the collector rhythm alive for a full week.', 'Open the vault 7 days in a row.', '7', state.visitStreak.current, 7, 'crimson'),
@@ -2335,7 +2335,7 @@ function renderControlSummary(resultCount: number, visibleCount: number) {
   return `
     <section class="control-summary">
       <div>
-        <p class="kicker">Control centre</p>
+        <p class="kicker">Control center</p>
         <strong>${resultCount.toLocaleString()} results</strong>
         <span class="subtle">Showing ${visibleCount.toLocaleString()} now. Filters update without leaving the collection grid.</span>
       </div>
@@ -2472,20 +2472,20 @@ function renderAccountCard() {
 }
 
 function renderMobileAccountBar() {
+  if (!state.authToken) {
+    return ''
+  }
+
   const accountIdentity = getAccountIdentityLabel()
 
   return `
     <section class="mobile-account-bar" aria-label="Account access">
       <div>
-        <span>${state.authToken ? 'Signed in' : 'Account sync'}</span>
-        <strong>${state.authToken ? escapeHtml(accountIdentity) : 'Sign in to protect your vault'}</strong>
+        <span>Signed in</span>
+        <strong>${escapeHtml(accountIdentity)}</strong>
       </div>
       <div class="mobile-account-actions">
-        ${
-          state.authToken
-            ? '<button class="install-button" type="button" data-action="open-account-settings">Account</button>'
-            : '<button class="install-button" type="button" data-action="open-login">Sign in</button><button class="secondary-button" type="button" data-action="open-register">Create</button>'
-        }
+        <button class="install-button" type="button" data-action="open-account-settings">Account</button>
       </div>
     </section>
   `
@@ -3199,11 +3199,11 @@ function renderNow() {
       <section class="roadmap-strip">
         <article class="roadmap-card">
           <h3>Collector-first browsing</h3>
-          <p>Browse clean cover grids, jump between console libraries, and see owned, wanted, favourite, loose, CIB, sealed, graded, paid-price, and alert states without losing the thread of the hunt.</p>
+          <p>Browse clean cover grids, jump between console libraries, and see owned, wanted, favorite, loose, CIB, sealed, graded, paid-price, and alert states without losing the thread of the hunt.</p>
         </article>
         <article class="roadmap-card">
           <h3>Account-backed collection sync</h3>
-          <p>Sign in to protect your collection, wishlist, paid prices, favourites, alerts, barcode links, notes, profile details, and regional library progress across devices.</p>
+          <p>Sign in to protect your collection, wishlist, paid prices, favorites, alerts, barcode links, notes, profile details, and regional library progress across devices.</p>
         </article>
       </section>
       <footer class="app-footer">
