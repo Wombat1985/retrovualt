@@ -793,7 +793,8 @@ function getCatalog() {
     return catalogCache
   }
 
-  catalogCache = dedupeCatalog([...state.generatedCatalog, ...sampleCatalog, ...state.customCatalog])
+  const catalogEntries = [...state.generatedCatalog, ...sampleCatalog, ...state.customCatalog]
+  catalogCache = dedupeCatalog(catalogEntries)
   catalogByIdCache = new Map(catalogCache.map((game) => [game.id, game]))
   catalogCacheKey = key
   return catalogCache
@@ -3471,7 +3472,11 @@ async function importCatalogFile(input: HTMLInputElement) {
 }
 
 function dedupeCatalog(entries: CatalogEntry[]) {
-  return [...new Map(entries.map((entry) => [entry.id, entry])).values()]
+  return [...new Map(entries.map((entry) => [getCatalogDedupeKey(entry), entry])).values()]
+}
+
+function getCatalogDedupeKey(entry: CatalogEntry) {
+  return [entry.title, entry.console, entry.region].map(normalizeSearchText).join('|')
 }
 
 async function handleAction(element: HTMLElement) {
