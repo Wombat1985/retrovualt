@@ -129,7 +129,7 @@ function copyToClipboard(text) {
 
 function openUrl(url) {
   return new Promise((resolve, reject) => {
-    const child = spawn('powershell.exe', ['-NoProfile', '-Command', 'Start-Process -FilePath $args[0]', url], {
+    const child = spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], {
       detached: true,
       stdio: 'ignore',
       shell: false,
@@ -142,7 +142,7 @@ function openUrl(url) {
 
 function chooseQueue(targets, progress) {
   return targets
-    .filter((target) => openAll ? statusFor(progress, target) === 'todo' : isOpenStatus(statusFor(progress, target)))
+    .filter((target) => isOpenStatus(statusFor(progress, target)))
     .filter((target) => !categoryFilter || target.category.toLowerCase().includes(categoryFilter))
     .filter((target) => !bestOnly || bestFirstIds.has(target.id))
     .filter((target) => !(composerOnly || nightly) || hasComposer(target))
