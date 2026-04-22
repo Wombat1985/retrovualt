@@ -19,6 +19,8 @@ const limit = Number(args.get('limit') || 12)
 const categoryFilter = args.get('category')?.toLowerCase()
 const bestOnly = args.has('best')
 const dryRun = args.has('dry-run')
+const composerOnly = args.has('composer-only')
+const nightly = args.has('nightly')
 
 function parseTargets() {
   const markdown = readFileSync(targetFile, 'utf8')
@@ -101,6 +103,10 @@ function composerUrl(target) {
   return `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/submit?selftext=true&title=${encodeURIComponent(title)}&text=${encodeURIComponent(messageFor(target))}`
 }
 
+function hasComposer(target) {
+  return /reddit\.com\/r\/[^/]+/i.test(target.url)
+}
+
 function copyToClipboard(text) {
   return new Promise((resolve, reject) => {
     const child = spawn('clip.exe')
@@ -133,6 +139,7 @@ function chooseQueue(targets, progress) {
     .filter((target) => statusFor(progress, target) === 'todo')
     .filter((target) => !categoryFilter || target.category.toLowerCase().includes(categoryFilter))
     .filter((target) => !bestOnly || bestFirstIds.has(target.id))
+    .filter((target) => !(composerOnly || nightly) || hasComposer(target))
     .sort((a, b) => {
       const bestDelta = Number(bestFirstIds.has(b.id)) - Number(bestFirstIds.has(a.id))
       return bestDelta || a.id - b.id
@@ -154,7 +161,8 @@ function stamp(progress, target, status) {
 async function main() {
   const targets = parseTargets()
   const progress = loadProgress()
-  const queue = chooseQueue(targets, progress)
+  const queueLimit = nightly ? 4 : limit
+  const queue = chooseQueue(targets, progress).slice(0, queueLimit)
 
   if (queue.length === 0) {
     console.log('No outreach targets match the current filters.')
@@ -164,7 +172,12 @@ async function main() {
   console.log(`Retro Vault Elite outreach runner`)
   console.log(`Queue: ${queue.length} target${queue.length === 1 ? '' : 's'}`)
   console.log('Enter = mark contacted and open next. s = skip. r = mark replied. q = quit.')
-  console.log('The message is copied to clipboard before each target opens.\n')
+  console.log(
+    nightly
+      ? 'Night mode: 4 ready composer targets. Read the drafted post, hit Post if happy, then press Enter here.'
+      : 'The message is copied to clipboard before each target opens.',
+  )
+  console.log('')
 
   const rl = createInterface({ input, output })
 
@@ -175,6 +188,9 @@ async function main() {
     console.log(`\n#${target.id} ${target.name}`)
     console.log(`${target.category}`)
     console.log(url)
+    if (hasComposer(target)) {
+      console.log('Composer opens prefilled. You only review and choose whether to post.')
+    }
 
     if (dryRun) {
       continue
