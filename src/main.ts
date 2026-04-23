@@ -2516,7 +2516,7 @@ function renderCustomEntryModal() {
             />
             <div>
               <strong>Cover preview</strong>
-              <span data-custom-entry-cover-status="true">Generated cover tile. No upload or storage cost.</span>
+              <span data-custom-entry-cover-status="true">Generated cover tile. Add an image URL whenever you have one.</span>
             </div>
           </div>
           <label><span>Title</span><input name="title" required maxlength="120" value="${titleDraft}" /></label>
@@ -2529,7 +2529,7 @@ function renderCustomEntryModal() {
             <label><span>Loose value</span><input name="priceLoose" inputmode="decimal" /></label>
             <label><span>Complete value</span><input name="priceComplete" inputmode="decimal" /></label>
           </div>
-          <label><span>Cover image URL</span><input name="coverUrl" type="url" /><small>Leave blank to use the generated cover tile. Retro Vault does not accept image uploads, so user files cannot create storage costs.</small></label>
+          <label><span>Cover image URL</span><input name="coverUrl" type="url" /><small>Leave blank to keep the generated cover tile, or paste a trusted external image URL.</small></label>
           <div class="auth-settings-grid">
             <label><span>Status</span><select name="status"><option value="owned">Owned</option><option value="wanted">Wanted</option><option value="missing">Just add entry</option></select></label>
             <label><span>Edition</span><select name="editionStatus"><option value="loose">Loose</option><option value="cib">Complete in box</option><option value="boxed">Boxed</option><option value="manual">Manual</option><option value="sealed">Sealed</option><option value="graded">Graded</option></select></label>
@@ -3693,8 +3693,8 @@ function updateCustomEntryCoverPreview(form: HTMLFormElement | null) {
 
   if (previewStatus) {
     previewStatus.textContent = coverUrl
-      ? 'Trusted external image URL. Retro Vault is not storing the file.'
-      : 'Generated cover tile. No upload or storage cost.'
+      ? 'Trusted external image URL selected.'
+      : 'Generated cover tile. Add an image URL whenever you have one.'
   }
 }
 
