@@ -255,6 +255,8 @@ const state = {
   badgesOpen: false,
   ownershipPickerGameId: null as string | null,
   justOwnedGameId: null as string | null,
+  customEntryOpen: false,
+  customEntryError: '',
   scannerOpen: false,
   scannerStatus: 'Scan a barcode with your camera or upload a clear barcode photo.' as string,
   barcodeLinkCode: null as string | null,
@@ -811,13 +813,16 @@ function invalidateCatalogCache() {
 }
 
 function getConsoles() {
-  const names = state.catalogMeta.length
+  const metaNames = state.catalogMeta.length
     ? state.catalogMeta
         .filter((entry) => state.regionFilter === 'All regions' || entry.region === state.regionFilter)
         .map((entry) => entry.console)
-    : [...new Set(getCatalog().map((game) => game.console))]
+    : getCatalog().map((game) => game.console)
+  const customNames = state.customCatalog
+    .filter((entry) => state.regionFilter === 'All regions' || entry.region === state.regionFilter)
+    .map((entry) => entry.console)
 
-  return ['All consoles', ...names]
+  return ['All consoles', ...[...new Set([...metaNames, ...customNames])]]
 }
 
 function getConsoleMeta(consoleName: string) {
@@ -836,7 +841,7 @@ function getConsoleOptionLabel(consoleName: string) {
 
 function getRegions() {
   const regions = state.catalogMeta.length
-    ? state.catalogMeta.map((entry) => entry.region)
+    ? [...state.catalogMeta.map((entry) => entry.region), ...state.customCatalog.map((entry) => entry.region)]
     : [...new Set(getCatalog().map((game) => game.region))]
 
   return ['All regions', ...[...new Set(regions.filter(Boolean))].sort((left, right) => left.localeCompare(right))]
@@ -957,6 +962,10 @@ function normalizeSearchText(value: string) {
     .replace(/\bv\b/g, ' 5 ')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
+}
+
+function slugifyCustomValue(value: string) {
+  return normalizeSearchText(value).replace(/\s+/g, '-')
 }
 
 function matchesSearchValue(game: CatalogEntry, searchValue: string) {
@@ -2456,6 +2465,47 @@ function renderOwnershipPickerModal() {
   `
 }
 
+function renderCustomEntryModal() {
+  if (!state.customEntryOpen) {
+    return ''
+  }
+
+  const titleDraft = escapeHtml(state.search.trim())
+  const consoleDraft = state.consoleFilter === 'All consoles' ? '' : escapeHtml(state.consoleFilter)
+  const regionDraft = state.regionFilter === 'All regions' ? 'North America' : escapeHtml(state.regionFilter)
+
+  return `
+    <div class="game-modal-backdrop" data-action="close-custom-entry">
+      <section class="auth-modal custom-entry-modal" role="dialog" aria-modal="true" aria-labelledby="custom-entry-title" onclick="event.stopPropagation()">
+        <button class="modal-close" type="button" data-action="close-custom-entry" aria-label="Close custom entry">Close</button>
+        <p class="kicker">Private catalog entry</p>
+        <h2 id="custom-entry-title">Add missing game</h2>
+        <p class="auth-helper">Create a private entry now. It appears in your collection immediately, counts in your stats, and syncs with your account.</p>
+        ${state.customEntryError ? `<div class="auth-message auth-message--error">${escapeHtml(state.customEntryError)}</div>` : ''}
+        <form class="auth-form custom-entry-form" data-custom-entry-form="true">
+          <label><span>Title</span><input name="title" required maxlength="120" placeholder="Game title" value="${titleDraft}" /></label>
+          <label><span>Console</span><input name="console" required maxlength="80" placeholder="Console or platform" value="${consoleDraft}" /></label>
+          <div class="auth-settings-grid">
+            <label><span>Region</span><input name="region" required maxlength="60" placeholder="North America" value="${regionDraft}" /></label>
+            <label><span>Year</span><input name="year" inputmode="numeric" maxlength="4" placeholder="Optional" /></label>
+          </div>
+          <div class="auth-settings-grid">
+            <label><span>Loose value</span><input name="priceLoose" inputmode="decimal" placeholder="Optional" /></label>
+            <label><span>Complete value</span><input name="priceComplete" inputmode="decimal" placeholder="Optional" /></label>
+          </div>
+          <label><span>Cover image URL</span><input name="coverUrl" type="url" placeholder="Optional trusted image URL" /></label>
+          <div class="auth-settings-grid">
+            <label><span>Status</span><select name="status"><option value="owned">Owned</option><option value="wanted">Wanted</option><option value="missing">Just add entry</option></select></label>
+            <label><span>Edition</span><select name="editionStatus"><option value="loose">Loose</option><option value="cib">Complete in box</option><option value="boxed">Boxed</option><option value="manual">Manual</option><option value="sealed">Sealed</option><option value="graded">Graded</option></select></label>
+          </div>
+          <label><span>Notes</span><input name="notes" maxlength="220" placeholder="Homebrew, import, variant, or anything useful" /></label>
+          <button class="toggle-button" type="submit">Add to my collection</button>
+        </form>
+      </section>
+    </div>
+  `
+}
+
 function renderAccountCard() {
   return `
     <article class="smart-card">
@@ -3139,6 +3189,7 @@ function renderNow() {
         ${renderFilterChip('owned', 'Owned')}
         ${renderFilterChip('wanted', 'Wanted')}
         ${renderFilterChip('missing', 'Missing')}
+        <button class="secondary-button" data-action="open-custom-entry" type="button">Add missing game</button>
         <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
         <button class="secondary-button" data-action="import-catalog" type="button">Import JSON catalog</button>
         <button class="secondary-button" data-action="export-catalog" type="button">Export collection</button>
@@ -3157,7 +3208,7 @@ function renderNow() {
           ${
             visibleGames.length
               ? visibleGames.map(renderCard).join('')
-              : '<div class="empty-state"><h3>No matches</h3><p>Try another search, console, or collector filter.</p></div>'
+              : '<div class="empty-state"><h3>No matches</h3><p>Add it as a private entry and keep building without waiting for database approval.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
           }
         </div>
         ${
@@ -3218,6 +3269,7 @@ function renderNow() {
       ${renderScannerModal()}
       ${renderSelectedGameModal()}
       ${renderOwnershipPickerModal()}
+      ${renderCustomEntryModal()}
       ${renderBadgesModal()}
       ${renderAuthModal()}
     </div>
@@ -3311,6 +3363,12 @@ function bindEvents() {
     if (form.matches('[data-newsletter-form]')) {
       event.preventDefault()
       void handleNewsletterForm(form)
+      return
+    }
+
+    if (form.matches('[data-custom-entry-form]')) {
+      event.preventDefault()
+      handleCustomEntryForm(form)
       return
     }
 
@@ -3473,6 +3531,154 @@ async function importCatalogFile(input: HTMLInputElement) {
   }
 }
 
+function handleCustomEntryForm(form: HTMLFormElement) {
+  const formData = new FormData(form)
+  const title = getFormText(formData, 'title')
+  const consoleName = getFormText(formData, 'console')
+  const region = getFormText(formData, 'region') || 'Unspecified'
+  const year = getOptionalYear(formData, 'year')
+  const priceLoose = getOptionalPrice(formData, 'priceLoose') ?? 0
+  const priceComplete = getOptionalPrice(formData, 'priceComplete')
+  const coverUrlInput = getFormText(formData, 'coverUrl')
+  const coverUrl = coverUrlInput ? normalizeCoverUrl(coverUrlInput) : ''
+  const status = getCustomEntryStatus(getFormText(formData, 'status'))
+  const editionStatus = getCustomEntryEdition(getFormText(formData, 'editionStatus'))
+  const notes = getFormText(formData, 'notes')
+
+  if (!title || !consoleName) {
+    state.customEntryError = 'Add at least a title and console.'
+    render()
+    return
+  }
+
+  if (year === undefined) {
+    state.customEntryError = 'Use a four digit release year or leave it blank.'
+    render()
+    return
+  }
+
+  if (coverUrlInput && !coverUrl) {
+    state.customEntryError = 'Use a trusted https image URL, or leave the cover blank for now.'
+    render()
+    return
+  }
+
+  const draftEntry = createCustomCatalogEntry({
+    title,
+    consoleName,
+    region,
+    year,
+    priceLoose,
+    priceComplete,
+    coverUrl,
+  })
+  const existingEntry = getCatalog().find((entry) => getCatalogDedupeKey(entry) === getCatalogDedupeKey(draftEntry))
+  const entry = existingEntry ?? draftEntry
+
+  if (!existingEntry) {
+    state.customCatalog = dedupeCatalog([...state.customCatalog, entry])
+    saveCustomCatalog()
+    invalidateCatalogCache()
+  }
+
+  state.customEntryOpen = false
+  state.customEntryError = ''
+  state.search = title
+  state.consoleFilter = consoleName
+  state.regionFilter = region
+  state.ownershipFilter = status === 'missing' ? 'all' : status
+  resetVisibleGameCount()
+
+  if (status === 'missing') {
+    saveLibrary()
+    render()
+    return
+  }
+
+  setRecord(entry.id, (record) => {
+    const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
+
+    return {
+      ...record,
+      status,
+      completeInBox: status === 'owned' && completeInBox,
+      editionStatus,
+      notes: notes || record.notes,
+      ownedCopies: status === 'owned' ? Math.max(1, record.ownedCopies || 1) : record.ownedCopies,
+    }
+  })
+}
+
+function getFormText(formData: FormData, name: string) {
+  const value = formData.get(name)
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function getOptionalPrice(formData: FormData, name: string) {
+  const value = getFormText(formData, name)
+
+  if (!value) {
+    return null
+  }
+
+  const parsed = Number(value.replace(/[$,]/g, ''))
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed * 100) / 100 : null
+}
+
+function getOptionalYear(formData: FormData, name: string) {
+  const value = getFormText(formData, name)
+
+  if (!value) {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed >= 1950 && parsed <= new Date().getFullYear() + 2 ? parsed : undefined
+}
+
+function getCustomEntryStatus(value: string): GameStatus {
+  return value === 'wanted' || value === 'missing' || value === 'owned' ? value : 'owned'
+}
+
+function getCustomEntryEdition(value: string): EditionStatus {
+  return isEditionStatus(value) ? value : 'loose'
+}
+
+function createCustomCatalogEntry(options: {
+  title: string
+  consoleName: string
+  region: string
+  year: number | null
+  priceLoose: number
+  priceComplete: number | null
+  coverUrl: string
+}) {
+  const baseId = ['custom', options.consoleName, options.title, options.region].map(slugifyCustomValue).filter(Boolean).join('-')
+  const existingIds = new Set(getCatalog().map((entry) => entry.id))
+  let id = baseId || `custom-entry-${Date.now()}`
+  let suffix = 2
+
+  while (existingIds.has(id)) {
+    id = `${baseId}-${suffix}`
+    suffix += 1
+  }
+
+  return {
+    id,
+    title: options.title,
+    console: options.consoleName,
+    year: options.year,
+    region: options.region,
+    coverUrl: options.coverUrl,
+    priceLoose: options.priceLoose,
+    priceComplete: options.priceComplete,
+    priceSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
+    coverSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
+    trendDelta: 0,
+    rarity: 'Classic',
+  } satisfies CatalogEntry
+}
+
 function dedupeCatalog(entries: CatalogEntry[]) {
   return [...new Map(entries.map((entry) => [getCatalogDedupeKey(entry), entry])).values()]
 }
@@ -3562,7 +3768,17 @@ async function handleAction(element: HTMLElement) {
       break
     case 'open-scanner':
       state.scannerOpen = true
-  state.scannerStatus = 'Scan a barcode with your camera or upload a clear barcode photo.'
+      state.scannerStatus = 'Scan a barcode with your camera or upload a clear barcode photo.'
+      render()
+      break
+    case 'open-custom-entry':
+      state.customEntryOpen = true
+      state.customEntryError = ''
+      render()
+      break
+    case 'close-custom-entry':
+      state.customEntryOpen = false
+      state.customEntryError = ''
       render()
       break
     case 'browse-library':

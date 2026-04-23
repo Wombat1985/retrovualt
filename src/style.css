@@ -1683,6 +1683,10 @@ a {
   position: relative;
 }
 
+.custom-entry-modal {
+  width: min(680px, 100%);
+}
+
 .auth-modal h2 {
   margin: 0;
   font-size: clamp(2rem, 5vw, 3rem);
@@ -1711,7 +1715,8 @@ a {
   line-height: 1.4;
 }
 
-.auth-form input {
+.auth-form input,
+.auth-form select {
   width: 100%;
   padding: 14px 16px;
   border-radius: 16px;
@@ -1720,8 +1725,13 @@ a {
   color: var(--text);
 }
 
-.auth-form input:disabled {
+.auth-form input:disabled,
+.auth-form select:disabled {
   opacity: 0.72;
+}
+
+.custom-entry-form .toggle-button {
+  justify-content: center;
 }
 
 .auth-message {
