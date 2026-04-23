@@ -1706,11 +1706,15 @@ function formatDelta(value: number) {
 }
 
 function getCoverFallbackDataUri(game: CatalogEntry) {
-  const title = escapeHtml(game.title).slice(0, 80)
-  const consoleName = escapeHtml(game.console).slice(0, 48)
-  const region = escapeHtml(game.region).slice(0, 48)
+  const title = escapeHtml(game.title.trim()).slice(0, 80)
+  const consoleName = escapeHtml(game.console.trim()).slice(0, 48)
+  const region = escapeHtml(game.region.trim()).slice(0, 48)
   const fallbackLabel = game.id.startsWith('custom-') ? 'CUSTOM ENTRY' : 'RETRO VAULT'
-  const sourceLabel = game.id.startsWith('custom-') ? 'Add cover URL any time' : 'Cover source needed'
+  const sourceLabel = game.id.startsWith('custom-') ? '' : 'Cover source needed'
+  const titleLine = title ? `<text x="72" y="420" fill="#f4f8ff" font-family="Arial, sans-serif" font-size="48" font-weight="900">${title}</text>` : ''
+  const consoleLine = consoleName ? `<text x="72" y="496" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="30">${consoleName}</text>` : ''
+  const regionLine = region ? `<text x="72" y="542" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="26">${region}</text>` : ''
+  const sourceLine = sourceLabel ? `<text x="72" y="760" fill="#58d8aa" font-family="Arial, sans-serif" font-size="24" font-weight="700">${sourceLabel}</text>` : ''
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="720" height="900" viewBox="0 0 720 900">
       <defs>
@@ -1728,10 +1732,10 @@ function getCoverFallbackDataUri(game: CatalogEntry) {
       <rect width="720" height="900" rx="44" fill="url(#glow)"/>
       <rect x="52" y="52" width="616" height="796" rx="34" fill="none" stroke="#ffd66e" stroke-opacity="0.45" stroke-width="4"/>
       <text x="72" y="116" fill="#ffd66e" font-family="Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="7">${fallbackLabel}</text>
-      <text x="72" y="420" fill="#f4f8ff" font-family="Arial, sans-serif" font-size="48" font-weight="900">${title}</text>
-      <text x="72" y="496" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="30">${consoleName}</text>
-      <text x="72" y="542" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="26">${region}</text>
-      <text x="72" y="760" fill="#58d8aa" font-family="Arial, sans-serif" font-size="24" font-weight="700">${sourceLabel}</text>
+      ${titleLine}
+      ${consoleLine}
+      ${regionLine}
+      ${sourceLine}
     </svg>
   `.trim()
 
@@ -3384,7 +3388,7 @@ function bindEvents() {
         title: target.dataset.fallbackTitle || target.alt.replace(/\s+cover art$/i, '') || 'Retro game',
         console: target.dataset.fallbackConsole || 'Retro console',
         year: null,
-        region: target.dataset.fallbackRegion || 'Unknown region',
+        region: target.dataset.fallbackRegion || '',
         coverUrl: '',
         priceLoose: 0,
         priceComplete: null,
@@ -3588,7 +3592,7 @@ function handleCustomEntryForm(form: HTMLFormElement) {
   const formData = new FormData(form)
   const title = getFormText(formData, 'title')
   const consoleName = getFormText(formData, 'console')
-  const region = getFormText(formData, 'region') || 'Unspecified'
+  const region = getFormText(formData, 'region')
   const year = getOptionalYear(formData, 'year')
   const priceLoose = getOptionalPrice(formData, 'priceLoose') ?? 0
   const priceComplete = getOptionalPrice(formData, 'priceComplete')
@@ -3598,8 +3602,8 @@ function handleCustomEntryForm(form: HTMLFormElement) {
   const editionStatus = getCustomEntryEdition(getFormText(formData, 'editionStatus'))
   const notes = getFormText(formData, 'notes')
 
-  if (!title || !consoleName) {
-    state.customEntryError = 'Add at least a title and console.'
+  if (!title || !consoleName || !region) {
+    state.customEntryError = 'Add a title, console, and region.'
     render()
     return
   }
@@ -3670,7 +3674,7 @@ function updateCustomEntryCoverPreview(form: HTMLFormElement | null) {
   const formData = new FormData(form)
   const title = getFormText(formData, 'title')
   const consoleName = getFormText(formData, 'console')
-  const region = getFormText(formData, 'region') || 'Unspecified'
+  const region = getFormText(formData, 'region')
   const coverUrlInput = getFormText(formData, 'coverUrl')
   const coverUrl = coverUrlInput ? normalizeCoverUrl(coverUrlInput) : ''
   const previewGame = createCustomEntryPreviewGame(title, consoleName, region)
@@ -3697,10 +3701,10 @@ function updateCustomEntryCoverPreview(form: HTMLFormElement | null) {
 function createCustomEntryPreviewGame(title: string, consoleName: string, region: string) {
   return {
     id: 'custom-preview',
-    title: title || 'Custom game',
-    console: consoleName || 'Your console',
+    title,
+    console: consoleName,
     year: null,
-    region: region || 'Unspecified',
+    region,
     coverUrl: '',
     priceLoose: 0,
     priceComplete: null,
