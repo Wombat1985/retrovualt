@@ -2166,7 +2166,7 @@ function renderSelectedGameModal() {
         <div class="game-modal-copy">
           <p class="kicker">Collector detail</p>
           <h2 id="game-modal-title">${escapeHtml(game.title)}</h2>
-        <p class="modal-subtitle">${escapeHtml(game.console)} / ${escapeHtml(game.region)} / ${game.year ?? 'Release year unavailable'}</p>
+          <p class="modal-subtitle">${escapeHtml(game.console)} / ${escapeHtml(game.region)} / ${game.year ?? 'Release year unavailable'}</p>
           <div class="modal-pill-row">
             <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
             <span class="rarity-badge">${game.rarity}</span>
@@ -2174,6 +2174,11 @@ function renderSelectedGameModal() {
             <span class="detail-chip">Shelf score ${getShelfScore(game)}</span>
             <span class="detail-chip">${getEditionLabel(record.editionStatus)}</span>
             <span class="detail-chip">${getConditionLabel(record.condition)}</span>
+          </div>
+          <div class="modal-primary-actions">
+            <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${record.status === 'owned' ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
+            <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
+            <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
           </div>
           <p class="modal-description">
             This collector view keeps the market snapshot, ownership state, and source art together in one place so the title feels like a real piece of your collection.
@@ -2209,9 +2214,6 @@ function renderSelectedGameModal() {
             <p><strong>Collector notes:</strong> ${record.notes ? escapeHtml(record.notes) : 'No collector notes yet.'}</p>
           </div>
           <div class="card-actions">
-            <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${record.status === 'owned' ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
-            <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
-            <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
             <button class="ghost-button" data-action="set-price-paid" data-id="${safeGameId}" type="button">Set paid</button>
             <button class="ghost-button" data-action="set-target-price" data-id="${safeGameId}" type="button">Set alert</button>
             <button class="ghost-button" data-action="set-edition" data-id="${safeGameId}" type="button">Edition</button>
