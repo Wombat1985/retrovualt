@@ -2515,22 +2515,22 @@ function renderCustomEntryModal() {
               <span data-custom-entry-cover-status="true">Generated cover tile. No upload or storage cost.</span>
             </div>
           </div>
-          <label><span>Title</span><input name="title" required maxlength="120" placeholder="Game title" value="${titleDraft}" /></label>
-          <label><span>Console</span><input name="console" required maxlength="80" placeholder="Console or platform" value="${consoleDraft}" /></label>
+          <label><span>Title</span><input name="title" required maxlength="120" value="${titleDraft}" /></label>
+          <label><span>Console</span><input name="console" required maxlength="80" value="${consoleDraft}" /></label>
           <div class="auth-settings-grid">
-            <label><span>Region</span><input name="region" required maxlength="60" placeholder="North America" value="${regionDraft}" /></label>
-            <label><span>Year</span><input name="year" inputmode="numeric" maxlength="4" placeholder="Optional" /></label>
+            <label><span>Region</span><input name="region" required maxlength="60" value="${regionDraft}" /></label>
+            <label><span>Year</span><input name="year" inputmode="numeric" maxlength="4" /></label>
           </div>
           <div class="auth-settings-grid">
-            <label><span>Loose value</span><input name="priceLoose" inputmode="decimal" placeholder="Optional" /></label>
-            <label><span>Complete value</span><input name="priceComplete" inputmode="decimal" placeholder="Optional" /></label>
+            <label><span>Loose value</span><input name="priceLoose" inputmode="decimal" /></label>
+            <label><span>Complete value</span><input name="priceComplete" inputmode="decimal" /></label>
           </div>
-          <label><span>Cover image URL</span><input name="coverUrl" type="url" placeholder="Optional PriceCharting image URL" /><small>Leave blank to use the generated cover tile. Retro Vault does not accept image uploads, so user files cannot create storage costs.</small></label>
+          <label><span>Cover image URL</span><input name="coverUrl" type="url" /><small>Leave blank to use the generated cover tile. Retro Vault does not accept image uploads, so user files cannot create storage costs.</small></label>
           <div class="auth-settings-grid">
             <label><span>Status</span><select name="status"><option value="owned">Owned</option><option value="wanted">Wanted</option><option value="missing">Just add entry</option></select></label>
             <label><span>Edition</span><select name="editionStatus"><option value="loose">Loose</option><option value="cib">Complete in box</option><option value="boxed">Boxed</option><option value="manual">Manual</option><option value="sealed">Sealed</option><option value="graded">Graded</option></select></label>
           </div>
-          <label><span>Notes</span><input name="notes" maxlength="220" placeholder="Homebrew, import, variant, or anything useful" /></label>
+          <label><span>Notes</span><input name="notes" maxlength="220" /></label>
           <button class="toggle-button" type="submit">Add to my collection</button>
         </form>
       </section>
@@ -2631,9 +2631,9 @@ function renderAuthForm() {
   if (state.authView === 'register') {
     return `
       <form class="auth-form" data-auth-form="register">
-        <label><span>Display name</span><input name="displayName" autocomplete="name" placeholder="Retro collector name" /><small>Display names must be unique. Your email must also be unique and protects the account.</small></label>
-        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" value="${emailDraft}" /></label>
-        <label><span>Password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" /></label>
+        <label><span>Display name</span><input name="displayName" autocomplete="name" /><small>Display names must be unique. Your email must also be unique and protects the account.</small></label>
+        <label><span>Email</span><input name="email" type="email" autocomplete="email" required value="${emailDraft}" /></label>
+        <label><span>Password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" /></label>
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Create account')}</button>
         <button class="ghost-button" type="button" data-action="open-login">Already have an account?</button>
       </form>
@@ -2643,7 +2643,7 @@ function renderAuthForm() {
   if (state.authView === 'login') {
     return `
       <form class="auth-form" data-auth-form="login">
-        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" value="${emailDraft}" /></label>
+        <label><span>Email</span><input name="email" type="email" autocomplete="email" required value="${emailDraft}" /></label>
         <label><span>Password</span><input name="password" type="password" autocomplete="current-password" required /></label>
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Sign in')}</button>
         <button class="ghost-button" type="button" data-action="open-reset">Forgot password?</button>
@@ -2655,7 +2655,7 @@ function renderAuthForm() {
   if (state.authView === 'reset') {
     return `
       <form class="auth-form" data-auth-form="reset">
-        <label><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" value="${emailDraft}" /></label>
+        <label><span>Email</span><input name="email" type="email" autocomplete="email" required value="${emailDraft}" /></label>
         <button class="toggle-button" type="submit" ${disabled}>${buttonText('Send reset email')}</button>
         <button class="ghost-button" type="button" data-action="open-login">Back to sign in</button>
       </form>
@@ -2883,7 +2883,7 @@ function renderNewsletterCapture() {
       <form class="newsletter-form" data-newsletter-form>
         <label>
           <span>Email</span>
-          <input name="email" type="email" autocomplete="email" required placeholder="collector@example.com" value="${escapeHtml(state.accountEmail)}" />
+          <input name="email" type="email" autocomplete="email" required value="${escapeHtml(state.accountEmail)}" />
         </label>
         <button class="toggle-button" type="submit">Join the watchlist</button>
       </form>
@@ -2985,7 +2985,7 @@ function renderScannerModal() {
                 </div>
                 <label class="search-field">
                   <span>Search game to link</span>
-                  <input id="barcode-search" type="search" placeholder="Search a title or console..." value="${escapeHtml(state.barcodeSearch)}" />
+                  <input id="barcode-search" type="search" aria-label="Search a title or console" value="${escapeHtml(state.barcodeSearch)}" />
                 </label>
                 <div class="barcode-match-list">
                   ${matches
@@ -3115,7 +3115,7 @@ function renderNow() {
       <header class="hero-panel">
         <div class="hero-copy">
           <p class="kicker">Retro Vault Elite</p>
-          <h1>Catalogue your retro collection, track market value, and know what to hunt next.</h1>
+          <h1>Catalog your retro collection, track market value, and know what to hunt next.</h1>
           <p class="hero-text">
             Track owned, wanted, loose, and complete values across full console libraries. Built for collectors who care about shelf value, progress, and the thrill of the hunt.
           </p>
@@ -3166,7 +3166,7 @@ function renderNow() {
       <section class="toolbar">
         <label class="search-field">
           <span>Search the vault</span>
-          <input id="search-input" type="search" placeholder="Mario, Chrono, Castlevania..." value="${escapeHtml(state.search)}" />
+          <input id="search-input" type="search" value="${escapeHtml(state.search)}" />
         </label>
         <label class="select-field">
           <span>Region</span>
