@@ -1746,6 +1746,19 @@ function getDetailCoverUrl(game: CatalogEntry) {
   return game.coverUrl ? game.coverUrl.replace('/240.jpg', '/1600.jpg') : getCoverFallbackDataUri(game)
 }
 
+function getCoverFallbackAttributes(game: CatalogEntry) {
+  if (!game.coverUrl) {
+    return `data-fallback-src="${getCoverFallbackDataUri(game)}"`
+  }
+
+  return [
+    `data-fallback-title="${escapeHtml(game.title)}"`,
+    `data-fallback-console="${escapeHtml(game.console)}"`,
+    `data-fallback-region="${escapeHtml(game.region)}"`,
+    `data-fallback-custom="${game.id.startsWith('custom-') ? 'true' : 'false'}"`,
+  ].join(' ')
+}
+
 function getCoverSourceLabel(game: CatalogEntry) {
   if (!game.coverUrl) {
     return 'No trusted cover source yet. Showing Retro Vault fallback art.'
@@ -2106,7 +2119,7 @@ function renderCard(game: CatalogEntry) {
           loading="lazy"
           decoding="async"
           referrerpolicy="no-referrer"
-          data-fallback-src="${getCoverFallbackDataUri(game)}"
+          ${getCoverFallbackAttributes(game)}
         />
         <div class="cover-chips">
           <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
@@ -2171,7 +2184,7 @@ function renderSelectedGameModal() {
             loading="eager"
             decoding="async"
             referrerpolicy="no-referrer"
-            data-fallback-src="${getCoverFallbackDataUri(game)}"
+            ${getCoverFallbackAttributes(game)}
           />
         </div>
         <div class="game-modal-copy">
@@ -3002,7 +3015,7 @@ function renderSpotlight(spotlight: Spotlight | null) {
 
   return `
     <article class="spotlight-card">
-      <img class="spotlight-cover" src="${getCardCoverUrl(spotlight.game)}" alt="${escapeHtml(spotlight.game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fallback-src="${getCoverFallbackDataUri(spotlight.game)}" />
+      <img class="spotlight-cover" src="${getCardCoverUrl(spotlight.game)}" alt="${escapeHtml(spotlight.game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${getCoverFallbackAttributes(spotlight.game)} />
       <div class="spotlight-copy">
         <p class="kicker">${spotlight.label}</p>
         <h2>${escapeHtml(spotlight.game.title)}</h2>
@@ -3362,11 +3375,30 @@ function bindEvents() {
     (event) => {
       const target = event.target as HTMLElement
 
-      if (!(target instanceof HTMLImageElement) || !target.dataset.fallbackSrc || target.src === target.dataset.fallbackSrc) {
+      if (!(target instanceof HTMLImageElement)) {
         return
       }
 
-      target.src = target.dataset.fallbackSrc
+      const fallbackSrc = target.dataset.fallbackSrc || getCoverFallbackDataUri({
+        id: target.dataset.fallbackCustom === 'true' ? 'custom-image-error' : 'catalog-image-error',
+        title: target.dataset.fallbackTitle || target.alt.replace(/\s+cover art$/i, '') || 'Retro game',
+        console: target.dataset.fallbackConsole || 'Retro console',
+        year: null,
+        region: target.dataset.fallbackRegion || 'Unknown region',
+        coverUrl: '',
+        priceLoose: 0,
+        priceComplete: null,
+        priceSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
+        coverSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
+        trendDelta: 0,
+        rarity: 'Classic',
+      })
+
+      if (target.src === fallbackSrc) {
+        return
+      }
+
+      target.src = fallbackSrc
       target.classList.add('is-fallback-cover')
     },
     true,
