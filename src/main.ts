@@ -2473,20 +2473,20 @@ function renderAccountCard() {
 }
 
 function renderMobileAccountBar() {
-  if (!state.authToken) {
-    return ''
-  }
-
   const accountIdentity = getAccountIdentityLabel()
 
   return `
     <section class="mobile-account-bar" aria-label="Account access">
       <div>
-        <span>Signed in</span>
-        <strong>${escapeHtml(accountIdentity)}</strong>
+        <span>${state.authToken ? 'Signed in' : 'Account'}</span>
+        <strong>${state.authToken ? escapeHtml(accountIdentity) : 'Sign in to sync your vault'}</strong>
       </div>
       <div class="mobile-account-actions">
-        <button class="install-button" type="button" data-action="open-account-settings">Account</button>
+        ${
+          state.authToken
+            ? '<button class="install-button" type="button" data-action="open-account-settings">Account</button>'
+            : '<button class="install-button" type="button" data-action="open-login">Sign in</button><button class="ghost-button" type="button" data-action="open-register">Create</button>'
+        }
       </div>
     </section>
   `

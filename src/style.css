@@ -2024,7 +2024,8 @@ a {
   }
 
   .mobile-account-actions .install-button,
-  .mobile-account-actions .secondary-button {
+  .mobile-account-actions .secondary-button,
+  .mobile-account-actions .ghost-button {
     min-width: 0;
     padding: 8px 11px;
     white-space: nowrap;
@@ -2100,83 +2101,89 @@ a {
   }
 
   .catalog-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .cover-wrap {
-    padding: 6px;
+    padding: 5px;
   }
 
   .cover-chips {
-    top: 8px;
-    left: 8px;
-    right: 8px;
-    gap: 5px;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    gap: 4px;
+    justify-content: flex-start;
   }
 
-  .ownership-pill,
-  .rarity-badge {
-    padding: 5px 7px;
-    font-size: 0.56rem;
-    letter-spacing: 0.08em;
+  .cover-chips .rarity-badge {
+    display: none;
+  }
+
+  .cover-chips .ownership-pill {
+    max-width: 100%;
+    padding: 4px 6px;
+    overflow: hidden;
+    font-size: 0.52rem;
+    letter-spacing: 0.06em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .game-card {
+    border-radius: 16px;
+  }
+
+  .game-card.is-owned::before {
+    display: none;
   }
 
   .owned-stamp {
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
-    padding: 7px 9px;
-    border-radius: 12px;
-    font-size: 0.58rem;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    padding: 5px 6px;
+    border-radius: 10px;
+    font-size: 0.5rem;
+    letter-spacing: 0.06em;
   }
 
   .owned-stamp strong {
-    font-size: 0.78rem;
+    font-size: 0.62rem;
+  }
+
+  .owned-stamp span {
+    display: none;
   }
 
   .game-copy {
-    gap: 10px;
-    padding: 10px;
+    gap: 5px;
+    padding: 7px;
   }
 
   .game-copy h3 {
-    font-size: 1.05rem;
-    line-height: 1.05;
+    display: -webkit-box;
+    min-height: 2.25em;
+    overflow: hidden;
+    font-size: 0.82rem;
+    line-height: 1.12;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
+  .game-copy .eyebrow,
   .collector-line,
   .game-copy .subtle {
-    font-size: 0.76rem;
+    display: none;
   }
 
   .price-grid {
-    gap: 6px;
+    display: none;
   }
 
-  .price-grid div {
-    padding: 8px;
-    border-radius: 12px;
-  }
-
-  .price-grid dt {
-    font-size: 0.68rem;
-  }
-
-  .price-grid dd {
-    margin-top: 5px;
-    font-size: 0.88rem;
-  }
-
-  .card-actions {
-    gap: 6px;
-  }
-
-  .card-actions .toggle-button,
-  .card-actions .ghost-button {
-    flex: 1 1 calc(50% - 4px);
-    padding: 8px 9px;
-    font-size: 0.78rem;
+  .game-card .card-actions {
+    display: none;
   }
 
   .progress-row {
