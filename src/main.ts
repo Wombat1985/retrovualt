@@ -1709,6 +1709,8 @@ function getCoverFallbackDataUri(game: CatalogEntry) {
   const title = escapeHtml(game.title).slice(0, 80)
   const consoleName = escapeHtml(game.console).slice(0, 48)
   const region = escapeHtml(game.region).slice(0, 48)
+  const fallbackLabel = game.id.startsWith('custom-') ? 'CUSTOM ENTRY' : 'RETRO VAULT'
+  const sourceLabel = game.id.startsWith('custom-') ? 'Add cover URL any time' : 'Cover source needed'
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="720" height="900" viewBox="0 0 720 900">
       <defs>
@@ -1725,11 +1727,11 @@ function getCoverFallbackDataUri(game: CatalogEntry) {
       <rect width="720" height="900" rx="44" fill="url(#bg)"/>
       <rect width="720" height="900" rx="44" fill="url(#glow)"/>
       <rect x="52" y="52" width="616" height="796" rx="34" fill="none" stroke="#ffd66e" stroke-opacity="0.45" stroke-width="4"/>
-      <text x="72" y="116" fill="#ffd66e" font-family="Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="7">RETRO VAULT</text>
+      <text x="72" y="116" fill="#ffd66e" font-family="Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="7">${fallbackLabel}</text>
       <text x="72" y="420" fill="#f4f8ff" font-family="Arial, sans-serif" font-size="48" font-weight="900">${title}</text>
       <text x="72" y="496" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="30">${consoleName}</text>
       <text x="72" y="542" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="26">${region}</text>
-      <text x="72" y="760" fill="#58d8aa" font-family="Arial, sans-serif" font-size="24" font-weight="700">Cover source needed</text>
+      <text x="72" y="760" fill="#58d8aa" font-family="Arial, sans-serif" font-size="24" font-weight="700">${sourceLabel}</text>
     </svg>
   `.trim()
 
@@ -2493,7 +2495,7 @@ function renderCustomEntryModal() {
             <label><span>Loose value</span><input name="priceLoose" inputmode="decimal" placeholder="Optional" /></label>
             <label><span>Complete value</span><input name="priceComplete" inputmode="decimal" placeholder="Optional" /></label>
           </div>
-          <label><span>Cover image URL</span><input name="coverUrl" type="url" placeholder="Optional trusted image URL" /></label>
+          <label><span>Cover image URL</span><input name="coverUrl" type="url" placeholder="Optional trusted image URL" /><small>Leave blank to use a generated Retro Vault cover tile. Uploads can be added later.</small></label>
           <div class="auth-settings-grid">
             <label><span>Status</span><select name="status"><option value="owned">Owned</option><option value="wanted">Wanted</option><option value="missing">Just add entry</option></select></label>
             <label><span>Edition</span><select name="editionStatus"><option value="loose">Loose</option><option value="cib">Complete in box</option><option value="boxed">Boxed</option><option value="manual">Manual</option><option value="sealed">Sealed</option><option value="graded">Graded</option></select></label>
