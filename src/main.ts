@@ -3214,8 +3214,8 @@ function renderNow() {
         <span>Cover artwork is used for game identification with visible source links; rights remain with their owners.</span>
       </footer>
       ${renderScannerModal()}
-      ${renderOwnershipPickerModal()}
       ${renderSelectedGameModal()}
+      ${renderOwnershipPickerModal()}
       ${renderBadgesModal()}
       ${renderAuthModal()}
     </div>
@@ -3497,6 +3497,7 @@ async function handleAction(element: HTMLElement) {
         }))
       } else {
         state.ownershipPickerGameId = id
+        state.selectedGameId = null
         render()
       }
       break
