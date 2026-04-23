@@ -2472,9 +2472,14 @@ function renderCustomEntryModal() {
     return ''
   }
 
-  const titleDraft = escapeHtml(state.search.trim())
-  const consoleDraft = state.consoleFilter === 'All consoles' ? '' : escapeHtml(state.consoleFilter)
-  const regionDraft = state.regionFilter === 'All regions' ? 'North America' : escapeHtml(state.regionFilter)
+  const rawTitleDraft = state.search.trim()
+  const rawConsoleDraft = state.consoleFilter === 'All consoles' ? '' : state.consoleFilter
+  const rawRegionDraft = state.regionFilter === 'All regions' ? 'North America' : state.regionFilter
+  const titleDraft = escapeHtml(rawTitleDraft)
+  const consoleDraft = escapeHtml(rawConsoleDraft)
+  const regionDraft = escapeHtml(rawRegionDraft)
+  const previewGame = createCustomEntryPreviewGame(rawTitleDraft, rawConsoleDraft, rawRegionDraft)
+  const previewFallback = getCoverFallbackDataUri(previewGame)
 
   return `
     <div class="game-modal-backdrop" data-action="close-custom-entry">
@@ -2485,6 +2490,18 @@ function renderCustomEntryModal() {
         <p class="auth-helper">Create a private entry now. It appears in your collection immediately, counts in your stats, and syncs with your account.</p>
         ${state.customEntryError ? `<div class="auth-message auth-message--error">${escapeHtml(state.customEntryError)}</div>` : ''}
         <form class="auth-form custom-entry-form" data-custom-entry-form="true">
+          <div class="custom-entry-preview">
+            <img
+              src="${previewFallback}"
+              alt="${escapeHtml(previewGame.title)} generated cover preview"
+              data-custom-entry-cover-preview="true"
+              data-fallback-src="${previewFallback}"
+            />
+            <div>
+              <strong>Cover preview</strong>
+              <span data-custom-entry-cover-status="true">Generated cover tile. No upload or storage cost.</span>
+            </div>
+          </div>
           <label><span>Title</span><input name="title" required maxlength="120" placeholder="Game title" value="${titleDraft}" /></label>
           <label><span>Console</span><input name="console" required maxlength="80" placeholder="Console or platform" value="${consoleDraft}" /></label>
           <div class="auth-settings-grid">
@@ -2495,7 +2512,7 @@ function renderCustomEntryModal() {
             <label><span>Loose value</span><input name="priceLoose" inputmode="decimal" placeholder="Optional" /></label>
             <label><span>Complete value</span><input name="priceComplete" inputmode="decimal" placeholder="Optional" /></label>
           </div>
-          <label><span>Cover image URL</span><input name="coverUrl" type="url" placeholder="Optional trusted image URL" /><small>Leave blank to use a generated Retro Vault cover tile. Uploads can be added later.</small></label>
+          <label><span>Cover image URL</span><input name="coverUrl" type="url" placeholder="Optional PriceCharting image URL" /><small>Leave blank to use the generated cover tile. Retro Vault does not accept image uploads, so user files cannot create storage costs.</small></label>
           <div class="auth-settings-grid">
             <label><span>Status</span><select name="status"><option value="owned">Owned</option><option value="wanted">Wanted</option><option value="missing">Just add entry</option></select></label>
             <label><span>Edition</span><select name="editionStatus"><option value="loose">Loose</option><option value="cib">Complete in box</option><option value="boxed">Boxed</option><option value="manual">Manual</option><option value="sealed">Sealed</option><option value="graded">Graded</option></select></label>
@@ -3335,6 +3352,8 @@ function bindEvents() {
     } else if (target.id === 'barcode-search') {
       rememberInputFocus(target)
       scheduleBarcodeSearchRender(target.value)
+    } else if (target.closest('[data-custom-entry-form]')) {
+      updateCustomEntryCoverPreview(target.form)
     }
   })
 
@@ -3609,6 +3628,55 @@ function handleCustomEntryForm(form: HTMLFormElement) {
       ownedCopies: status === 'owned' ? Math.max(1, record.ownedCopies || 1) : record.ownedCopies,
     }
   })
+}
+
+function updateCustomEntryCoverPreview(form: HTMLFormElement | null) {
+  if (!form) {
+    return
+  }
+
+  const formData = new FormData(form)
+  const title = getFormText(formData, 'title')
+  const consoleName = getFormText(formData, 'console')
+  const region = getFormText(formData, 'region') || 'Unspecified'
+  const coverUrlInput = getFormText(formData, 'coverUrl')
+  const coverUrl = coverUrlInput ? normalizeCoverUrl(coverUrlInput) : ''
+  const previewGame = createCustomEntryPreviewGame(title, consoleName, region)
+  const fallbackSrc = getCoverFallbackDataUri(previewGame)
+  const previewImage = form.querySelector<HTMLImageElement>('[data-custom-entry-cover-preview]')
+  const previewStatus = form.querySelector<HTMLElement>('[data-custom-entry-cover-status]')
+
+  if (!previewImage) {
+    return
+  }
+
+  previewImage.classList.remove('is-fallback-cover')
+  previewImage.dataset.fallbackSrc = fallbackSrc
+  previewImage.alt = `${previewGame.title} cover preview`
+  previewImage.src = coverUrl || fallbackSrc
+
+  if (previewStatus) {
+    previewStatus.textContent = coverUrl
+      ? 'Trusted external image URL. Retro Vault is not storing the file.'
+      : 'Generated cover tile. No upload or storage cost.'
+  }
+}
+
+function createCustomEntryPreviewGame(title: string, consoleName: string, region: string) {
+  return {
+    id: 'custom-preview',
+    title: title || 'Custom game',
+    console: consoleName || 'Your console',
+    year: null,
+    region: region || 'Unspecified',
+    coverUrl: '',
+    priceLoose: 0,
+    priceComplete: null,
+    priceSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
+    coverSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
+    trendDelta: 0,
+    rarity: 'Classic',
+  } satisfies CatalogEntry
 }
 
 function getFormText(formData: FormData, name: string) {
