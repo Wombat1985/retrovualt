@@ -189,7 +189,7 @@
   <body>
     <main>
       <section class="hero">
-        <h1>Owner stats</h1>
+        <h1>Admin overview</h1>
         <p>
           Private Retro Vault Elite reporting. This shows safe account details and all-time page views tracked by the
           backend from the moment analytics is deployed.
@@ -300,7 +300,7 @@
         const displayedLifetimeViews = Math.max(backendLifetimeViews, cachedLifetimeViews)
         const storage = stats.storage || {}
         const storageOk = storage.ok !== false
-        const storageLabel = storage.mode === 'supabase' ? 'Supabase' : 'Local fallback'
+        const storageLabel = storage.mode === 'supabase' ? 'Supabase' : 'Local mode'
 
         if (displayedLifetimeViews > cachedLifetimeViews) {
           localStorage.setItem(lifetimeViewsKey, String(displayedLifetimeViews))
@@ -311,7 +311,7 @@
             <h2>Storage health</h2>
             <p>
               <strong>${escapeHtml(storageLabel)}</strong> -
-              ${escapeHtml(storage.message || 'Storage status not reported yet.')}
+              ${escapeHtml(storage.message || 'Storage status pending.')}
             </p>
             <p>
               Last checked: <strong>${escapeHtml(storage.checkedAt || 'Not checked yet')}</strong>
@@ -424,7 +424,7 @@
           const stats = JSON.parse(cached)
           renderStats(stats)
           statusEl.className = 'ok'
-          statusEl.textContent = `Showing last cached owner stats from ${stats.generatedAt || 'an earlier visit'}. Refreshing...`
+          statusEl.textContent = `Showing last cached admin metrics from ${stats.generatedAt || 'an earlier visit'}. Refreshing...`
           return true
         } catch {
           localStorage.removeItem(cachedStatsKey)
@@ -442,7 +442,7 @@
         }
 
         statusEl.className = ''
-        statusEl.textContent = 'Loading owner stats...'
+        statusEl.textContent = 'Loading admin metrics...'
 
         try {
           const response = await fetch(`${API_BASE_URL}/admin/stats`, {

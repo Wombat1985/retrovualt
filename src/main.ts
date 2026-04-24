@@ -1710,7 +1710,7 @@ function getCoverFallbackDataUri(game: CatalogEntry) {
   const consoleName = escapeHtml(game.console.trim()).slice(0, 48)
   const region = escapeHtml(game.region.trim()).slice(0, 48)
   const fallbackLabel = game.id.startsWith('custom-') ? 'CUSTOM ENTRY' : 'RETRO VAULT'
-  const sourceLabel = game.id.startsWith('custom-') ? '' : 'Cover source needed'
+  const sourceLabel = ''
   const titleLine = title ? `<text x="72" y="420" fill="#f4f8ff" font-family="Arial, sans-serif" font-size="48" font-weight="900">${title}</text>` : ''
   const consoleLine = consoleName ? `<text x="72" y="496" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="30">${consoleName}</text>` : ''
   const regionLine = region ? `<text x="72" y="542" fill="#a8b8ca" font-family="Arial, sans-serif" font-size="26">${region}</text>` : ''
@@ -1765,7 +1765,7 @@ function getCoverFallbackAttributes(game: CatalogEntry) {
 
 function getCoverSourceLabel(game: CatalogEntry) {
   if (!game.coverUrl) {
-    return 'No trusted cover source yet. Showing Retro Vault fallback art.'
+    return 'Collector cover tile shown until a linked cover image is available.'
   }
 
   return 'Cover displayed from the linked source for identification. Artwork rights remain with their owners.'
@@ -2502,7 +2502,7 @@ function renderCustomEntryModal() {
     <div class="game-modal-backdrop" data-action="close-custom-entry">
       <section class="auth-modal custom-entry-modal" role="dialog" aria-modal="true" aria-labelledby="custom-entry-title" onclick="event.stopPropagation()">
         <button class="modal-close" type="button" data-action="close-custom-entry" aria-label="Close custom entry">Close</button>
-        <p class="kicker">Private catalog entry</p>
+        <p class="kicker">Custom catalog entry</p>
         <h2 id="custom-entry-title">Add missing game</h2>
         <p class="auth-helper">Create a private entry now. It appears in your collection immediately, counts in your stats, and syncs with your account.</p>
         ${state.customEntryError ? `<div class="auth-message auth-message--error">${escapeHtml(state.customEntryError)}</div>` : ''}
@@ -3110,7 +3110,7 @@ function renderNow() {
   const catalogStatusText = state.isCatalogLoading
     ? `Loading retro catalog data... ${loadedConsoleCount}/${totalConsoleCount} console libraries ready.`
     : state.catalogLoadError
-      ? `Showing curated fallback data from ${priceSnapshotDate}.`
+      ? `Showing curated reference data from ${priceSnapshotDate}.`
       : `Loaded ${catalog.length} games across ${consoleCount} retro consoles. ${loadedConsoleCount}/${totalConsoleCount} console libraries synced. Snapshot ${priceSnapshotDate}.`
 
   app.innerHTML = `
@@ -3244,7 +3244,7 @@ function renderNow() {
           ${
             visibleGames.length
               ? visibleGames.map(renderCard).join('')
-              : '<div class="empty-state"><h3>No matches</h3><p>Add it as a private entry and keep building without waiting for database approval.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
+              : '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
           }
         </div>
         ${
