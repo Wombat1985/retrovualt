@@ -2232,6 +2232,19 @@ a {
 }
 
 @media (max-width: 720px) {
+  body::before {
+    background:
+      linear-gradient(180deg, rgba(33, 50, 81, 0.88) 0%, rgba(21, 33, 56, 0.92) 34%, rgba(9, 17, 27, 0.98) 100%);
+    opacity: 1;
+  }
+
+  body::after,
+  .app-shell::before,
+  .app-shell::after,
+  .collection-backdrop {
+    display: none;
+  }
+
   .collection-backdrop__wall {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     inset: -2vh -22vw;
