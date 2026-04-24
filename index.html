@@ -67,46 +67,204 @@
       gtag('js', new Date())
       gtag('config', 'G-N3BEJV5KZ')
     </script>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:
+          Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(241, 181, 45, 0.12), transparent 34%),
+          linear-gradient(180deg, #1b2230 0%, #0d141e 100%);
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: transparent;
+        color: #f5f7fb;
+      }
+
+      #app {
+        min-height: 100vh;
+      }
+
+      .app-shell {
+        box-sizing: border-box;
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        padding: 32px 20px 56px;
+      }
+
+      .app-shell__panel {
+        width: min(100%, 1080px);
+      }
+
+      .app-shell__eyebrow {
+        margin: 0 0 14px;
+        color: #f1c95f;
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .app-shell h1 {
+        margin: 0;
+        max-width: 12ch;
+        font-size: clamp(3rem, 7vw, 5.6rem);
+        line-height: 0.94;
+      }
+
+      .app-shell__lead {
+        margin: 22px 0 0;
+        max-width: 760px;
+        color: #d2dae8;
+        font-size: clamp(1.05rem, 2.4vw, 1.45rem);
+        line-height: 1.5;
+      }
+
+      .app-shell__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 28px;
+      }
+
+      .app-shell__button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        color: #f5f7fb;
+        font-weight: 700;
+        text-decoration: none;
+        background: rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(12px);
+      }
+
+      .app-shell__button--primary {
+        border-color: rgba(241, 201, 95, 0.45);
+        background: linear-gradient(135deg, rgba(241, 201, 95, 0.2), rgba(173, 110, 255, 0.18));
+      }
+
+      .app-shell__link-groups {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 40px;
+      }
+
+      .app-shell__group {
+        padding: 18px 18px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+        background: rgba(8, 12, 18, 0.32);
+        backdrop-filter: blur(14px);
+      }
+
+      .app-shell__group h2 {
+        margin: 0 0 12px;
+        font-size: 1rem;
+      }
+
+      .app-shell__group ul {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .app-shell__group a {
+        color: #dbe4f3;
+        text-decoration: none;
+      }
+
+      .app-shell__group a:hover,
+      .app-shell__group a:focus-visible {
+        color: #ffffff;
+        text-decoration: underline;
+      }
+
+      @media (max-width: 900px) {
+        .app-shell__link-groups {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .app-shell {
+          align-items: start;
+          padding: 28px 16px 40px;
+        }
+
+        .app-shell__lead {
+          font-size: 1.05rem;
+        }
+
+        .app-shell__actions {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .app-shell__button {
+          width: 100%;
+        }
+      }
+    </style>
     <title>Retro Vault Elite - Retro Games Collection Tracker</title>
   </head>
   <body>
     <div id="app">
-      <main>
-        <h1>Retro Vault Elite - Retro Games Collection Tracker</h1>
-        <p>
-          Catalog your retro collection, track market value, follow full console libraries, and know what to hunt
-          next. Built for collectors tracking NES, SNES, Famicom, Super Famicom, Nintendo 64, Game Boy, Sega, Atari,
-          PlayStation, Neo Geo, TurboGrafx-16, and more.
-        </p>
-        <p>
-          Track owned games, wanted games, loose and complete values, price paid, favorites, barcode matches, and
-          collection progress from one installable retro game collector app.
-        </p>
-        <nav aria-label="Popular retro collector pages">
-          <a href="/retro-game-collection-tracker.html">Retro game collection tracker</a>
-          <a href="/collector-challenge.html">Retro game collector challenge</a>
-          <a href="/retro-games.html">Retro games collection app</a>
-          <a href="/best-retro-game-collection-tracker.html">Best retro game collection tracker</a>
-          <a href="/retro-game-price-tracker.html">Retro game price tracker</a>
-          <a href="/nes-collection-tracker.html">NES collection tracker</a>
-          <a href="/nes-collection-checklist.html">NES collection checklist</a>
-          <a href="/snes-collection-tracker.html">SNES collection tracker</a>
-          <a href="/snes-rarity-list.html">SNES rarity list</a>
-          <a href="/famicom-collection-tracker.html">Famicom collection tracker</a>
-          <a href="/game-boy-collection-tracker.html">Game Boy collection tracker</a>
-          <a href="/game-boy-collection-checklist.html">Game Boy collection checklist</a>
-          <a href="/sega-genesis-collection-tracker.html">Sega Genesis collection tracker</a>
-          <a href="/playstation-collection-tracker.html">PlayStation collection tracker</a>
-          <a href="/playstation-2-collection-tracker.html">PlayStation 2 collection tracker</a>
-          <a href="/cib-game-value-tracker.html">CIB game value tracker</a>
-          <a href="/complete-in-box-value-guide.html">Complete in box value guide</a>
-          <a href="/loose-vs-cib-game-value.html">Loose vs CIB game value</a>
-          <a href="/how-to-value-retro-game-collection.html">How to value a retro game collection</a>
-          <a href="/best-retro-games-to-collect.html">Best retro games to collect</a>
-          <a href="/sell-retro-game-collection-value.html">Retro game collection sell value</a>
-          <a href="/about.html">About Retro Vault Elite</a>
-          <a href="/data-sources.html">Data sources</a>
-        </nav>
+      <main class="app-shell">
+        <div class="app-shell__panel">
+          <p class="app-shell__eyebrow">Retro Vault Elite</p>
+          <h1>Track the collection you actually own.</h1>
+          <p class="app-shell__lead">
+            Catalog retro games, follow complete console libraries, track owned and wanted titles, and keep value,
+            progress, and custom entries together in one collector-focused vault.
+          </p>
+          <div class="app-shell__actions">
+            <a class="app-shell__button app-shell__button--primary" href="/">Open the app</a>
+            <a class="app-shell__button" href="/retro-console-collection-tracker.html">Browse console guides</a>
+          </div>
+          <nav class="app-shell__link-groups" aria-label="Popular retro collector pages">
+            <section class="app-shell__group" aria-labelledby="app-shell-core">
+              <h2 id="app-shell-core">Collector tools</h2>
+              <ul>
+                <li><a href="/retro-game-collection-tracker.html">Retro game collection tracker</a></li>
+                <li><a href="/retro-game-price-tracker.html">Retro game price tracker</a></li>
+                <li><a href="/video-game-collection-tracker.html">Video game collection tracker</a></li>
+                <li><a href="/best-retro-game-collection-tracker.html">Best retro game collection tracker</a></li>
+                <li><a href="/about.html">About Retro Vault Elite</a></li>
+              </ul>
+            </section>
+            <section class="app-shell__group" aria-labelledby="app-shell-consoles">
+              <h2 id="app-shell-consoles">Console pages</h2>
+              <ul>
+                <li><a href="/nes-collection-tracker.html">NES collection tracker</a></li>
+                <li><a href="/snes-collection-tracker.html">SNES collection tracker</a></li>
+                <li><a href="/game-boy-collection-tracker.html">Game Boy collection tracker</a></li>
+                <li><a href="/sega-genesis-collection-tracker.html">Sega Genesis collection tracker</a></li>
+                <li><a href="/playstation-2-collection-tracker.html">PlayStation 2 collection tracker</a></li>
+              </ul>
+            </section>
+            <section class="app-shell__group" aria-labelledby="app-shell-guides">
+              <h2 id="app-shell-guides">Guides and trust</h2>
+              <ul>
+                <li><a href="/cib-game-value-tracker.html">CIB game value tracker</a></li>
+                <li><a href="/loose-vs-cib-game-value.html">Loose vs CIB game value</a></li>
+                <li><a href="/how-to-value-retro-game-collection.html">How to value a retro game collection</a></li>
+                <li><a href="/best-retro-games-to-collect.html">Best retro games to collect</a></li>
+                <li><a href="/data-sources.html">Data sources</a></li>
+              </ul>
+            </section>
+          </nav>
+        </div>
       </main>
     </div>
     <script type="module" src="/src/main.ts"></script>
