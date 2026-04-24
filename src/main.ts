@@ -3108,10 +3108,10 @@ function renderNow() {
   const collectorRank = getCollectorRank()
   const accountIdentity = getAccountIdentityLabel()
   const catalogStatusText = state.isCatalogLoading
-    ? `Loading retro catalog data... ${loadedConsoleCount}/${totalConsoleCount} console libraries ready.`
+    ? `Loading the library. ${loadedConsoleCount} of ${totalConsoleCount} console lists are ready so far.`
     : state.catalogLoadError
-      ? `Showing curated reference data from ${priceSnapshotDate}.`
-      : `Loaded ${catalog.length} games across ${consoleCount} retro consoles. ${loadedConsoleCount}/${totalConsoleCount} console libraries synced. Snapshot ${priceSnapshotDate}.`
+      ? `Using the latest reference snapshot from ${priceSnapshotDate} while the rest of the catalog catches up.`
+      : `${catalog.length} games across ${consoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
 
   app.innerHTML = `
     <div class="app-shell">
@@ -3119,15 +3119,15 @@ function renderNow() {
       <header class="hero-panel">
         <div class="hero-copy">
           <p class="kicker">Retro Vault Elite</p>
-          <h1>Catalog your retro collection, track market value, and know what to hunt next.</h1>
+          <h1>Keep up with the collection you have, and the games you still want to find.</h1>
           <p class="hero-text">
-            Track owned, wanted, loose, and complete values across full console libraries. Built for collectors who care about shelf value, progress, and the thrill of the hunt.
+            Keep track of what you own, what you still want, what you paid, and all the oddball pieces that make your collection yours, without wrestling with a giant spreadsheet.
           </p>
           <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 10 April 2026.</p>
           ${
             state.authToken
               ? `<p class="account-status-pill"><span>Signed in</span><strong>${escapeHtml(accountIdentity)}</strong></p>`
-              : '<p class="account-status-pill account-status-pill--guest"><span>Guest mode</span><strong>Create an account to sync this vault</strong></p>'
+              : '<p class="account-status-pill account-status-pill--guest"><span>Guest mode</span><strong>Make an account when you want your collection synced across devices.</strong></p>'
           }
           <div class="hero-actions">
             ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button>'}

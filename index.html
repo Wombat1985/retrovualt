@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1b1328" />
     <meta
       name="description"
-      content="Retro Vault Elite is a retro game collection tracker for owned games, wanted games, market values, custom entries, console progress, and cloud sync."
+      content="Retro Vault Elite is a retro game collection tracker for keeping up with what you own, what you still want, what you paid, and how your shelves are growing."
     />
     <meta
       name="keywords"
@@ -22,7 +22,7 @@
     <meta property="og:title" content="Retro Vault Elite - Retro Games Collection Tracker" />
     <meta
       property="og:description"
-      content="Track owned games, wishlist grails, market values, custom entries, and full console libraries in one serious collector vault."
+      content="Keep your retro collection in one place with owned and wanted tracking, prices, custom entries, and room for the weird stuff too."
     />
     <meta property="og:url" content="https://www.retrovaultelite.com/" />
     <meta property="og:image" content="https://www.retrovaultelite.com/retro-vault-share.svg" />
@@ -31,7 +31,7 @@
     <meta name="twitter:title" content="Retro Vault Elite - Retro Games Collection Tracker" />
     <meta
       name="twitter:description"
-      content="Track owned games, wanted titles, values, and full retro console libraries in one collector-focused vault."
+      content="A retro game collection tracker that keeps up with what you own, what you still want, and what your shelves are worth."
     />
     <meta name="twitter:image" content="https://www.retrovaultelite.com/retro-vault-share.svg" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -45,7 +45,7 @@
         "applicationCategory": "LifestyleApplication",
         "operatingSystem": "Web, iOS, Android, Windows, macOS",
         "url": "https://www.retrovaultelite.com/",
-        "description": "Retro Vault Elite is a retro game collection tracker for owned games, wanted games, market values, custom entries, console progress, and cloud sync.",
+        "description": "Retro Vault Elite is a retro game collection tracker for keeping up with what you own, what you still want, what you paid, and how your shelves are growing.",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -81,8 +81,8 @@
         min-height: 100vh;
         position: relative;
         background:
-          linear-gradient(180deg, rgba(255, 181, 82, 0.18) 0%, rgba(209, 99, 255, 0.14) 18%, rgba(8, 16, 24, 0) 52%),
-          linear-gradient(180deg, #243457 0%, #18233a 28%, #101827 58%, #09111b 100%);
+          linear-gradient(180deg, rgba(9, 17, 27, 0.2), rgba(9, 17, 27, 0.58) 38%, rgba(9, 17, 27, 0.82) 100%),
+          linear-gradient(180deg, #233251 0%, #152138 34%, #09111b 100%);
         color: #f5f7fb;
         overflow-x: hidden;
       }
@@ -104,34 +104,26 @@
 
       body::before {
         background:
-          linear-gradient(180deg, rgba(255, 219, 132, 0.28), rgba(255, 219, 132, 0.06) 18%, transparent 36%),
-          repeating-linear-gradient(
-            90deg,
-            rgba(103, 140, 255, 0.12) 0,
-            rgba(103, 140, 255, 0.12) 1px,
-            transparent 1px,
-            transparent 76px
-          ),
-          repeating-linear-gradient(
-            180deg,
-            rgba(96, 225, 255, 0.09) 0,
-            rgba(96, 225, 255, 0.09) 1px,
-            transparent 1px,
-            transparent 76px
-          );
-        opacity: 0.72;
+          linear-gradient(90deg, rgba(7, 11, 20, 0.74), rgba(7, 11, 20, 0.3) 36%, rgba(7, 11, 20, 0.66) 100%),
+          linear-gradient(180deg, rgba(255, 184, 88, 0.12), rgba(255, 184, 88, 0) 32%, rgba(9, 17, 27, 0.45) 100%),
+          url('/retro-room-bg.png') center center / cover no-repeat;
+        opacity: 0.96;
       }
 
       body::after {
-        top: 15vh;
-        bottom: auto;
-        height: 58vh;
+        inset: 0;
         background:
-          linear-gradient(180deg, rgba(255, 149, 86, 0.18), rgba(255, 149, 86, 0) 40%),
-          linear-gradient(90deg, rgba(255, 214, 110, 0), rgba(255, 214, 110, 0.45), rgba(88, 216, 170, 0)),
-          linear-gradient(90deg, rgba(255, 118, 192, 0), rgba(255, 118, 192, 0.18), rgba(103, 140, 255, 0));
-        mask: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.92) 14%, transparent 100%);
-        opacity: 0.7;
+          radial-gradient(circle at 18% 18%, rgba(108, 148, 255, 0.2), transparent 24%),
+          radial-gradient(circle at 82% 30%, rgba(255, 131, 185, 0.16), transparent 26%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 24%),
+          repeating-linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.02) 0,
+            rgba(255, 255, 255, 0.02) 1px,
+            transparent 1px,
+            transparent 4px
+          );
+        opacity: 0.42;
       }
 
       .app-shell {
@@ -150,15 +142,9 @@
         pointer-events: none;
         z-index: -1;
         background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 24%),
-          repeating-linear-gradient(
-            180deg,
-            rgba(255, 255, 255, 0.02) 0,
-            rgba(255, 255, 255, 0.02) 1px,
-            transparent 1px,
-            transparent 5px
-          );
-        opacity: 0.24;
+          linear-gradient(180deg, rgba(9, 17, 27, 0.08), rgba(9, 17, 27, 0) 26%),
+          linear-gradient(90deg, rgba(255, 198, 90, 0), rgba(255, 198, 90, 0.14), rgba(255, 198, 90, 0));
+        opacity: 0.5;
       }
 
       .app-shell::after {
@@ -167,28 +153,28 @@
         left: 0;
         right: 0;
         bottom: 0;
-        height: 42vh;
+        height: 34vh;
         pointer-events: none;
         z-index: -1;
         background:
-          linear-gradient(180deg, rgba(10, 18, 29, 0) 0%, rgba(10, 18, 29, 0.16) 30%, rgba(10, 18, 29, 0.64) 100%),
+          linear-gradient(180deg, rgba(9, 17, 27, 0) 0%, rgba(9, 17, 27, 0.08) 24%, rgba(9, 17, 27, 0.4) 100%),
           repeating-linear-gradient(
             90deg,
-            rgba(255, 118, 192, 0.16) 0,
-            rgba(255, 118, 192, 0.16) 2px,
+            rgba(255, 119, 189, 0.12) 0,
+            rgba(255, 119, 189, 0.12) 2px,
             transparent 2px,
-            transparent 96px
+            transparent 88px
           ),
           repeating-linear-gradient(
             0deg,
-            rgba(103, 140, 255, 0.18) 0,
-            rgba(103, 140, 255, 0.18) 2px,
+            rgba(101, 144, 255, 0.16) 0,
+            rgba(101, 144, 255, 0.16) 2px,
             transparent 2px,
-            transparent 56px
+            transparent 52px
           );
-        transform: perspective(900px) rotateX(78deg);
+        transform: perspective(900px) rotateX(80deg);
         transform-origin: bottom center;
-        opacity: 0.5;
+        opacity: 0.34;
       }
 
       .app-shell__panel {
@@ -353,23 +339,22 @@
       <main class="app-shell">
         <div class="app-shell__panel">
           <p class="app-shell__eyebrow">Retro Vault Elite</p>
-          <h1>The retro game collection tracker that keeps up with real collectors.</h1>
+          <h1>The collection tracker for people who actually collect.</h1>
           <p class="app-shell__lead">
-            Track owned games, wanted titles, loose and complete values, custom entries, and full console libraries
-            without losing the details that make a collection yours.
+            Keep track of what you own, what you still want, what you paid, and what your shelves are worth in one place that feels like it was built by somebody who gets the hobby.
           </p>
           <div class="app-shell__proof" aria-label="Product highlights">
             <div class="app-shell__proof-item">
-              <strong>Track what matters</strong>
-              <span>Owned, wanted, favorites, price paid, condition, edition, and collection progress.</span>
+              <strong>Keep the details that matter</strong>
+              <span>Owned, wanted, favorites, price paid, condition, edition, and collection progress all stay together.</span>
             </div>
             <div class="app-shell__proof-item">
-              <strong>Add missing games</strong>
-              <span>Create custom entries on the spot when your collection goes beyond the official catalog.</span>
+              <strong>Add the odd stuff too</strong>
+              <span>If the game in your hand is missing, add it yourself and keep moving.</span>
             </div>
             <div class="app-shell__proof-item">
-              <strong>Pick up anywhere</strong>
-              <span>Use the vault across desktop and mobile with account sync and a collector-first layout.</span>
+              <strong>Pick it up anywhere</strong>
+              <span>Check your collection on desktop or on your phone when you are out hunting.</span>
             </div>
           </div>
           <div class="app-shell__actions">
