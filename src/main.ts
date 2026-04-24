@@ -1750,6 +1750,51 @@ function getDetailCoverUrl(game: CatalogEntry) {
   return game.coverUrl ? game.coverUrl.replace('/240.jpg', '/1600.jpg') : getCoverFallbackDataUri(game)
 }
 
+function getBackdropGames(visibleGames: CatalogEntry[], catalog: CatalogEntry[]) {
+  const picks: CatalogEntry[] = []
+  const seen = new Set<string>()
+  const sources = [visibleGames, catalog]
+
+  for (const source of sources) {
+    for (const game of source) {
+      const key = `${game.coverUrl || ''}|${game.title}|${game.console}|${game.region}`
+      if (seen.has(key)) {
+        continue
+      }
+      seen.add(key)
+      picks.push(game)
+      if (picks.length >= 18) {
+        return picks
+      }
+    }
+  }
+
+  return picks
+}
+
+function renderBackdropWall(visibleGames: CatalogEntry[], catalog: CatalogEntry[]) {
+  const games = getBackdropGames(visibleGames, catalog)
+
+  if (games.length === 0) {
+    return ''
+  }
+
+  return `
+    <div class="collection-backdrop" aria-hidden="true">
+      <div class="collection-backdrop__wall">
+        ${games
+          .map(
+            (game, index) => `
+              <figure class="collection-backdrop__tile collection-backdrop__tile--${index % 6}">
+                <img src="${escapeHtml(getCardCoverUrl(game))}" alt="" />
+              </figure>`,
+          )
+          .join('')}
+      </div>
+    </div>
+  `
+}
+
 function getCoverFallbackAttributes(game: CatalogEntry) {
   if (!game.coverUrl) {
     return `data-fallback-src="${getCoverFallbackDataUri(game)}"`
@@ -3114,6 +3159,7 @@ function renderNow() {
       : `${catalog.length} games across ${consoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
 
   app.innerHTML = `
+    ${renderBackdropWall(visibleGames, catalog)}
     <div class="app-shell">
       ${renderMobileAccountBar()}
       <header class="hero-panel">
