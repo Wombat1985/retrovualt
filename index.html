@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1b1328" />
     <meta
       name="description"
-      content="Retro Vault Elite is a retro game collection app for tracking owned games, wishlists, market values, completion progress, and full console libraries."
+      content="Retro Vault Elite is a retro game collection tracker for owned games, wanted games, market values, custom entries, console progress, and cloud sync."
     />
     <meta
       name="keywords"
@@ -22,7 +22,7 @@
     <meta property="og:title" content="Retro Vault Elite - Retro Games Collection Tracker" />
     <meta
       property="og:description"
-      content="Catalog your retro collection, track market value, follow complete console libraries, and know what to hunt next."
+      content="Track owned games, wishlist grails, market values, custom entries, and full console libraries in one serious collector vault."
     />
     <meta property="og:url" content="https://www.retrovaultelite.com/" />
     <meta property="og:image" content="https://www.retrovaultelite.com/retro-vault-share.svg" />
@@ -31,7 +31,7 @@
     <meta name="twitter:title" content="Retro Vault Elite - Retro Games Collection Tracker" />
     <meta
       name="twitter:description"
-      content="Track owned, wanted, loose, and complete values across full retro console libraries."
+      content="Track owned games, wanted titles, values, and full retro console libraries in one collector-focused vault."
     />
     <meta name="twitter:image" content="https://www.retrovaultelite.com/retro-vault-share.svg" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -45,7 +45,7 @@
         "applicationCategory": "LifestyleApplication",
         "operatingSystem": "Web, iOS, Android, Windows, macOS",
         "url": "https://www.retrovaultelite.com/",
-        "description": "Retro Vault Elite is a retro games collection tracker for cataloging owned games, wishlists, market values, completion progress, and full console libraries.",
+        "description": "Retro Vault Elite is a retro game collection tracker for owned games, wanted games, market values, custom entries, console progress, and cloud sync.",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -124,6 +124,32 @@
         line-height: 1.5;
       }
 
+      .app-shell__proof {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 30px;
+      }
+
+      .app-shell__proof-item {
+        padding: 14px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .app-shell__proof-item strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.98rem;
+      }
+
+      .app-shell__proof-item span {
+        color: #c1cadb;
+        font-size: 0.94rem;
+        line-height: 1.45;
+      }
+
       .app-shell__actions {
         display: flex;
         flex-wrap: wrap;
@@ -149,6 +175,11 @@
       .app-shell__button--primary {
         border-color: rgba(241, 201, 95, 0.45);
         background: linear-gradient(135deg, rgba(241, 201, 95, 0.2), rgba(173, 110, 255, 0.18));
+      }
+
+      .app-shell__button:hover,
+      .app-shell__button:focus-visible {
+        border-color: rgba(255, 255, 255, 0.28);
       }
 
       .app-shell__link-groups {
@@ -191,6 +222,10 @@
       }
 
       @media (max-width: 900px) {
+        .app-shell__proof {
+          grid-template-columns: 1fr;
+        }
+
         .app-shell__link-groups {
           grid-template-columns: 1fr;
         }
@@ -223,14 +258,28 @@
       <main class="app-shell">
         <div class="app-shell__panel">
           <p class="app-shell__eyebrow">Retro Vault Elite</p>
-          <h1>Track the collection you actually own.</h1>
+          <h1>The retro game collection tracker that keeps up with real collectors.</h1>
           <p class="app-shell__lead">
-            Catalog retro games, follow complete console libraries, track owned and wanted titles, and keep value,
-            progress, and custom entries together in one collector-focused vault.
+            Track owned games, wanted titles, loose and complete values, custom entries, and full console libraries
+            without losing the details that make a collection yours.
           </p>
+          <div class="app-shell__proof" aria-label="Product highlights">
+            <div class="app-shell__proof-item">
+              <strong>Track what matters</strong>
+              <span>Owned, wanted, favorites, price paid, condition, edition, and collection progress.</span>
+            </div>
+            <div class="app-shell__proof-item">
+              <strong>Add missing games</strong>
+              <span>Create custom entries on the spot when your collection goes beyond the official catalog.</span>
+            </div>
+            <div class="app-shell__proof-item">
+              <strong>Pick up anywhere</strong>
+              <span>Use the vault across desktop and mobile with account sync and a collector-first layout.</span>
+            </div>
+          </div>
           <div class="app-shell__actions">
             <a class="app-shell__button app-shell__button--primary" href="/">Open the app</a>
-            <a class="app-shell__button" href="/retro-console-collection-tracker.html">Browse console guides</a>
+            <a class="app-shell__button" href="/retro-console-collection-tracker.html">Browse console pages</a>
           </div>
           <nav class="app-shell__link-groups" aria-label="Popular retro collector pages">
             <section class="app-shell__group" aria-labelledby="app-shell-core">
@@ -240,6 +289,7 @@
                 <li><a href="/retro-game-price-tracker.html">Retro game price tracker</a></li>
                 <li><a href="/video-game-collection-tracker.html">Video game collection tracker</a></li>
                 <li><a href="/best-retro-game-collection-tracker.html">Best retro game collection tracker</a></li>
+                <li><a href="/retro-console-collection-tracker.html">Retro console collection tracker</a></li>
                 <li><a href="/about.html">About Retro Vault Elite</a></li>
               </ul>
             </section>
