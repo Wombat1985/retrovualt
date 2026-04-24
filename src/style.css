@@ -16,9 +16,7 @@
   --shadow: 0 24px 90px rgba(0, 0, 0, 0.45);
   color: var(--text);
   background:
-    radial-gradient(circle at top, rgba(247, 155, 50, 0.16), transparent 28%),
-    radial-gradient(circle at right, rgba(69, 131, 199, 0.12), transparent 25%),
-    linear-gradient(180deg, #172233 0%, #0d1520 48%, #081018 100%);
+    linear-gradient(180deg, #1e2940 0%, #121a2a 32%, #0c1320 68%, #081018 100%);
   font-family: var(--body);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -37,6 +35,51 @@ body {
 
 body {
   margin: 0;
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 170, 70, 0.12) 0%, rgba(113, 89, 255, 0.08) 22%, rgba(8, 16, 24, 0) 52%),
+    linear-gradient(180deg, #1c2740 0%, #101727 36%, #09111b 100%);
+  overflow-x: hidden;
+}
+
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -2;
+}
+
+body::before {
+  background:
+    linear-gradient(180deg, rgba(255, 202, 104, 0.18), rgba(255, 202, 104, 0.02) 18%, transparent 36%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(103, 140, 255, 0.08) 0,
+      rgba(103, 140, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 88px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      rgba(96, 225, 255, 0.05) 0,
+      rgba(96, 225, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 88px
+    );
+  opacity: 0.48;
+}
+
+body::after {
+  top: 22vh;
+  bottom: auto;
+  height: 48vh;
+  background:
+    linear-gradient(180deg, rgba(255, 149, 86, 0.14), rgba(255, 149, 86, 0) 36%),
+    linear-gradient(90deg, rgba(255, 214, 110, 0), rgba(255, 214, 110, 0.26), rgba(88, 216, 170, 0));
+  mask: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.88) 18%, transparent 100%);
+  opacity: 0.45;
 }
 
 button,
@@ -55,12 +98,33 @@ a {
 
 #app {
   min-height: 100vh;
+  position: relative;
+  z-index: 0;
 }
 
 .app-shell {
   width: min(1440px, calc(100% - 28px));
   margin: 0 auto;
   padding: 20px 0 56px;
+  position: relative;
+}
+
+.app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 24%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.015) 0,
+      rgba(255, 255, 255, 0.015) 1px,
+      transparent 1px,
+      transparent 5px
+    );
+  opacity: 0.18;
 }
 
 .hero-panel,
