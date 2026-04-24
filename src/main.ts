@@ -3216,6 +3216,10 @@ function renderNow() {
               .join('')}
           </select>
         </label>
+        <div class="toolbar-action toolbar-action--desktop">
+          <span>Add missing game</span>
+          <button class="secondary-button" data-action="open-custom-entry" type="button">Add your own game</button>
+        </div>
       </section>
 
       ${renderControlSummary(filteredGames.length, visibleGames.length)}
@@ -3225,7 +3229,7 @@ function renderNow() {
         ${renderFilterChip('owned', 'Owned')}
         ${renderFilterChip('wanted', 'Wanted')}
         ${renderFilterChip('missing', 'Missing')}
-        <button class="secondary-button" data-action="open-custom-entry" type="button">Add missing game</button>
+        <button class="secondary-button mobile-only-action" data-action="open-custom-entry" type="button">Add your own game</button>
         <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
         <button class="secondary-button" data-action="import-catalog" type="button">Import JSON catalog</button>
         <button class="secondary-button" data-action="export-catalog" type="button">Export collection</button>

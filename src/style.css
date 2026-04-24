@@ -1002,22 +1002,33 @@ a {
 
 .toolbar {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 14px;
   padding: 18px;
   border-radius: 24px;
 }
 
 .search-field,
-.select-field {
+.select-field,
+.toolbar-action {
   display: grid;
   gap: 8px;
 }
 
 .search-field span,
-.select-field span {
+.select-field span,
+.toolbar-action span {
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.toolbar-action .secondary-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.mobile-only-action {
+  display: none;
 }
 
 .search-field input,
@@ -2145,8 +2156,20 @@ a {
     margin-top: 10px;
   }
 
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar-action--desktop {
+    display: none;
+  }
+
   .filters {
     gap: 8px;
+  }
+
+  .mobile-only-action {
+    display: inline-flex;
   }
 
   .identity-metrics {
