@@ -1753,7 +1753,7 @@ function getDetailCoverUrl(game: CatalogEntry) {
 function getBackdropGames(visibleGames: CatalogEntry[], catalog: CatalogEntry[]) {
   const picks: CatalogEntry[] = []
   const seen = new Set<string>()
-  const sources = [visibleGames, catalog]
+  const sources = [visibleGames.filter((game) => Boolean(game.coverUrl)), catalog.filter((game) => Boolean(game.coverUrl)), visibleGames, catalog]
 
   for (const source of sources) {
     for (const game of source) {
@@ -1763,7 +1763,7 @@ function getBackdropGames(visibleGames: CatalogEntry[], catalog: CatalogEntry[])
       }
       seen.add(key)
       picks.push(game)
-      if (picks.length >= 18) {
+      if (picks.length >= 10) {
         return picks
       }
     }
@@ -1786,7 +1786,7 @@ function renderBackdropWall(visibleGames: CatalogEntry[], catalog: CatalogEntry[
           .map(
             (game, index) => `
               <figure class="collection-backdrop__tile collection-backdrop__tile--${index % 6}">
-                <img src="${escapeHtml(getCardCoverUrl(game))}" alt="" />
+                <img src="${escapeHtml(getCardCoverUrl(game))}" alt="" decoding="async" fetchpriority="low" />
               </figure>`,
           )
           .join('')}
