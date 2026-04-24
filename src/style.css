@@ -2231,6 +2231,30 @@ a {
   }
 }
 
+@media (max-width: 900px) {
+  .hero-panel,
+  .toolbar,
+  .filters,
+  .smart-card,
+  .game-card,
+  .empty-state,
+  .roadmap-card,
+  .daily-hunt,
+  .streak-card,
+  .weekly-recap-card,
+  .badge-preview,
+  .newsletter-card,
+  .trust-strip article,
+  .control-summary,
+  .onboarding-panel,
+  .spotlight-card,
+  .insight-card,
+  .identity-card,
+  .game-modal-backdrop {
+    backdrop-filter: none !important;
+  }
+}
+
 @media (max-width: 720px) {
   body::before {
     background:
