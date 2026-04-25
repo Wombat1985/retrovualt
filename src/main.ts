@@ -3850,7 +3850,7 @@ function renderScannerModal() {
               Front cover photo
               <input id="cover-scan-input" type="file" accept="image/*" capture="environment" hidden />
             </label>
-            <button class="ghost-button" data-action="manual-barcode" type="button">Enter barcode</button>
+            <button class="ghost-button" data-action="manual-barcode" type="button">Enter barcode or ID</button>
           </div>
           ${
             state.scannerLiveActive
@@ -3866,16 +3866,16 @@ function renderScannerModal() {
             state.barcodeLinkCode
               ? `
                 <div class="scanner-result">
-                  <p><strong>Scanned code:</strong> ${escapeHtml(state.barcodeLinkCode)}</p>
+                  <p><strong>Scanned barcode or ID:</strong> ${escapeHtml(state.barcodeLinkCode)}</p>
                   ${
                     linkedGame
                       ? `<p><strong>Linked game:</strong> ${escapeHtml(linkedGame.title)} on ${escapeHtml(linkedGame.console)}</p>`
-                      : '<p><strong>Status:</strong> No saved match yet. Search below to link it and it will remember that code next time.</p>'
+                      : '<p><strong>Status:</strong> No saved match yet. Keep going by searching for the game title, barcode, or reference ID below, then link the right match once.</p>'
                   }
                 </div>
                 <label class="search-field">
-                  <span>Search game to link</span>
-                  <input id="barcode-search" type="search" aria-label="Search a title, console, or reference code" value="${escapeHtml(state.barcodeSearch)}" />
+                  <span>Search game to link by title, barcode, or ID</span>
+                  <input id="barcode-search" type="search" aria-label="Search a title, console, barcode, or reference ID" value="${escapeHtml(state.barcodeSearch)}" />
                 </label>
                 <div class="barcode-match-list">
                   ${
@@ -3892,15 +3892,15 @@ function renderScannerModal() {
                           .join('')
                       : `<p class="subtle">${
                           state.barcodeSearch.trim()
-                            ? 'No match yet. Search by title, console, or a reference code.'
+                            ? 'No match yet. Search by title, console, barcode, or reference ID.'
                             : state.consoleFilter === 'All consoles' && state.regionFilter === 'All regions'
-                              ? 'Start typing to search the catalog, or narrow the vault to a console first so the list stays useful.'
+                              ? 'Start typing a title, barcode, or ID, or narrow the vault to a console first so the list stays useful.'
                               : 'Start typing to narrow the list further.'
                         }</p>`
                   }
                 </div>
               `
-              : '<p class="subtle">Use live camera scan, a saved barcode photo, or manual entry. Once you link a barcode to the right game, Retro Vault will remember it for future scans.</p>'
+              : '<p class="subtle">Use live camera scan, a saved barcode photo, or manual entry. You can link by barcode or reference ID, and Retro Vault will remember that match for future scans.</p>'
           }
           <div class="scanner-result">
             <p><strong>Front cover match beta</strong></p>
