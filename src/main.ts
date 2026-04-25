@@ -1,4 +1,5 @@
 import './style.css'
+import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
 import { priceSnapshotDate, sampleCatalog, type CatalogEntry, type RarityTier } from './data'
 import { appConfig } from './appConfig'
 import {
@@ -156,10 +157,6 @@ type CatalogConsoleMeta = {
   file: string
 }
 
-type BarcodeDetectorLike = {
-  detect: (source: CanvasImageSource) => Promise<Array<{ rawValue?: string }>>
-}
-
 const LIBRARY_STORAGE_KEY = 'retro-game-collector-library'
 const CUSTOM_STORAGE_KEY = 'retro-game-collector-custom-catalog'
 const CURRENCY_STORAGE_KEY = 'retro-game-collector-currency'
@@ -188,6 +185,9 @@ let dashboardSummaryCache: DashboardSummary | null = null
 let dashboardSummaryCacheKey = ''
 let renderFrame = 0
 let pendingCatalogScrollRestore: number | null = null
+let barcodeReader: BrowserMultiFormatReader | null = null
+let barcodeCameraControls: IScannerControls | null = null
+let barcodeCameraStartPromise: Promise<void> | null = null
 let pendingLibrarySave = 0
 let pendingSyncStatusRender = 0
 let pendingSearchRender = 0
@@ -283,6 +283,7 @@ const state = {
   customEntryOpen: false,
   customEntryError: '',
   scannerOpen: false,
+  scannerLiveActive: false,
   scannerStatus: 'Scan a barcode with your camera or upload a clear barcode photo.' as string,
   barcodeLinkCode: null as string | null,
   barcodeSearch: '',
@@ -772,6 +773,75 @@ function normalizeCoverUrl(value: string) {
   }
 
   return isTrustedCoverUrl(url) ? url : ''
+}
+
+function normalizeCustomCoverUrl(value: string) {
+  return normalizeExternalUrl(value)
+}
+
+function normalizeBarcodeValue(value: string) {
+  return value.trim().replace(/[\s-]+/g, '')
+}
+
+function getBarcodeReader() {
+  if (!barcodeReader) {
+    barcodeReader = new BrowserMultiFormatReader()
+  }
+
+  return barcodeReader
+}
+
+function canUseLiveBarcodeCamera() {
+  return window.isSecureContext && typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia)
+}
+
+function stopLiveBarcodeScan() {
+  barcodeCameraControls?.stop()
+  barcodeCameraControls = null
+  barcodeCameraStartPromise = null
+}
+
+async function syncLiveBarcodeScan() {
+  if (!state.scannerOpen || !state.scannerLiveActive) {
+    stopLiveBarcodeScan()
+    return
+  }
+
+  if (barcodeCameraControls || barcodeCameraStartPromise) {
+    return
+  }
+
+  const preview = document.querySelector<HTMLVideoElement>('[data-barcode-camera-preview]')
+
+  if (!preview || !canUseLiveBarcodeCamera()) {
+    return
+  }
+
+  barcodeCameraStartPromise = (async () => {
+    try {
+      barcodeCameraControls = await getBarcodeReader().decodeFromVideoDevice(undefined, preview, (result) => {
+        if (!result) {
+          return
+        }
+
+        stopLiveBarcodeScan()
+        state.scannerLiveActive = false
+        void handleBarcodeDetected(result.getText())
+      })
+    } catch (error) {
+      stopLiveBarcodeScan()
+      state.scannerLiveActive = false
+      state.scannerStatus =
+        error instanceof Error
+          ? error.message
+          : 'Camera scanning is not available right now. Try a saved photo or manual entry.'
+      render()
+    } finally {
+      barcodeCameraStartPromise = null
+    }
+  })()
+
+  await barcodeCameraStartPromise
 }
 
 function isTrustedCoverUrl(value: string) {
@@ -2694,7 +2764,7 @@ function renderCustomEntryModal() {
             <label><span>Loose value</span><input name="priceLoose" inputmode="decimal" /></label>
             <label><span>Complete value</span><input name="priceComplete" inputmode="decimal" /></label>
           </div>
-          <label><span>Cover image URL</span><input name="coverUrl" type="url" /><small>Leave blank to keep the generated cover tile, or paste a trusted external image URL.</small></label>
+          <label><span>Cover image URL</span><input name="coverUrl" type="text" inputmode="url" /><small>Leave blank to keep the generated cover tile, or paste any https image URL.</small></label>
           <div class="auth-settings-grid">
             <label><span>Status</span><select name="status"><option value="owned">Owned</option><option value="wanted">Wanted</option><option value="missing">Just add entry</option></select></label>
             <label><span>Edition</span><select name="editionStatus"><option value="loose">Loose</option><option value="cib">Complete in box</option><option value="boxed">Boxed</option><option value="manual">Manual</option><option value="sealed">Sealed</option><option value="graded">Graded</option></select></label>
@@ -3135,12 +3205,29 @@ function renderScannerModal() {
           <h2 id="scanner-title">Scan and link game barcodes</h2>
           <p class="modal-description">${escapeHtml(state.scannerStatus)}</p>
           <div class="card-actions">
+            ${
+              canUseLiveBarcodeCamera()
+                ? state.scannerLiveActive
+                  ? '<button class="secondary-button" data-action="stop-live-barcode" type="button">Stop live camera</button>'
+                  : '<button class="secondary-button" data-action="start-live-barcode" type="button">Start live camera</button>'
+                : ''
+            }
             <label class="toggle-button scanner-upload">
-              Camera or photo
+              Upload photo
               <input id="barcode-file-input" type="file" accept="image/*" capture="environment" hidden />
             </label>
             <button class="ghost-button" data-action="manual-barcode" type="button">Enter barcode</button>
           </div>
+          ${
+            state.scannerLiveActive
+              ? `
+                <div class="scanner-preview">
+                  <video class="scanner-video" data-barcode-camera-preview autoplay muted playsinline></video>
+                  <div class="scanner-frame" aria-hidden="true"></div>
+                </div>
+              `
+              : ''
+          }
           ${
             state.barcodeLinkCode
               ? `
@@ -3149,7 +3236,7 @@ function renderScannerModal() {
                   ${
                     linkedGame
                       ? `<p><strong>Linked game:</strong> ${escapeHtml(linkedGame.title)} on ${escapeHtml(linkedGame.console)}</p>`
-                      : '<p><strong>Status:</strong> No saved match yet. Search below to link it.</p>'
+                      : '<p><strong>Status:</strong> No saved match yet. Search below to link it and it will remember that code next time.</p>'
                   }
                 </div>
                 <label class="search-field">
@@ -3169,7 +3256,7 @@ function renderScannerModal() {
                     .join('')}
                 </div>
               `
-              : '<p class="subtle">Use your camera, a saved barcode photo, or manual entry. If a code is unknown, you can link it once and it will work next time.</p>'
+              : '<p class="subtle">Use live camera scan, a saved barcode photo, or manual entry. Once you link a barcode to the right game, Retro Vault will remember it for future scans.</p>'
           }
         </div>
       </section>
@@ -3452,6 +3539,7 @@ function renderNow() {
 
   bindEvents()
   restoreFocusSnapshot(focusSnapshot)
+  void syncLiveBarcodeScan()
 }
 
 function render() {
@@ -3788,81 +3876,86 @@ async function importCatalogFile(input: HTMLInputElement) {
 }
 
 function handleCustomEntryForm(form: HTMLFormElement) {
-  const formData = new FormData(form)
-  const title = getFormText(formData, 'title')
-  const consoleName = getFormText(formData, 'console')
-  const region = getFormText(formData, 'region')
-  const year = getOptionalYear(formData, 'year')
-  const priceLoose = getOptionalPrice(formData, 'priceLoose') ?? 0
-  const priceComplete = getOptionalPrice(formData, 'priceComplete')
-  const coverUrlInput = getFormText(formData, 'coverUrl')
-  const coverUrl = coverUrlInput ? normalizeCoverUrl(coverUrlInput) : ''
-  const status = getCustomEntryStatus(getFormText(formData, 'status'))
-  const editionStatus = getCustomEntryEdition(getFormText(formData, 'editionStatus'))
-  const notes = getFormText(formData, 'notes')
+  try {
+    const formData = new FormData(form)
+    const title = getFormText(formData, 'title')
+    const consoleName = getFormText(formData, 'console')
+    const region = getFormText(formData, 'region')
+    const year = getOptionalYear(formData, 'year')
+    const priceLoose = getOptionalPrice(formData, 'priceLoose') ?? 0
+    const priceComplete = getOptionalPrice(formData, 'priceComplete')
+    const coverUrlInput = getFormText(formData, 'coverUrl')
+    const coverUrl = coverUrlInput ? normalizeCustomCoverUrl(coverUrlInput) : ''
+    const status = getCustomEntryStatus(getFormText(formData, 'status'))
+    const editionStatus = getCustomEntryEdition(getFormText(formData, 'editionStatus'))
+    const notes = getFormText(formData, 'notes')
 
-  if (!title || !consoleName || !region) {
-    state.customEntryError = 'Add a title, console, and region.'
-    render()
-    return
-  }
-
-  if (year === undefined) {
-    state.customEntryError = 'Use a four digit release year or leave it blank.'
-    render()
-    return
-  }
-
-  if (coverUrlInput && !coverUrl) {
-    state.customEntryError = 'Use a trusted https image URL, or leave the cover blank for now.'
-    render()
-    return
-  }
-
-  const draftEntry = createCustomCatalogEntry({
-    title,
-    consoleName,
-    region,
-    year,
-    priceLoose,
-    priceComplete,
-    coverUrl,
-  })
-  const existingEntry = getCatalog().find((entry) => getCatalogDedupeKey(entry) === getCatalogDedupeKey(draftEntry))
-  const entry = existingEntry ?? draftEntry
-
-  if (!existingEntry) {
-    state.customCatalog = dedupeCatalog([...state.customCatalog, entry])
-    saveCustomCatalog()
-    invalidateCatalogCache()
-  }
-
-  state.customEntryOpen = false
-  state.customEntryError = ''
-  state.search = title
-  state.consoleFilter = consoleName
-  state.regionFilter = region
-  state.ownershipFilter = status === 'missing' ? 'all' : status
-  resetVisibleGameCount()
-
-  if (status === 'missing') {
-    saveLibrary()
-    render()
-    return
-  }
-
-  setRecord(entry.id, (record) => {
-    const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
-
-    return {
-      ...record,
-      status,
-      completeInBox: status === 'owned' && completeInBox,
-      editionStatus,
-      notes: notes || record.notes,
-      ownedCopies: status === 'owned' ? Math.max(1, record.ownedCopies || 1) : record.ownedCopies,
+    if (!title || !consoleName || !region) {
+      state.customEntryError = 'Add a title, console, and region.'
+      render()
+      return
     }
-  })
+
+    if (year === undefined) {
+      state.customEntryError = 'Use a four digit release year or leave it blank.'
+      render()
+      return
+    }
+
+    if (coverUrlInput && !coverUrl) {
+      state.customEntryError = 'Use a valid https image URL, or leave the cover blank for now.'
+      render()
+      return
+    }
+
+    const draftEntry = createCustomCatalogEntry({
+      title,
+      consoleName,
+      region,
+      year,
+      priceLoose,
+      priceComplete,
+      coverUrl,
+    })
+    const existingEntry = getCatalog().find((entry) => getCatalogDedupeKey(entry) === getCatalogDedupeKey(draftEntry))
+    const entry = existingEntry ?? draftEntry
+
+    if (!existingEntry) {
+      state.customCatalog = dedupeCatalog([...state.customCatalog, entry])
+      saveCustomCatalog()
+      invalidateCatalogCache()
+    }
+
+    state.customEntryOpen = false
+    state.customEntryError = ''
+    state.search = title
+    state.consoleFilter = consoleName
+    state.regionFilter = region
+    state.ownershipFilter = status === 'missing' ? 'all' : status
+    resetVisibleGameCount()
+
+    if (status === 'missing') {
+      saveLibrary()
+      render()
+      return
+    }
+
+    setRecord(entry.id, (record) => {
+      const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
+
+      return {
+        ...record,
+        status,
+        completeInBox: status === 'owned' && completeInBox,
+        editionStatus,
+        notes: notes || record.notes,
+        ownedCopies: status === 'owned' ? Math.max(1, record.ownedCopies || 1) : record.ownedCopies,
+      }
+    })
+  } catch (error) {
+    state.customEntryError = error instanceof Error ? error.message : 'Could not save that custom entry. Please try again.'
+    render()
+  }
 }
 
 function updateCustomEntryCoverPreview(form: HTMLFormElement | null) {
@@ -3875,7 +3968,7 @@ function updateCustomEntryCoverPreview(form: HTMLFormElement | null) {
   const consoleName = getFormText(formData, 'console')
   const region = getFormText(formData, 'region')
   const coverUrlInput = getFormText(formData, 'coverUrl')
-  const coverUrl = coverUrlInput ? normalizeCoverUrl(coverUrlInput) : ''
+  const coverUrl = coverUrlInput ? normalizeCustomCoverUrl(coverUrlInput) : ''
   const previewGame = createCustomEntryPreviewGame(title, consoleName, region)
   const fallbackSrc = getCoverFallbackDataUri(previewGame)
   const previewImage = form.querySelector<HTMLImageElement>('[data-custom-entry-cover-preview]')
@@ -4072,7 +4165,9 @@ async function handleAction(element: HTMLElement) {
       updatePricePaid(id)
       break
     case 'open-scanner':
+      stopLiveBarcodeScan()
       state.scannerOpen = true
+      state.scannerLiveActive = false
       state.scannerStatus = 'Scan a barcode with your camera or upload a clear barcode photo.'
       render()
       break
@@ -4106,9 +4201,29 @@ async function handleAction(element: HTMLElement) {
       break
     }
     case 'close-scanner':
+      stopLiveBarcodeScan()
       state.scannerOpen = false
+      state.scannerLiveActive = false
       state.barcodeLinkCode = null
       state.barcodeSearch = ''
+      render()
+      break
+    case 'start-live-barcode':
+      if (!canUseLiveBarcodeCamera()) {
+        state.scannerStatus = 'Live camera scanning is not supported in this browser. Try a photo or manual entry.'
+        render()
+        return
+      }
+
+      stopLiveBarcodeScan()
+      state.scannerLiveActive = true
+      state.scannerStatus = 'Point the camera at the barcode and hold still for a moment.'
+      render()
+      break
+    case 'stop-live-barcode':
+      stopLiveBarcodeScan()
+      state.scannerLiveActive = false
+      state.scannerStatus = 'Live camera stopped. You can upload a photo or enter the barcode manually.'
       render()
       break
     case 'manual-barcode':
@@ -4835,23 +4950,25 @@ async function enterBarcodeManually() {
     return
   }
 
-  await handleBarcodeDetected(response.trim())
+  await handleBarcodeDetected(normalizeBarcodeValue(response))
 }
 
 async function detectBarcodeFromFile(file: File) {
-  const barcodeDetectorCtor = (window as Window & { BarcodeDetector?: { new (): BarcodeDetectorLike } }).BarcodeDetector
-
-  if (!barcodeDetectorCtor) {
-    state.scannerStatus = 'Barcode detection is not supported in this browser. Use manual entry instead.'
-    render()
-    return
-  }
+  stopLiveBarcodeScan()
+  state.scannerLiveActive = false
+  const objectUrl = URL.createObjectURL(file)
+  const image = new Image()
+  image.decoding = 'async'
 
   try {
-    const bitmap = await createImageBitmap(file)
-    const detector = new barcodeDetectorCtor()
-    const results = await detector.detect(bitmap)
-    const code = results.find((result) => typeof result.rawValue === 'string' && result.rawValue.trim())?.rawValue?.trim()
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve()
+      image.onerror = () => reject(new Error('That image could not be read. Try another photo or use manual entry.'))
+      image.src = objectUrl
+    })
+
+    const result = await getBarcodeReader().decodeFromImageElement(image)
+    const code = normalizeBarcodeValue(result.getText())
 
     if (!code) {
       state.scannerStatus = 'No barcode was detected in that image. Try another photo or use manual entry.'
@@ -4861,16 +4978,26 @@ async function detectBarcodeFromFile(file: File) {
 
     await handleBarcodeDetected(code)
   } catch (error) {
-    state.scannerStatus = error instanceof Error ? error.message : 'Barcode detection failed.'
+    state.scannerStatus = error instanceof Error ? error.message : 'Barcode detection failed. Try another photo or use manual entry.'
     render()
+  } finally {
+    URL.revokeObjectURL(objectUrl)
   }
 }
 
 async function handleBarcodeDetected(code: string) {
-  const mappedGameId = state.barcodeMappings[code]
+  const normalizedCode = normalizeBarcodeValue(code)
+
+  if (!normalizedCode) {
+    state.scannerStatus = 'Enter a valid barcode number.'
+    render()
+    return
+  }
+
+  const mappedGameId = state.barcodeMappings[normalizedCode]
 
   state.scannerOpen = true
-  state.barcodeLinkCode = code
+  state.barcodeLinkCode = normalizedCode
   state.barcodeSearch = ''
 
   if (mappedGameId) {
@@ -4884,20 +5011,22 @@ async function handleBarcodeDetected(code: string) {
     }
   }
 
-  state.scannerStatus = 'Barcode found, but not linked yet. Search below and save the match once.'
+  state.scannerStatus = 'Barcode found. Search below and link it once, then it will work automatically next time.'
   render()
 }
 
 async function linkBarcodeToGame(code: string, gameId: string) {
+  const normalizedCode = normalizeBarcodeValue(code)
+
   state.barcodeMappings = {
     ...state.barcodeMappings,
-    [code]: gameId,
+    [normalizedCode]: gameId,
   }
   saveBarcodeMappings()
 
   if (state.authToken) {
     try {
-      await saveBarcodeMapping(state.authToken, code, gameId)
+      await saveBarcodeMapping(state.authToken, normalizedCode, gameId)
       state.syncStatus = 'Cloud synced'
     } catch (error) {
       state.syncStatus = error instanceof Error ? `Sync failed: ${error.message}` : 'Sync failed'
@@ -4905,7 +5034,7 @@ async function linkBarcodeToGame(code: string, gameId: string) {
   }
 
   const game = getGameById(gameId)
-  state.scannerStatus = game ? `Linked ${code} to ${game.title}.` : 'Barcode linked.'
+  state.scannerStatus = game ? `Linked ${normalizedCode} to ${game.title}.` : 'Barcode linked.'
   state.selectedGameId = gameId
   render()
 }
@@ -5270,6 +5399,7 @@ function escapeHtml(value: string) {
 }
 
 window.addEventListener('pagehide', flushLibrarySave)
+window.addEventListener('pagehide', stopLiveBarcodeScan)
 
 render()
 void trackPageView(Boolean(loadAuthToken()))
