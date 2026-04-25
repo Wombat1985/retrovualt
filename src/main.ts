@@ -1533,32 +1533,37 @@ function getGameReferenceCode(game: CatalogEntry) {
   return getGameReference(game)?.productId ?? ''
 }
 
-function getGameReferenceAlias(game: CatalogEntry) {
-  return getGameReference(game)?.alias ?? ''
-}
-
-function getGameReferencePublisher(game: CatalogEntry) {
-  return getGameReference(game)?.publisher ?? ''
-}
-
-function getGameReferenceReleaseDate(game: CatalogEntry) {
-  return getGameReference(game)?.releaseDate ?? ''
-}
+const primaryIdentifierCache = new Map<string, { label: string; value: string }>()
+const identifierRowsCache = new Map<string, Array<{ label: string; value: string }>>()
 
 function getPrimaryIdentifier(game: CatalogEntry) {
-  const referenceCode = getGameReferenceCode(game)
-  return {
-    label: referenceCode ? 'Reference ID' : 'Vault ID',
-    value: referenceCode || game.id,
+  let cached = primaryIdentifierCache.get(game.id)
+
+  if (!cached) {
+    const referenceCode = getGameReferenceCode(game)
+    cached = {
+      label: referenceCode ? 'Reference ID' : 'Vault ID',
+      value: referenceCode || game.id,
+    }
+    primaryIdentifierCache.set(game.id, cached)
   }
+
+  return cached
 }
 
 function getGameIdentifierRows(game: CatalogEntry) {
+  const cached = identifierRowsCache.get(game.id)
+
+  if (cached) {
+    return cached
+  }
+
   const rows: Array<{ label: string; value: string }> = [{ label: 'Vault ID', value: game.id }]
-  const referenceCode = getGameReferenceCode(game)
-  const alias = getGameReferenceAlias(game)
-  const publisher = getGameReferencePublisher(game)
-  const releaseDate = getGameReferenceReleaseDate(game)
+  const reference = getGameReference(game)
+  const referenceCode = reference?.productId ?? ''
+  const alias = reference?.alias ?? ''
+  const publisher = reference?.publisher ?? ''
+  const releaseDate = reference?.releaseDate ?? ''
 
   if (referenceCode) {
     rows.unshift({ label: 'Reference ID', value: referenceCode })
@@ -1576,6 +1581,7 @@ function getGameIdentifierRows(game: CatalogEntry) {
     rows.push({ label: 'Release date', value: releaseDate })
   }
 
+  identifierRowsCache.set(game.id, rows)
   return rows
 }
 
@@ -1644,6 +1650,7 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
   let haystack = searchHaystackCache.get(cacheKey)
 
   if (!haystack) {
+    const reference = getGameReference(game)
     haystack = normalizeSearchText(
       [
         game.title,
@@ -1653,9 +1660,9 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
         game.id,
         game.variantLabel ?? '',
         getReleaseTypeLabel(getEffectiveReleaseType(game)),
-        getGameReferenceCode(game),
-        getGameReferenceAlias(game),
-        getGameReferencePublisher(game),
+        reference?.productId ?? '',
+        reference?.alias ?? '',
+        reference?.publisher ?? '',
       ].join(
         ' ',
       ),
@@ -3933,12 +3940,16 @@ function renderScannerModal() {
                     matches.length
                       ? matches
                           .map(
-                            (game) => `
+                            (game) => {
+                              const identifier = getPrimaryIdentifier(game)
+
+                              return `
                               <button class="barcode-match" type="button" data-action="link-barcode" data-id="${escapeHtml(game.id)}">
                                 <strong>${escapeHtml(game.title)}</strong>
-                                <span>${escapeHtml(game.console)} / ${escapeHtml(getPrimaryIdentifier(game).label)}: ${escapeHtml(getPrimaryIdentifier(game).value)} / ${formatPrice(game.priceLoose)}</span>
+                                <span>${escapeHtml(game.console)} / ${escapeHtml(identifier.label)}: ${escapeHtml(identifier.value)} / ${formatPrice(game.priceLoose)}</span>
                               </button>
-                            `,
+                            `
+                            },
                           )
                           .join('')
                       : `<p class="subtle">${
