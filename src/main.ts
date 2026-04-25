@@ -1545,6 +1545,14 @@ function getGameReferenceReleaseDate(game: CatalogEntry) {
   return getGameReference(game)?.releaseDate ?? ''
 }
 
+function getPrimaryIdentifier(game: CatalogEntry) {
+  const referenceCode = getGameReferenceCode(game)
+  return {
+    label: referenceCode ? 'Reference ID' : 'Vault ID',
+    value: referenceCode || game.id,
+  }
+}
+
 function getGameIdentifierRows(game: CatalogEntry) {
   const rows: Array<{ label: string; value: string }> = [{ label: 'Vault ID', value: game.id }]
   const referenceCode = getGameReferenceCode(game)
@@ -3919,7 +3927,7 @@ function renderScannerModal() {
                   <span>Search game to link by title, barcode, or ID</span>
                   <input id="barcode-search" type="search" aria-label="Search a title, console, barcode, or reference ID" value="${escapeHtml(state.barcodeSearch)}" />
                 </label>
-                <p class="subtle scanner-search-note">IDs can be reference codes like KSC-TS or a Retro Vault ID.</p>
+                <p class="subtle scanner-search-note">Every game has a Vault ID. Some games also have product or reference IDs like KSC-TS.</p>
                 <div class="barcode-match-list">
                   ${
                     matches.length
@@ -3928,7 +3936,7 @@ function renderScannerModal() {
                             (game) => `
                               <button class="barcode-match" type="button" data-action="link-barcode" data-id="${escapeHtml(game.id)}">
                                 <strong>${escapeHtml(game.title)}</strong>
-                                <span>${escapeHtml(game.console)}${getGameReferenceCode(game) ? ` / ${escapeHtml(getGameReferenceCode(game))}` : ''} / ${formatPrice(game.priceLoose)}</span>
+                                <span>${escapeHtml(game.console)} / ${escapeHtml(getPrimaryIdentifier(game).label)}: ${escapeHtml(getPrimaryIdentifier(game).value)} / ${formatPrice(game.priceLoose)}</span>
                               </button>
                             `,
                           )
