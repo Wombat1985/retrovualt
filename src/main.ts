@@ -1525,8 +1525,20 @@ function getBarcodeSearchMatches() {
   return catalog.filter((game) => matchesSearchValue(game, query)).slice(0, 12)
 }
 
-function getFamicomReference(game: CatalogEntry) {
+function getGameReference(game: CatalogEntry) {
   return famicomReferenceByGameId[game.id]
+}
+
+function getGameReferenceCode(game: CatalogEntry) {
+  return getGameReference(game)?.productId ?? ''
+}
+
+function getGameReferenceAlias(game: CatalogEntry) {
+  return getGameReference(game)?.alias ?? ''
+}
+
+function getGameReferencePublisher(game: CatalogEntry) {
+  return getGameReference(game)?.publisher ?? ''
 }
 
 function getSelectedCurrency() {
@@ -1594,7 +1606,6 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
   let haystack = searchHaystackCache.get(cacheKey)
 
   if (!haystack) {
-    const famicomReference = getFamicomReference(game)
     haystack = normalizeSearchText(
       [
         game.title,
@@ -1604,9 +1615,9 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
         game.id,
         game.variantLabel ?? '',
         getReleaseTypeLabel(getEffectiveReleaseType(game)),
-        famicomReference?.productId ?? '',
-        famicomReference?.alias ?? '',
-        famicomReference?.publisher ?? '',
+        getGameReferenceCode(game),
+        getGameReferenceAlias(game),
+        getGameReferencePublisher(game),
       ].join(
         ' ',
       ),
@@ -2925,7 +2936,8 @@ function renderSelectedGameModal() {
   const safeGameId = escapeHtml(game.id)
   const safePriceSourceUrl = escapeHtml(game.priceSourceUrl)
   const variantSummary = getVariantSummary(game)
-  const famicomReference = getFamicomReference(game)
+  const referenceCode = getGameReferenceCode(game)
+  const referencePublisher = getGameReferencePublisher(game)
   const valueGap =
     record.pricePaid === null ? null : getOwnedMarketPrice(game) - record.pricePaid
 
@@ -2992,8 +3004,8 @@ function renderSelectedGameModal() {
             <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus ${getOwnedValueLabel(game).toLowerCase()}.`}</p>
             <p><strong>Alert target:</strong> ${record.targetPrice === null ? 'No target set.' : `Notify yourself when loose value hits ${formatPrice(record.targetPrice)} or less.`}</p>
             <p><strong>Art source:</strong> ${getCoverSourceLabel(game)}</p>
-            ${famicomReference?.productId ? `<p><strong>Reference ID:</strong> ${escapeHtml(famicomReference.productId)}</p>` : ''}
-            ${famicomReference?.publisher ? `<p><strong>Publisher:</strong> ${escapeHtml(famicomReference.publisher)}</p>` : ''}
+            ${referenceCode ? `<p><strong>Reference code:</strong> ${escapeHtml(referenceCode)}</p>` : ''}
+            ${referencePublisher ? `<p><strong>Publisher:</strong> ${escapeHtml(referencePublisher)}</p>` : ''}
             <p><strong>Market note:</strong> ${appConfig.marketDisclaimer}</p>
             <p><strong>Collector notes:</strong> ${record.notes ? escapeHtml(record.notes) : 'No collector notes yet.'}</p>
           </div>
@@ -3863,7 +3875,7 @@ function renderScannerModal() {
                 </div>
                 <label class="search-field">
                   <span>Search game to link</span>
-                  <input id="barcode-search" type="search" aria-label="Search a title, console, or Famicom ID" value="${escapeHtml(state.barcodeSearch)}" />
+                  <input id="barcode-search" type="search" aria-label="Search a title, console, or reference code" value="${escapeHtml(state.barcodeSearch)}" />
                 </label>
                 <div class="barcode-match-list">
                   ${
@@ -3873,14 +3885,14 @@ function renderScannerModal() {
                             (game) => `
                               <button class="barcode-match" type="button" data-action="link-barcode" data-id="${escapeHtml(game.id)}">
                                 <strong>${escapeHtml(game.title)}</strong>
-                                <span>${escapeHtml(game.console)}${getFamicomReference(game)?.productId ? ` / ${escapeHtml(getFamicomReference(game)!.productId)}` : ''} / ${formatPrice(game.priceLoose)}</span>
+                                <span>${escapeHtml(game.console)}${getGameReferenceCode(game) ? ` / ${escapeHtml(getGameReferenceCode(game))}` : ''} / ${formatPrice(game.priceLoose)}</span>
                               </button>
                             `,
                           )
                           .join('')
                       : `<p class="subtle">${
                           state.barcodeSearch.trim()
-                            ? 'No match yet. Search by title, console, or a Famicom reference ID.'
+                            ? 'No match yet. Search by title, console, or a reference code.'
                             : state.consoleFilter === 'All consoles' && state.regionFilter === 'All regions'
                               ? 'Start typing to search the catalog, or narrow the vault to a console first so the list stays useful.'
                               : 'Start typing to narrow the list further.'
