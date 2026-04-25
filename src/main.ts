@@ -2504,6 +2504,48 @@ function renderControlSummary(resultCount: number, visibleCount: number) {
   `
 }
 
+function renderFiltersSection() {
+  return `
+    <section class="filters">
+      ${renderFilterChip('all', 'All')}
+      ${renderFilterChip('owned', 'Owned')}
+      ${renderFilterChip('wanted', 'Wanted')}
+      ${renderFilterChip('missing', 'Missing')}
+      <button class="secondary-button mobile-only-action" data-action="open-custom-entry" type="button">Add your own game</button>
+      <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
+      <button class="secondary-button" data-action="import-catalog" type="button">Import JSON catalog</button>
+      <button class="secondary-button" data-action="export-catalog" type="button">Export collection</button>
+      <input id="catalog-import" type="file" accept=".json,application/json" hidden />
+    </section>
+  `
+}
+
+function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: CatalogEntry[]) {
+  return `
+    <section class="catalog-section">
+      <div class="section-heading">
+        <div>
+          <p class="kicker">Collection grid</p>
+          <h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>
+        </div>
+        <p class="section-note">Showing ${visibleGames.length.toLocaleString()} at a time for speed. Every cover stays in full color, and owned games get a strong vault stamp.</p>
+      </div>
+      <div class="catalog-grid">
+        ${
+          visibleGames.length
+            ? visibleGames.map(renderCard).join('')
+            : '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
+        }
+      </div>
+      ${
+        filteredGames.length > visibleGames.length
+          ? `<div class="load-more-row"><button class="secondary-button" data-action="load-more-games" type="button">Load more games (${(filteredGames.length - visibleGames.length).toLocaleString()} left)</button></div>`
+          : ''
+      }
+    </section>
+  `
+}
+
 function renderConsolePush(title: string, entries: ReturnType<typeof getNearCompleteConsoles>, emptyText: string) {
   return `
     <article class="smart-card">
@@ -3347,40 +3389,8 @@ function renderNow() {
       </section>
 
       ${renderControlSummary(filteredGames.length, visibleGames.length)}
-
-      <section class="filters">
-        ${renderFilterChip('all', 'All')}
-        ${renderFilterChip('owned', 'Owned')}
-        ${renderFilterChip('wanted', 'Wanted')}
-        ${renderFilterChip('missing', 'Missing')}
-        <button class="secondary-button mobile-only-action" data-action="open-custom-entry" type="button">Add your own game</button>
-        <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
-        <button class="secondary-button" data-action="import-catalog" type="button">Import JSON catalog</button>
-        <button class="secondary-button" data-action="export-catalog" type="button">Export collection</button>
-        <input id="catalog-import" type="file" accept=".json,application/json" hidden />
-      </section>
-
-      <section class="catalog-section">
-        <div class="section-heading">
-          <div>
-            <p class="kicker">Collection grid</p>
-            <h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>
-          </div>
-          <p class="section-note">Showing ${visibleGames.length.toLocaleString()} at a time for speed. Every cover stays in full color, and owned games get a strong vault stamp.</p>
-        </div>
-        <div class="catalog-grid">
-          ${
-            visibleGames.length
-              ? visibleGames.map(renderCard).join('')
-              : '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
-          }
-        </div>
-        ${
-          filteredGames.length > visibleGames.length
-            ? `<div class="load-more-row"><button class="secondary-button" data-action="load-more-games" type="button">Load more games (${(filteredGames.length - visibleGames.length).toLocaleString()} left)</button></div>`
-            : ''
-        }
-      </section>
+      ${renderFiltersSection()}
+      ${renderCatalogSection(filteredGames, visibleGames)}
 
       ${renderOnboardingPanel()}
 
@@ -3454,6 +3464,61 @@ function render() {
   })
 }
 
+function renderCatalogOnlyNow() {
+  const catalog = getCatalog()
+  const filteredGames = getFilteredGames()
+  const visibleGames = filteredGames.slice(0, state.visibleGameCount)
+  const controlSummary = app.querySelector('.control-summary')
+  const filters = app.querySelector('.filters')
+  const catalogSection = app.querySelector('.catalog-section')
+  const backdrop = app.querySelector('.collection-backdrop')
+  const toolbarConsole = app.querySelector<HTMLSelectElement>('#console-filter')
+  const toolbarRegion = app.querySelector<HTMLSelectElement>('#region-filter')
+  const toolbarSort = app.querySelector<HTMLSelectElement>('#sort-mode')
+
+  if (!controlSummary || !filters || !catalogSection) {
+    render()
+    return
+  }
+
+  controlSummary.outerHTML = renderControlSummary(filteredGames.length, visibleGames.length)
+  filters.outerHTML = renderFiltersSection()
+  catalogSection.outerHTML = renderCatalogSection(filteredGames, visibleGames)
+
+  const nextBackdropMarkup = renderBackdropWall(visibleGames, catalog)
+
+  if (backdrop && nextBackdropMarkup) {
+    backdrop.outerHTML = nextBackdropMarkup
+  } else if (backdrop && !nextBackdropMarkup) {
+    backdrop.remove()
+  } else if (!backdrop && nextBackdropMarkup) {
+    app.insertAdjacentHTML('afterbegin', nextBackdropMarkup)
+  }
+
+  if (toolbarConsole) {
+    toolbarConsole.value = state.consoleFilter
+  }
+
+  if (toolbarRegion) {
+    toolbarRegion.value = state.regionFilter
+  }
+
+  if (toolbarSort) {
+    toolbarSort.value = state.sortMode
+  }
+}
+
+function renderCatalogOnly() {
+  if (renderFrame) {
+    window.cancelAnimationFrame(renderFrame)
+  }
+
+  renderFrame = window.requestAnimationFrame(() => {
+    renderFrame = 0
+    renderCatalogOnlyNow()
+  })
+}
+
 function scheduleSearchRender(value: string) {
   state.search = value
   resetVisibleGameCount()
@@ -3464,7 +3529,7 @@ function scheduleSearchRender(value: string) {
 
   pendingSearchRender = window.setTimeout(() => {
     pendingSearchRender = 0
-    render()
+    renderCatalogOnly()
   }, SEARCH_RENDER_DELAY_MS)
 }
 
@@ -3611,7 +3676,7 @@ async function handleFormControlChange(target: HTMLInputElement | HTMLSelectElem
     state.consoleFilter = target.value
     resetVisibleGameCount()
     await ensureConsoleCatalogLoaded(state.consoleFilter)
-    render()
+    renderCatalogOnly()
     return
   }
 
@@ -3628,14 +3693,14 @@ async function handleFormControlChange(target: HTMLInputElement | HTMLSelectElem
 
     resetVisibleGameCount()
     await ensureRegionCatalogsLoaded(state.regionFilter)
-    render()
+    renderCatalogOnly()
     return
   }
 
   if (target.id === 'sort-mode') {
     state.sortMode = target.value as SortMode
     resetVisibleGameCount()
-    render()
+    renderCatalogOnly()
     return
   }
 
@@ -4150,12 +4215,12 @@ async function handleAction(element: HTMLElement) {
         state.sortMode = 'complete-high'
       }
       resetVisibleGameCount()
-      render()
+      renderCatalogOnly()
       break
     }
     case 'load-more-games':
       state.visibleGameCount += getVisibleGameIncrement()
-      render()
+      renderCatalogOnly()
       break
     case 'reset-library':
       if (!window.confirm('Reset your local collection view? This clears owned, wanted, paid prices, notes, and favorites on this device.')) {
@@ -4177,7 +4242,7 @@ async function handleAction(element: HTMLElement) {
       state.sortMode = 'title'
       resetVisibleGameCount()
       await ensureConsoleCatalogLoaded(state.consoleFilter)
-      render()
+      renderCatalogOnly()
       break
     case 'dismiss-onboarding':
       saveOnboardingDismissed()
