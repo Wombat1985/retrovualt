@@ -196,7 +196,7 @@ const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const CATALOG_CACHE_SNAPSHOT_KEY = 'all-consoles'
 const CATALOG_CACHE_VERSION = '2026-04-25-v1'
-const FULL_CATALOG_PATH = '/catalogs/retro-catalog.json'
+const LITE_CATALOG_PATH = '/catalogs/retro-catalog-lite.json'
 const MAX_ACTIVITY_EVENTS = 250
 const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
@@ -789,6 +789,42 @@ function normalizeCatalogEntry(value: unknown) {
     trendDelta: typeof entry.trendDelta === 'number' ? entry.trendDelta : 0,
     rarity: isRarityTier(entry.rarity) ? entry.rarity : 'Classic',
   } satisfies CatalogEntry
+}
+
+function normalizeLiteCatalogEntry(value: unknown) {
+  if (!Array.isArray(value) || value.length < 12) {
+    return null
+  }
+
+  const [
+    id,
+    title,
+    consoleName,
+    year,
+    region,
+    coverUrl,
+    priceLoose,
+    priceComplete,
+    priceSourceUrl,
+    coverSourceUrl,
+    trendDelta,
+    rarity,
+  ] = value
+
+  return normalizeCatalogEntry({
+    id,
+    title,
+    console: consoleName,
+    year,
+    region,
+    coverUrl,
+    priceLoose,
+    priceComplete,
+    priceSourceUrl,
+    coverSourceUrl,
+    trendDelta,
+    rarity,
+  })
 }
 
 function normalizeExternalUrl(value: string) {
@@ -5546,7 +5582,7 @@ async function loadGeneratedCatalog() {
   try {
     const metaResponsePromise = fetch('/catalogs/retro-catalog-meta.json')
     const fullCatalogResponsePromise =
-      state.consoleFilter === 'All consoles' ? fetch(FULL_CATALOG_PATH).catch(() => null) : null
+      state.consoleFilter === 'All consoles' ? fetch(LITE_CATALOG_PATH).catch(() => null) : null
     const response = await metaResponsePromise
 
     if (!response.ok) {
@@ -5610,7 +5646,7 @@ async function loadGeneratedCatalog() {
           throw new Error('Full catalog payload was not an array.')
         }
 
-        state.generatedCatalog = parsedCatalog.map(normalizeCatalogEntry).filter(isCatalogEntry)
+        state.generatedCatalog = parsedCatalog.map(normalizeLiteCatalogEntry).filter(isCatalogEntry)
         state.loadedConsoles = parsedMeta.map((entry) => entry.console)
         invalidateCatalogCache()
       } catch {
