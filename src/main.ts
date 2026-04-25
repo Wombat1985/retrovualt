@@ -158,6 +158,15 @@ type CatalogConsoleMeta = {
   file: string
 }
 
+type CatalogSnapshot = {
+  version: string
+  savedAt: string
+  metaSignature: string
+  generatedCatalog: CatalogEntry[]
+  catalogMeta: CatalogConsoleMeta[]
+  loadedConsoles: string[]
+}
+
 const LIBRARY_STORAGE_KEY = 'retro-game-collector-library'
 const CUSTOM_STORAGE_KEY = 'retro-game-collector-custom-catalog'
 const CURRENCY_STORAGE_KEY = 'retro-game-collector-currency'
@@ -167,6 +176,10 @@ const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
 const ONBOARDING_STORAGE_KEY = 'retro-game-collector-onboarding-dismissed'
 const STREAK_STORAGE_KEY = 'retro-game-collector-visit-streak'
 const ACTIVITY_STORAGE_KEY = 'retro-game-collector-activity-events'
+const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
+const CATALOG_CACHE_STORE = 'snapshots'
+const CATALOG_CACHE_SNAPSHOT_KEY = 'all-consoles'
+const CATALOG_CACHE_VERSION = '2026-04-25-v1'
 const MAX_ACTIVITY_EVENTS = 250
 const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
@@ -189,6 +202,7 @@ let pendingCatalogScrollRestore: number | null = null
 let barcodeReader: BrowserMultiFormatReader | null = null
 let barcodeCameraControls: IScannerControls | null = null
 let barcodeCameraStartPromise: Promise<void> | null = null
+let pendingCatalogSnapshotSave = 0
 let pendingLibrarySave = 0
 let pendingSyncStatusRender = 0
 let pendingSearchRender = 0
@@ -212,6 +226,7 @@ const app = appElement
 let deferredInstallPrompt: InstallPromptEvent | null = null
 const pendingConsoleLoads = new Map<string, Promise<void>>()
 let syncTimeout: number | null = null
+let catalogSnapshotDbPromise: Promise<IDBDatabase> | null = null
 const editionOptions: EditionStatus[] = ['loose', 'boxed', 'manual', 'cib', 'sealed', 'graded']
 const conditionOptions: ConditionRating[] = ['mint', 'excellent', 'good', 'fair']
 const currencyOptions = [
@@ -783,6 +798,165 @@ function normalizeCustomCoverUrl(value: string) {
 
 function normalizeBarcodeValue(value: string) {
   return value.trim().replace(/[\s-]+/g, '')
+}
+
+function getCatalogMetaSignature(metaEntries: CatalogConsoleMeta[]) {
+  return metaEntries
+    .map((entry) => `${entry.console}|${entry.region}|${entry.count}|${entry.file}`)
+    .sort((left, right) => left.localeCompare(right))
+    .join('||')
+}
+
+function openCatalogSnapshotDb() {
+  if (catalogSnapshotDbPromise) {
+    return catalogSnapshotDbPromise
+  }
+
+  if (typeof indexedDB === 'undefined') {
+    return Promise.reject(new Error('IndexedDB is not available.'))
+  }
+
+  catalogSnapshotDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(CATALOG_CACHE_DB_NAME, 1)
+
+    request.onupgradeneeded = () => {
+      const db = request.result
+
+      if (!db.objectStoreNames.contains(CATALOG_CACHE_STORE)) {
+        db.createObjectStore(CATALOG_CACHE_STORE)
+      }
+    }
+
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error ?? new Error('Catalog cache database could not be opened.'))
+  })
+
+  return catalogSnapshotDbPromise
+}
+
+async function readCatalogSnapshot() {
+  try {
+    const db = await openCatalogSnapshotDb()
+
+    return await new Promise<CatalogSnapshot | null>((resolve, reject) => {
+      const transaction = db.transaction(CATALOG_CACHE_STORE, 'readonly')
+      const store = transaction.objectStore(CATALOG_CACHE_STORE)
+      const request = store.get(CATALOG_CACHE_SNAPSHOT_KEY)
+
+      request.onsuccess = () => {
+        const value = request.result
+
+        if (!value || typeof value !== 'object') {
+          resolve(null)
+          return
+        }
+
+        const snapshot = value as Partial<CatalogSnapshot>
+
+        if (
+          snapshot.version !== CATALOG_CACHE_VERSION ||
+          !Array.isArray(snapshot.generatedCatalog) ||
+          !Array.isArray(snapshot.catalogMeta) ||
+          !Array.isArray(snapshot.loadedConsoles) ||
+          typeof snapshot.metaSignature !== 'string'
+        ) {
+          resolve(null)
+          return
+        }
+
+        resolve({
+          version: snapshot.version,
+          savedAt: typeof snapshot.savedAt === 'string' ? snapshot.savedAt : '',
+          metaSignature: snapshot.metaSignature,
+          generatedCatalog: snapshot.generatedCatalog.map(normalizeCatalogEntry).filter(isCatalogEntry),
+          catalogMeta: snapshot.catalogMeta
+            .flatMap((entry) => {
+              if (!entry || typeof entry !== 'object') {
+                return []
+              }
+
+              const meta = entry as Partial<CatalogConsoleMeta>
+
+              if (
+                typeof meta.console !== 'string' ||
+                typeof meta.slug !== 'string' ||
+                typeof meta.region !== 'string' ||
+                typeof meta.count !== 'number' ||
+                typeof meta.file !== 'string'
+              ) {
+                return []
+              }
+
+              return [
+                {
+                  console: meta.console,
+                  slug: meta.slug,
+                  region: meta.region,
+                  market: typeof meta.market === 'string' ? meta.market : undefined,
+                  count: meta.count,
+                  file: meta.file,
+                } satisfies CatalogConsoleMeta,
+              ]
+            }),
+          loadedConsoles: snapshot.loadedConsoles.filter((value): value is string => typeof value === 'string'),
+        })
+      }
+
+      request.onerror = () => reject(request.error ?? new Error('Catalog snapshot could not be read.'))
+    })
+  } catch {
+    return null
+  }
+}
+
+async function writeCatalogSnapshot() {
+  if (!state.generatedCatalog.length || !state.catalogMeta.length) {
+    return
+  }
+
+  const snapshot: CatalogSnapshot = {
+    version: CATALOG_CACHE_VERSION,
+    savedAt: new Date().toISOString(),
+    metaSignature: getCatalogMetaSignature(state.catalogMeta),
+    generatedCatalog: state.generatedCatalog,
+    catalogMeta: state.catalogMeta,
+    loadedConsoles: state.loadedConsoles,
+  }
+
+  try {
+    const db = await openCatalogSnapshotDb()
+
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(CATALOG_CACHE_STORE, 'readwrite')
+      const store = transaction.objectStore(CATALOG_CACHE_STORE)
+      const request = store.put(snapshot, CATALOG_CACHE_SNAPSHOT_KEY)
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error ?? new Error('Catalog snapshot could not be saved.'))
+    })
+  } catch {
+    // Warm catalog caching must never block the app.
+  }
+}
+
+function scheduleCatalogSnapshotSave() {
+  if (pendingCatalogSnapshotSave) {
+    window.clearTimeout(pendingCatalogSnapshotSave)
+  }
+
+  pendingCatalogSnapshotSave = window.setTimeout(() => {
+    pendingCatalogSnapshotSave = 0
+    void writeCatalogSnapshot()
+  }, 700)
+}
+
+function flushCatalogSnapshotSave() {
+  if (pendingCatalogSnapshotSave) {
+    window.clearTimeout(pendingCatalogSnapshotSave)
+    pendingCatalogSnapshotSave = 0
+  }
+
+  void writeCatalogSnapshot()
 }
 
 function getBarcodeReader() {
@@ -5334,6 +5508,18 @@ function registerServiceWorker() {
 }
 
 async function loadGeneratedCatalog() {
+  const cachedSnapshot = await readCatalogSnapshot()
+
+  if (cachedSnapshot) {
+    state.generatedCatalog = cachedSnapshot.generatedCatalog
+    state.catalogMeta = cachedSnapshot.catalogMeta
+    state.loadedConsoles = cachedSnapshot.loadedConsoles
+    state.catalogLoadError = false
+    state.isCatalogLoading = false
+    invalidateCatalogCache()
+    render()
+  }
+
   try {
     const response = await fetch('/catalogs/retro-catalog-meta.json')
 
@@ -5347,7 +5533,7 @@ async function loadGeneratedCatalog() {
       throw new Error('Catalog metadata payload was invalid.')
     }
 
-    state.catalogMeta = ((parsed as { consoles: unknown[] }).consoles as unknown[])
+    const parsedMeta = ((parsed as { consoles: unknown[] }).consoles as unknown[])
       .flatMap((entry) => {
         if (!entry || typeof entry !== 'object') {
           return []
@@ -5376,8 +5562,27 @@ async function loadGeneratedCatalog() {
         ]
       })
 
-    await ensureConsoleCatalogLoaded(state.consoleFilter)
+    const nextMetaSignature = getCatalogMetaSignature(parsedMeta)
+    const hasCompleteWarmCatalog =
+      Boolean(cachedSnapshot?.generatedCatalog.length) &&
+      cachedSnapshot?.metaSignature === nextMetaSignature &&
+      parsedMeta.every((entry) => cachedSnapshot.loadedConsoles.includes(entry.console))
+
+    state.catalogMeta = parsedMeta
+
+    if (!hasCompleteWarmCatalog) {
+      state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
+      state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
+      invalidateCatalogCache()
+      await ensureConsoleCatalogLoaded(state.consoleFilter)
+    } else {
+      state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? state.generatedCatalog
+      state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? state.loadedConsoles
+      invalidateCatalogCache()
+    }
+
     state.catalogLoadError = false
+    scheduleCatalogSnapshotSave()
   } catch {
     state.generatedCatalog = []
     state.catalogMeta = []
@@ -5470,6 +5675,7 @@ async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad
     state.loadedConsoles = [...state.loadedConsoles, consoleName]
     invalidateCatalogCache()
     state.catalogLoadError = false
+    scheduleCatalogSnapshotSave()
   })()
 
   pendingConsoleLoads.set(consoleName, loadPromise)
@@ -5496,6 +5702,7 @@ function escapeHtml(value: string) {
 }
 
 window.addEventListener('pagehide', flushLibrarySave)
+window.addEventListener('pagehide', flushCatalogSnapshotSave)
 window.addEventListener('pagehide', stopLiveBarcodeScan)
 
 render()
