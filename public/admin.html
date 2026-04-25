@@ -212,7 +212,9 @@
       const statusEl = document.querySelector('#status')
       const resultsEl = document.querySelector('#results')
       const cachedStatsKey = 'retro-vault-admin-stats-cache'
+      const cachedBarcodesKey = 'retro-vault-admin-barcodes-cache'
       const lifetimeViewsKey = 'retro-vault-lifetime-page-views'
+      let latestBarcodeMappings = []
 
       keyInput.value = localStorage.getItem('retro-vault-admin-key') || ''
 
@@ -294,6 +296,25 @@
           .join('')
       }
 
+      function renderBarcodeRows(mappings) {
+        if (!mappings?.length) {
+          return '<tr><td colspan="4">No shared barcode mappings yet.</td></tr>'
+        }
+
+        return mappings
+          .map(
+            (entry) => `
+              <tr>
+                <td>${escapeHtml(entry.code)}</td>
+                <td>${escapeHtml(entry.gameId)}</td>
+                <td>${escapeHtml(entry.source || 'admin')}</td>
+                <td>${escapeHtml(entry.updatedAt || 'Unknown')}</td>
+              </tr>
+            `,
+          )
+          .join('')
+      }
+
       function renderStats(stats) {
         const backendLifetimeViews = Number(stats.analytics.lifetimePageViews || stats.analytics.totalPageViews || 0)
         const cachedLifetimeViews = Number(localStorage.getItem(lifetimeViewsKey) || 0)
@@ -327,6 +348,7 @@
             <article class="card"><span class="stat">${Number(stats.newsletterSubscriberCount || 0).toLocaleString()}</span><p>Newsletter subscribers</p></article>
             <article class="card"><span class="stat">${Number(stats.newsletterToday || 0).toLocaleString()}</span><p>Newsletter signups today</p></article>
             <article class="card"><span class="stat">${Number(stats.activeSessionCount).toLocaleString()}</span><p>Active sessions</p></article>
+            <article class="card"><span class="stat">${Number(stats.sharedBarcodeMappingCount || 0).toLocaleString()}</span><p>Shared barcode mappings</p></article>
           </section>
           <section class="card" style="margin-bottom: 18px">
             <h2>Tracking window</h2>
@@ -410,7 +432,128 @@
               <tbody>${renderUserRows(stats.users)}</tbody>
             </table>
           </section>
+          <section class="card" style="margin-top: 18px">
+            <div class="card-heading-row">
+              <div>
+                <h2>Shared barcode index</h2>
+                <p>Paste JSON mappings here to improve automatic barcode matches across devices.</p>
+              </div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap">
+                <button class="small-button" type="button" data-action="refresh-barcodes">Refresh barcode index</button>
+                <button class="small-button" type="button" data-action="copy-barcodes">Copy barcode JSON</button>
+              </div>
+            </div>
+            <label style="margin-bottom: 12px">
+              Barcode import JSON
+              <textarea id="barcode-import" rows="8" style="width:100%; border-radius:22px; border:1px solid var(--line); background:rgba(255,255,255,0.06); color:var(--text); padding:14px 16px; font:inherit; resize:vertical"></textarea>
+            </label>
+            <label style="display:flex; align-items:center; gap:10px; margin-bottom: 12px">
+              <input id="barcode-replace" type="checkbox" style="min-height:auto; width:auto" />
+              Replace existing shared barcode mappings
+            </label>
+            <button class="small-button" type="button" data-action="import-barcodes">Import barcode mappings</button>
+            <table style="margin-top:18px">
+              <thead>
+                <tr>
+                  <th>Barcode</th>
+                  <th>Game ID</th>
+                  <th>Source</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody>${renderBarcodeRows(latestBarcodeMappings)}</tbody>
+            </table>
+          </section>
         `
+      }
+
+      function normalizeImportedBarcodePayload(raw) {
+        if (Array.isArray(raw)) {
+          return raw
+            .map((entry) => ({
+              code: String(entry?.code || '').trim(),
+              gameId: String(entry?.gameId || '').trim(),
+              source: String(entry?.source || 'admin import').trim(),
+            }))
+            .filter((entry) => entry.code && entry.gameId)
+        }
+
+        if (raw && typeof raw === 'object') {
+          return Object.entries(raw)
+            .map(([code, value]) => ({
+              code: String(code || '').trim(),
+              gameId: String(value?.gameId || value || '').trim(),
+              source: String(value?.source || 'admin import').trim(),
+            }))
+            .filter((entry) => entry.code && entry.gameId)
+        }
+
+        return []
+      }
+
+      async function loadBarcodes() {
+        const key = keyInput.value.trim()
+
+        if (!key) {
+          return
+        }
+
+        const response = await fetch(`${API_BASE_URL}/admin/barcodes`, {
+          headers: {
+            'X-Admin-Key': key,
+          },
+        })
+        const payload = await response.json()
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Could not load barcode mappings.')
+        }
+
+        latestBarcodeMappings = Array.isArray(payload.mappings) ? payload.mappings : []
+        localStorage.setItem(cachedBarcodesKey, JSON.stringify(latestBarcodeMappings))
+      }
+
+      async function saveBarcodes() {
+        const key = keyInput.value.trim()
+        const textarea = document.querySelector('#barcode-import')
+        const replaceCheckbox = document.querySelector('#barcode-replace')
+
+        if (!key) {
+          throw new Error('Paste your admin key first.')
+        }
+
+        const parsed = JSON.parse(textarea.value || '[]')
+        const mappings = normalizeImportedBarcodePayload(parsed)
+
+        if (!mappings.length) {
+          throw new Error('Paste valid barcode JSON first.')
+        }
+
+        const response = await fetch(`${API_BASE_URL}/admin/barcodes`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Key': key,
+          },
+          body: JSON.stringify({
+            replace: Boolean(replaceCheckbox?.checked),
+            mappings,
+          }),
+        })
+        const payload = await response.json()
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Could not save barcode mappings.')
+        }
+
+        textarea.value = ''
+        if (replaceCheckbox) {
+          replaceCheckbox.checked = false
+        }
+        await loadBarcodes()
+        statusEl.className = 'ok'
+        statusEl.textContent = `Imported ${Number(payload.importedCount || mappings.length).toLocaleString()} barcode mappings.`
+        renderStats(JSON.parse(localStorage.getItem(cachedStatsKey) || 'null') || { analytics: {}, users: [] })
       }
 
       function renderCachedStats() {
@@ -458,6 +601,7 @@
 
           localStorage.setItem('retro-vault-admin-key', key)
           localStorage.setItem(cachedStatsKey, JSON.stringify(stats))
+          await loadBarcodes().catch(() => {})
           statusEl.className = 'ok'
           statusEl.textContent = `Loaded. Last updated ${stats.generatedAt}.`
           renderStats(stats)
@@ -475,6 +619,40 @@
 
       resultsEl.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-action="copy-account-emails"]')
+        const barcodeRefreshButton = event.target.closest('[data-action="refresh-barcodes"]')
+        const barcodeCopyButton = event.target.closest('[data-action="copy-barcodes"]')
+        const barcodeImportButton = event.target.closest('[data-action="import-barcodes"]')
+
+        if (barcodeRefreshButton) {
+          try {
+            await loadBarcodes()
+            renderStats(JSON.parse(localStorage.getItem(cachedStatsKey) || 'null') || { analytics: {}, users: [] })
+            statusEl.className = 'ok'
+            statusEl.textContent = `Loaded ${latestBarcodeMappings.length.toLocaleString()} shared barcode mappings.`
+          } catch (error) {
+            statusEl.className = 'error'
+            statusEl.textContent = error instanceof Error ? error.message : 'Could not refresh barcode mappings.'
+          }
+          return
+        }
+
+        if (barcodeCopyButton) {
+          const json = JSON.stringify(latestBarcodeMappings, null, 2)
+          await navigator.clipboard.writeText(json)
+          statusEl.className = 'ok'
+          statusEl.textContent = `Copied ${latestBarcodeMappings.length.toLocaleString()} barcode mappings.`
+          return
+        }
+
+        if (barcodeImportButton) {
+          try {
+            await saveBarcodes()
+          } catch (error) {
+            statusEl.className = 'error'
+            statusEl.textContent = error instanceof Error ? error.message : 'Could not import barcode mappings.'
+          }
+          return
+        }
 
         if (!button) {
           return
@@ -506,6 +684,11 @@
 
       if (keyInput.value.trim()) {
         renderCachedStats()
+        try {
+          latestBarcodeMappings = JSON.parse(localStorage.getItem(cachedBarcodesKey) || '[]')
+        } catch {
+          latestBarcodeMappings = []
+        }
         loadStats()
       }
     </script>

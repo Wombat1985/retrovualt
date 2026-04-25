@@ -1531,6 +1531,35 @@ a {
   gap: 18px;
 }
 
+.view-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.view-summary article {
+  border-radius: 24px;
+  padding: 16px 18px;
+  background: rgba(11, 20, 31, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow);
+}
+
+.view-summary .stat-label {
+  display: block;
+}
+
+.view-summary strong {
+  display: block;
+  margin-top: 8px;
+  font-size: clamp(1.5rem, 4vw, 2.3rem);
+}
+
+.view-summary .stat-note {
+  display: block;
+  margin-top: 6px;
+}
+
 .section-heading {
   display: flex;
   justify-content: space-between;
@@ -2244,6 +2273,10 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .view-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .control-summary {
     align-items: flex-start;
     flex-direction: column;
@@ -2357,6 +2390,7 @@ a {
   .hero-panel,
   .toolbar,
   .filters,
+  .view-summary article,
   .smart-card,
   .spotlight-copy,
   .insight-card,
@@ -2376,6 +2410,10 @@ a {
   .hero-text {
     margin-top: 10px;
     font-size: 0.98rem;
+  }
+
+  .view-summary {
+    grid-template-columns: 1fr;
   }
 
   .hero-text--tiny {

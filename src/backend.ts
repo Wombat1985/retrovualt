@@ -152,6 +152,16 @@ export async function saveBarcodeMapping(token: string, code: string, gameId: st
   )
 }
 
+export async function lookupBarcodeMapping(code: string, token?: string) {
+  return request<{ code: string; gameId: string | null; source: string | null }>(
+    `/barcode/${encodeURIComponent(code)}`,
+    {
+      method: 'GET',
+    },
+    token,
+  )
+}
+
 export async function trackPageView(signedIn = false) {
   try {
     await request<{ ok: boolean }>('/analytics/page-view', {

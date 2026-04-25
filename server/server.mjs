@@ -50,6 +50,7 @@ function createEmptyDb() {
     sessions: [],
     passwordResets: [],
     newsletterSubscribers: [],
+    sharedBarcodeMappings: {},
     analytics: createDefaultAnalyticsState(),
   }
 }
@@ -74,8 +75,85 @@ function normalizeDb(parsed) {
     sessions: Array.isArray(parsed?.sessions) ? parsed.sessions : [],
     passwordResets: Array.isArray(parsed?.passwordResets) ? parsed.passwordResets : [],
     newsletterSubscribers: Array.isArray(parsed?.newsletterSubscribers) ? parsed.newsletterSubscribers : [],
+    sharedBarcodeMappings: normalizeSharedBarcodeMappings(parsed?.sharedBarcodeMappings),
     analytics: normalizeAnalyticsState(parsed?.analytics),
   }
+}
+
+function normalizeBarcodeCode(code) {
+  return String(code ?? '')
+    .trim()
+    .replace(/[\s-]+/g, '')
+    .slice(0, 80)
+}
+
+function normalizeSharedBarcodeMappings(rawMappings) {
+  if (!rawMappings || typeof rawMappings !== 'object') {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(rawMappings).flatMap(([rawCode, rawEntry]) => {
+      const code = normalizeBarcodeCode(rawCode)
+
+      if (!code || !rawEntry || typeof rawEntry !== 'object') {
+        return []
+      }
+
+      const gameId = String(rawEntry.gameId ?? '').trim()
+
+      if (!gameId) {
+        return []
+      }
+
+      return [
+        [
+          code,
+          {
+            gameId,
+            source: String(rawEntry.source ?? 'admin').trim().slice(0, 120) || 'admin',
+            updatedAt:
+              typeof rawEntry.updatedAt === 'string' && rawEntry.updatedAt
+                ? rawEntry.updatedAt
+                : new Date().toISOString(),
+          },
+        ],
+      ]
+    }),
+  )
+}
+
+function getSharedBarcodeMapping(db, code) {
+  return db.sharedBarcodeMappings?.[normalizeBarcodeCode(code)] ?? null
+}
+
+function upsertSharedBarcodeMappings(db, mappings, options = {}) {
+  const nextMappings = options.replace ? {} : { ...(db.sharedBarcodeMappings ?? {}) }
+  const updatedAt = new Date().toISOString()
+  let importedCount = 0
+
+  for (const entry of Array.isArray(mappings) ? mappings : []) {
+    if (!entry || typeof entry !== 'object') {
+      continue
+    }
+
+    const code = normalizeBarcodeCode(entry.code)
+    const gameId = String(entry.gameId ?? '').trim()
+
+    if (!code || !gameId) {
+      continue
+    }
+
+    nextMappings[code] = {
+      gameId,
+      source: String(entry.source ?? 'admin import').trim().slice(0, 120) || 'admin import',
+      updatedAt,
+    }
+    importedCount += 1
+  }
+
+  db.sharedBarcodeMappings = nextMappings
+  return importedCount
 }
 
 function isSupabaseConfigured() {
@@ -602,6 +680,7 @@ function getAdminStats(db) {
     userCount: users.length,
     signupsToday,
     activeSessionCount: db.sessions.length,
+    sharedBarcodeMappingCount: Object.keys(db.sharedBarcodeMappings ?? {}).length,
     storage: lastStorageStatus,
     newsletterSubscriberCount: db.newsletterSubscribers.length,
     newsletterToday,
@@ -699,7 +778,8 @@ const server = createServer(async (request, response) => {
     const accountRoute =
       url.pathname.startsWith('/auth') ||
       url.pathname === '/sync' ||
-      url.pathname.startsWith('/barcode/') ||
+      request.method === 'PUT' && url.pathname.startsWith('/barcode/') ||
+      url.pathname.startsWith('/admin/barcodes') ||
       url.pathname === '/admin/stats'
     const db = await loadDb({ required: accountRoute })
     pruneSecurityState(db)
@@ -767,6 +847,63 @@ const server = createServer(async (request, response) => {
       }
 
       json(request, response, 200, getAdminStats(db))
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/admin/barcodes') {
+      if (!getAdminKey()) {
+        json(request, response, 503, { error: 'Admin reporting is not configured.' })
+        return
+      }
+
+      if (!isAdminRequest(request, url)) {
+        json(request, response, 401, { error: 'Admin key required.' })
+        return
+      }
+
+      const mappings = Object.entries(db.sharedBarcodeMappings ?? {})
+        .map(([code, entry]) => ({
+          code,
+          gameId: entry.gameId,
+          source: entry.source ?? 'admin',
+          updatedAt: entry.updatedAt ?? null,
+        }))
+        .sort((left, right) => String(right.updatedAt ?? '').localeCompare(String(left.updatedAt ?? '')))
+
+      json(request, response, 200, {
+        count: mappings.length,
+        mappings,
+      })
+      return
+    }
+
+    if (request.method === 'PUT' && url.pathname === '/admin/barcodes') {
+      if (!getAdminKey()) {
+        json(request, response, 503, { error: 'Admin reporting is not configured.' })
+        return
+      }
+
+      if (!isAdminRequest(request, url)) {
+        json(request, response, 401, { error: 'Admin key required.' })
+        return
+      }
+
+      const body = await readBody(request)
+      const replace = body.replace === true
+      const mappings = Array.isArray(body.mappings) ? body.mappings : []
+      const importedCount = upsertSharedBarcodeMappings(db, mappings, { replace })
+
+      if (!importedCount) {
+        json(request, response, 400, { error: 'No valid barcode mappings were provided.' })
+        return
+      }
+
+      await saveDb(db, { required: true })
+      json(request, response, 200, {
+        ok: true,
+        importedCount,
+        totalCount: Object.keys(db.sharedBarcodeMappings ?? {}).length,
+      })
       return
     }
 
@@ -1066,13 +1203,27 @@ const server = createServer(async (request, response) => {
       const user = await getSessionUser(request, db)
 
       if (!user) {
-        json(request, response, 401, { error: 'Not signed in.' })
+        const code = decodeURIComponent(url.pathname.slice('/barcode/'.length))
+        const sharedMapping = getSharedBarcodeMapping(db, code)
+
+        if (!sharedMapping) {
+          json(request, response, 200, { code: normalizeBarcodeCode(code), gameId: null, source: null })
+          return
+        }
+
+        json(request, response, 200, {
+          code: normalizeBarcodeCode(code),
+          gameId: sharedMapping.gameId,
+          source: sharedMapping.source ?? 'shared',
+        })
         return
       }
 
       const code = decodeURIComponent(url.pathname.slice('/barcode/'.length))
-      const gameId = user.syncState.barcodeMappings?.[code] ?? null
-      json(request, response, 200, { code, gameId })
+      const normalizedCode = normalizeBarcodeCode(code)
+      const gameId = user.syncState.barcodeMappings?.[normalizedCode] ?? getSharedBarcodeMapping(db, normalizedCode)?.gameId ?? null
+      const source = user.syncState.barcodeMappings?.[normalizedCode] ? 'account' : getSharedBarcodeMapping(db, normalizedCode)?.source ?? null
+      json(request, response, 200, { code: normalizedCode, gameId, source })
       return
     }
 
@@ -1084,7 +1235,7 @@ const server = createServer(async (request, response) => {
         return
       }
 
-      const code = decodeURIComponent(url.pathname.slice('/barcode/'.length))
+      const code = normalizeBarcodeCode(decodeURIComponent(url.pathname.slice('/barcode/'.length)))
       const body = await readBody(request)
       const gameId = String(body.gameId ?? '').trim()
 

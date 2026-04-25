@@ -8,6 +8,7 @@ import {
   deleteAccount,
   getCurrentAccount,
   loginAccount,
+  lookupBarcodeMapping,
   logoutAccount,
   pushSyncState,
   registerAccount,
@@ -247,6 +248,7 @@ const state = {
   search: '',
   consoleFilter: 'All consoles',
   regionFilter: 'All regions',
+  yearFilter: 'All years',
   ownershipFilter: 'all' as OwnershipFilter,
   sortMode: 'title' as SortMode,
   visibleGameCount: getInitialVisibleGameCount(),
@@ -954,6 +956,11 @@ function getRegionOptionLabel(regionName: string) {
   return total ? `${regionName} (${total.toLocaleString()})` : regionName
 }
 
+function getYears() {
+  const years = [...new Set(getCatalog().map((game) => game.year).filter((year): year is number => Number.isFinite(year)))]
+  return ['All years', ...years.sort((left, right) => right - left).map(String)]
+}
+
 function getRecord(gameId: string) {
   return state.library[gameId] ?? defaultRecord()
 }
@@ -1104,6 +1111,7 @@ function getFilteredGames() {
     state.search.trim().toLowerCase(),
     state.consoleFilter,
     state.regionFilter,
+    state.yearFilter,
     state.ownershipFilter,
     state.sortMode,
   ].join(':')
@@ -1120,6 +1128,7 @@ function getFilteredGames() {
 
   filteredGamesCache = activeCatalog
     .filter((game) => state.regionFilter === 'All regions' || game.region === state.regionFilter)
+    .filter((game) => state.yearFilter === 'All years' || String(game.year ?? '') === state.yearFilter)
     .filter((game) => {
       if (!searchValue) {
         return true
@@ -2552,6 +2561,7 @@ function renderControlSummary(resultCount: number, visibleCount: number) {
   const activeFilters = [
     state.regionFilter !== 'All regions' ? getRegionOptionLabel(state.regionFilter) : '',
     state.consoleFilter !== 'All consoles' ? getConsoleOptionLabel(state.consoleFilter) : '',
+    state.yearFilter !== 'All years' ? `Release year ${state.yearFilter}` : '',
     state.ownershipFilter !== 'all' ? state.ownershipFilter : '',
     state.search.trim() ? `Search: ${state.search.trim()}` : '',
   ].filter(Boolean)
@@ -2571,6 +2581,40 @@ function renderControlSummary(resultCount: number, visibleCount: number) {
         }
         <button class="ghost-button" type="button" data-action="clear-filters">Clear filters</button>
       </div>
+    </section>
+  `
+}
+
+function renderViewSummary(filteredGames: CatalogEntry[]) {
+  const ownedGames = filteredGames.filter((game) => getRecord(game.id).status === 'owned')
+  const wantedGames = filteredGames.filter((game) => getRecord(game.id).status === 'wanted')
+  const ownedTrackedValue = ownedGames.reduce((total, game) => total + getReferencePrice(game), 0)
+  const paidTotal = ownedGames.reduce((total, game) => total + (getRecord(game.id).pricePaid ?? 0), 0)
+  const marketEdge = ownedTrackedValue - paidTotal
+  const completeOwned = ownedGames.filter((game) => isCompleteEdition(getRecord(game.id))).length
+
+  return `
+    <section class="view-summary">
+      <article>
+        <span class="stat-label">Owned in this view</span>
+        <strong>${ownedGames.length.toLocaleString()}</strong>
+        <span class="stat-note">${completeOwned.toLocaleString()} complete copies tracked</span>
+      </article>
+      <article>
+        <span class="stat-label">Wanted in this view</span>
+        <strong>${wantedGames.length.toLocaleString()}</strong>
+        <span class="stat-note">${formatPrice(wantedGames.reduce((total, game) => total + getReferencePrice(game), 0))} target value</span>
+      </article>
+      <article>
+        <span class="stat-label">Tracked value in this view</span>
+        <strong>${formatPrice(ownedTrackedValue)}</strong>
+        <span class="stat-note">Based on your loose or complete ownership choices</span>
+      </article>
+      <article>
+        <span class="stat-label">Paid total in this view</span>
+        <strong>${formatPrice(paidTotal)}</strong>
+        <span class="stat-note">${paidTotal ? `${marketEdge >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(marketEdge))}` : 'Add paid prices to compare pickups versus market'}</span>
+      </article>
     </section>
   `
 }
@@ -3460,6 +3504,17 @@ function renderNow() {
           </select>
         </label>
         <label class="select-field">
+          <span>Release year</span>
+          <select id="year-filter">
+            ${getYears()
+              .map(
+                (yearValue) =>
+                  `<option value="${escapeHtml(yearValue)}" ${yearValue === state.yearFilter ? 'selected' : ''}>${escapeHtml(yearValue)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="select-field">
           <span>Currency</span>
           <select id="currency-code">
             ${currencyOptions
@@ -3477,6 +3532,7 @@ function renderNow() {
       </section>
 
       ${renderControlSummary(filteredGames.length, visibleGames.length)}
+      ${renderViewSummary(filteredGames)}
       ${renderFiltersSection()}
       ${renderCatalogSection(filteredGames, visibleGames)}
 
@@ -3560,17 +3616,20 @@ function renderCatalogOnlyNow() {
   const controlSummary = app.querySelector('.control-summary')
   const filters = app.querySelector('.filters')
   const catalogSection = app.querySelector('.catalog-section')
+  const viewSummary = app.querySelector('.view-summary')
   const backdrop = app.querySelector('.collection-backdrop')
   const toolbarConsole = app.querySelector<HTMLSelectElement>('#console-filter')
   const toolbarRegion = app.querySelector<HTMLSelectElement>('#region-filter')
   const toolbarSort = app.querySelector<HTMLSelectElement>('#sort-mode')
+  const toolbarYear = app.querySelector<HTMLSelectElement>('#year-filter')
 
-  if (!controlSummary || !filters || !catalogSection) {
+  if (!controlSummary || !filters || !catalogSection || !viewSummary) {
     render()
     return
   }
 
   controlSummary.outerHTML = renderControlSummary(filteredGames.length, visibleGames.length)
+  viewSummary.outerHTML = renderViewSummary(filteredGames)
   filters.outerHTML = renderFiltersSection()
   catalogSection.outerHTML = renderCatalogSection(filteredGames, visibleGames)
 
@@ -3594,6 +3653,10 @@ function renderCatalogOnlyNow() {
 
   if (toolbarSort) {
     toolbarSort.value = state.sortMode
+  }
+
+  if (toolbarYear) {
+    toolbarYear.value = state.yearFilter
   }
 
   if (pendingCatalogScrollRestore !== null) {
@@ -3793,6 +3856,13 @@ async function handleFormControlChange(target: HTMLInputElement | HTMLSelectElem
 
   if (target.id === 'sort-mode') {
     state.sortMode = target.value as SortMode
+    resetVisibleGameCount()
+    renderCatalogOnly()
+    return
+  }
+
+  if (target.id === 'year-filter') {
+    state.yearFilter = target.value
     resetVisibleGameCount()
     renderCatalogOnly()
     return
@@ -4361,6 +4431,7 @@ async function handleAction(element: HTMLElement) {
       state.search = ''
       state.regionFilter = 'All regions'
       state.consoleFilter = 'All consoles'
+      state.yearFilter = 'All years'
       state.ownershipFilter = 'all'
       state.sortMode = 'title'
       resetVisibleGameCount()
@@ -5009,6 +5080,32 @@ async function handleBarcodeDetected(code: string) {
       render()
       return
     }
+  }
+
+  try {
+    const remoteMatch = await lookupBarcodeMapping(normalizedCode, state.authToken || undefined)
+
+    if (remoteMatch.gameId) {
+      state.barcodeMappings = {
+        ...state.barcodeMappings,
+        [normalizedCode]: remoteMatch.gameId,
+      }
+      saveBarcodeMappings()
+
+      const game = getGameById(remoteMatch.gameId)
+
+      if (game) {
+        state.scannerStatus =
+          remoteMatch.source === 'account'
+            ? `Matched ${game.title} from your saved barcode links.`
+            : `Matched ${game.title} from the shared barcode index.`
+        state.selectedGameId = game.id
+        render()
+        return
+      }
+    }
+  } catch {
+    // Lookup failures must never block the scanner flow.
   }
 
   state.scannerStatus = 'Barcode found. Search below and link it once, then it will work automatically next time.'
