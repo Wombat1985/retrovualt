@@ -2365,11 +2365,24 @@ a {
   }
 
   .hero-stats article:nth-child(n + 3) {
-    display: none;
+    display: grid;
   }
 
-  .account-status-pill,
   .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hero-stats article {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .hero-stats strong {
+    font-size: 1.35rem;
+  }
+
+  .account-status-pill {
     display: none;
   }
 

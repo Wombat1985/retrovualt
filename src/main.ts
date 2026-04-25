@@ -187,6 +187,7 @@ const searchHaystackCache = new Map<string, string>()
 let dashboardSummaryCache: DashboardSummary | null = null
 let dashboardSummaryCacheKey = ''
 let renderFrame = 0
+let pendingCatalogScrollRestore: number | null = null
 let pendingLibrarySave = 0
 let pendingSyncStatusRender = 0
 let pendingSearchRender = 0
@@ -244,7 +245,7 @@ const currencyOptions = [
 
 const state = {
   search: '',
-  consoleFilter: 'Super Nintendo',
+  consoleFilter: 'All consoles',
   regionFilter: 'All regions',
   ownershipFilter: 'all' as OwnershipFilter,
   sortMode: 'title' as SortMode,
@@ -3506,6 +3507,11 @@ function renderCatalogOnlyNow() {
   if (toolbarSort) {
     toolbarSort.value = state.sortMode
   }
+
+  if (pendingCatalogScrollRestore !== null) {
+    window.scrollTo({ top: pendingCatalogScrollRestore, behavior: 'auto' })
+    pendingCatalogScrollRestore = null
+  }
 }
 
 function renderCatalogOnly() {
@@ -4219,6 +4225,8 @@ async function handleAction(element: HTMLElement) {
       break
     }
     case 'load-more-games':
+      pendingCatalogScrollRestore = window.scrollY
+      ;(document.activeElement as HTMLElement | null)?.blur?.()
       state.visibleGameCount += getVisibleGameIncrement()
       renderCatalogOnly()
       break
@@ -4237,7 +4245,7 @@ async function handleAction(element: HTMLElement) {
     case 'clear-filters':
       state.search = ''
       state.regionFilter = 'All regions'
-      state.consoleFilter = 'Super Nintendo'
+      state.consoleFilter = 'All consoles'
       state.ownershipFilter = 'all'
       state.sortMode = 'title'
       resetVisibleGameCount()
