@@ -121,6 +121,24 @@ type ConsoleProgress = {
   progress: number
 }
 
+type DashboardSummary = {
+  ownedGames: CatalogEntry[]
+  wantedGames: CatalogEntry[]
+  ownedTrackedValue: number
+  ownedCompleteValue: number
+  completionPercentage: number
+  wishlistValue: number
+  collectionDelta: number
+  prestigeScore: number
+  spotlight: Spotlight | null
+  alertMatches: CatalogEntry[]
+  nearCompleteConsoles: ConsoleProgress[]
+  collectorRank: {
+    title: string
+    detail: string
+  }
+}
+
 type OnboardingStep = {
   label: string
   detail: string
@@ -156,6 +174,8 @@ const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricechar
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
 const INITIAL_VISIBLE_GAME_COUNT = 96
 const VISIBLE_GAME_INCREMENT = 96
+const COMPACT_VISIBLE_GAME_COUNT = 48
+const COMPACT_VISIBLE_GAME_INCREMENT = 48
 const SEARCH_RENDER_DELAY_MS = 180
 const appElement = document.querySelector<HTMLDivElement>('#app')
 let catalogCache: CatalogEntry[] | null = null
@@ -164,6 +184,8 @@ let catalogByIdCache = new Map<string, CatalogEntry>()
 let filteredGamesCache: CatalogEntry[] | null = null
 let filteredGamesCacheKey = ''
 const searchHaystackCache = new Map<string, string>()
+let dashboardSummaryCache: DashboardSummary | null = null
+let dashboardSummaryCacheKey = ''
 let renderFrame = 0
 let pendingLibrarySave = 0
 let pendingSyncStatusRender = 0
@@ -226,7 +248,7 @@ const state = {
   regionFilter: 'All regions',
   ownershipFilter: 'all' as OwnershipFilter,
   sortMode: 'title' as SortMode,
-  visibleGameCount: INITIAL_VISIBLE_GAME_COUNT,
+  visibleGameCount: getInitialVisibleGameCount(),
   currencyCode: loadCurrencyCode(),
   authToken: loadAuthToken(),
   accountEmail: loadAuthProfile().email,
@@ -991,6 +1013,18 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
   return haystack.includes(normalizedSearch) || searchTokens.every((token) => paddedHaystack.includes(` ${token} `))
 }
 
+function useCompactCatalogWindow() {
+  return window.innerWidth <= 900
+}
+
+function getInitialVisibleGameCount() {
+  return useCompactCatalogWindow() ? COMPACT_VISIBLE_GAME_COUNT : INITIAL_VISIBLE_GAME_COUNT
+}
+
+function getVisibleGameIncrement() {
+  return useCompactCatalogWindow() ? COMPACT_VISIBLE_GAME_INCREMENT : VISIBLE_GAME_INCREMENT
+}
+
 function getFilteredGames() {
   getCatalog()
   const key = [
@@ -1052,7 +1086,7 @@ function getFilteredGames() {
 }
 
 function resetVisibleGameCount() {
-  state.visibleGameCount = INITIAL_VISIBLE_GAME_COUNT
+  state.visibleGameCount = getInitialVisibleGameCount()
 }
 
 function getOwnedGames() {
@@ -1067,6 +1101,39 @@ function getWantedGames() {
 
 function getLibraryStatsKey() {
   return `${catalogCacheKey}:${libraryRevision}`
+}
+
+function getDashboardSummary(catalog: CatalogEntry[]) {
+  const key = `${getLibraryStatsKey()}:${state.regionFilter}`
+
+  if (dashboardSummaryCache && dashboardSummaryCacheKey === key) {
+    return dashboardSummaryCache
+  }
+
+  const ownedGames = getOwnedGames()
+  const wantedGames = getWantedGames()
+  const ownedTrackedValue = ownedGames.reduce((total, game) => total + getOwnedMarketPrice(game), 0)
+  const ownedCompleteValue = ownedGames.reduce((total, game) => total + getReferencePrice(game), 0)
+  const completionPercentage = catalog.length === 0 ? 0 : Math.round((ownedGames.length / catalog.length) * 100)
+  const wishlistValue = wantedGames.reduce((total, game) => total + getReferencePrice(game), 0)
+
+  dashboardSummaryCache = {
+    ownedGames,
+    wantedGames,
+    ownedTrackedValue,
+    ownedCompleteValue,
+    completionPercentage,
+    wishlistValue,
+    collectionDelta: getCollectionDelta(),
+    prestigeScore: getPrestigeScore(),
+    spotlight: getSpotlightGame(),
+    alertMatches: getAlertMatches(),
+    nearCompleteConsoles: getNearCompleteConsoles(),
+    collectorRank: getCollectorRank(),
+  }
+  dashboardSummaryCacheKey = key
+
+  return dashboardSummaryCache
 }
 
 function refreshCollectionStats() {
@@ -3144,23 +3211,24 @@ function renderNow() {
   const catalog = getCatalog()
   const filteredGames = getFilteredGames()
   const visibleGames = filteredGames.slice(0, state.visibleGameCount)
-  const ownedGames = getOwnedGames()
-  const wantedGames = getWantedGames()
-  const ownedTrackedValue = ownedGames.reduce((total, game) => total + getOwnedMarketPrice(game), 0)
-  const ownedCompleteValue = ownedGames.reduce((total, game) => total + getReferencePrice(game), 0)
+  const dashboard = getDashboardSummary(catalog)
+  const ownedGames = dashboard.ownedGames
+  const wantedGames = dashboard.wantedGames
+  const ownedTrackedValue = dashboard.ownedTrackedValue
+  const ownedCompleteValue = dashboard.ownedCompleteValue
   const estimatedSellValue = ownedTrackedValue
-  const completionPercentage = catalog.length === 0 ? 0 : Math.round((ownedGames.length / catalog.length) * 100)
-  const wishlistValue = wantedGames.reduce((total, game) => total + getReferencePrice(game), 0)
-  const collectionDelta = getCollectionDelta()
-  const prestigeScore = getPrestigeScore()
-  const spotlight = getSpotlightGame()
+  const completionPercentage = dashboard.completionPercentage
+  const wishlistValue = dashboard.wishlistValue
+  const collectionDelta = dashboard.collectionDelta
+  const prestigeScore = dashboard.prestigeScore
+  const spotlight = dashboard.spotlight
   const consoleCount = new Set(catalog.map((game) => game.console)).size
   const loadedConsoleCount = state.loadedConsoles.length
   const totalConsoleCount = state.catalogMeta.length || consoleCount
   const selectedCurrency = getSelectedCurrency()
-  const alertMatches = getAlertMatches()
-  const nearCompleteConsoles = getNearCompleteConsoles()
-  const collectorRank = getCollectorRank()
+  const alertMatches = dashboard.alertMatches
+  const nearCompleteConsoles = dashboard.nearCompleteConsoles
+  const collectorRank = dashboard.collectorRank
   const accountIdentity = getAccountIdentityLabel()
   const catalogStatusText = state.isCatalogLoading
     ? `Loading the library. ${loadedConsoleCount} of ${totalConsoleCount} console lists are ready so far.`
@@ -4086,7 +4154,7 @@ async function handleAction(element: HTMLElement) {
       break
     }
     case 'load-more-games':
-      state.visibleGameCount += VISIBLE_GAME_INCREMENT
+      state.visibleGameCount += getVisibleGameIncrement()
       render()
       break
     case 'reset-library':
