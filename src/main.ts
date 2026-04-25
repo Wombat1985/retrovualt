@@ -1541,6 +1541,36 @@ function getGameReferencePublisher(game: CatalogEntry) {
   return getGameReference(game)?.publisher ?? ''
 }
 
+function getGameReferenceReleaseDate(game: CatalogEntry) {
+  return getGameReference(game)?.releaseDate ?? ''
+}
+
+function getGameIdentifierRows(game: CatalogEntry) {
+  const rows: Array<{ label: string; value: string }> = [{ label: 'Vault ID', value: game.id }]
+  const referenceCode = getGameReferenceCode(game)
+  const alias = getGameReferenceAlias(game)
+  const publisher = getGameReferencePublisher(game)
+  const releaseDate = getGameReferenceReleaseDate(game)
+
+  if (referenceCode) {
+    rows.unshift({ label: 'Reference ID', value: referenceCode })
+  }
+
+  if (alias) {
+    rows.push({ label: 'Alternate title', value: alias })
+  }
+
+  if (publisher) {
+    rows.push({ label: 'Publisher', value: publisher })
+  }
+
+  if (releaseDate) {
+    rows.push({ label: 'Release date', value: releaseDate })
+  }
+
+  return rows
+}
+
 function getSelectedCurrency() {
   return currencyOptions.find((currency) => currency.code === state.currencyCode) ?? currencyOptions[0]
 }
@@ -2936,8 +2966,7 @@ function renderSelectedGameModal() {
   const safeGameId = escapeHtml(game.id)
   const safePriceSourceUrl = escapeHtml(game.priceSourceUrl)
   const variantSummary = getVariantSummary(game)
-  const referenceCode = getGameReferenceCode(game)
-  const referencePublisher = getGameReferencePublisher(game)
+  const identifierRows = getGameIdentifierRows(game)
   const valueGap =
     record.pricePaid === null ? null : getOwnedMarketPrice(game) - record.pricePaid
 
@@ -2999,13 +3028,26 @@ function renderSelectedGameModal() {
               <strong>${formatDelta(game.trendDelta)}</strong>
             </article>
           </div>
+          <section class="modal-identifier-panel" aria-label="Identifiers">
+            <p class="modal-section-label">Identifiers</p>
+            <div class="identifier-chip-list">
+              ${identifierRows
+                .map(
+                  (row) => `
+                    <article class="identifier-chip">
+                      <span>${escapeHtml(row.label)}</span>
+                      <strong>${escapeHtml(row.value)}</strong>
+                    </article>
+                  `,
+                )
+                .join('')}
+            </div>
+          </section>
           <div class="modal-notes">
             <p><strong>Price snapshot:</strong> ${priceSnapshotDate}</p>
             <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus ${getOwnedValueLabel(game).toLowerCase()}.`}</p>
             <p><strong>Alert target:</strong> ${record.targetPrice === null ? 'No target set.' : `Notify yourself when loose value hits ${formatPrice(record.targetPrice)} or less.`}</p>
             <p><strong>Art source:</strong> ${getCoverSourceLabel(game)}</p>
-            ${referenceCode ? `<p><strong>Reference code:</strong> ${escapeHtml(referenceCode)}</p>` : ''}
-            ${referencePublisher ? `<p><strong>Publisher:</strong> ${escapeHtml(referencePublisher)}</p>` : ''}
             <p><strong>Market note:</strong> ${appConfig.marketDisclaimer}</p>
             <p><strong>Collector notes:</strong> ${record.notes ? escapeHtml(record.notes) : 'No collector notes yet.'}</p>
           </div>
@@ -3877,6 +3919,7 @@ function renderScannerModal() {
                   <span>Search game to link by title, barcode, or ID</span>
                   <input id="barcode-search" type="search" aria-label="Search a title, console, barcode, or reference ID" value="${escapeHtml(state.barcodeSearch)}" />
                 </label>
+                <p class="subtle scanner-search-note">IDs can be reference codes like KSC-TS or a Retro Vault ID.</p>
                 <div class="barcode-match-list">
                   ${
                     matches.length

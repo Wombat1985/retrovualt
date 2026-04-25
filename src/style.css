@@ -2061,6 +2061,10 @@ a {
   margin-bottom: 0;
 }
 
+.scanner-search-note {
+  margin: 4px 0 0;
+}
+
 .barcode-match-list {
   display: grid;
   gap: 10px;
@@ -2085,6 +2089,45 @@ a {
 .barcode-match span {
   margin-top: 5px;
   color: var(--muted);
+}
+
+.modal-section-label {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.modal-identifier-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.identifier-chip-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.identifier-chip {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.identifier-chip span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.identifier-chip strong {
+  font-size: 0.98rem;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .game-modal-backdrop {
