@@ -166,6 +166,11 @@ type CatalogSnapshot = {
   loadedConsoles: string[]
 }
 
+type CoverMatchSuggestion = {
+  gameId: string
+  distance: number
+}
+
 type BarcodeReaderResult = {
   getText: () => string
 }
@@ -194,9 +199,11 @@ const STREAK_STORAGE_KEY = 'retro-game-collector-visit-streak'
 const ACTIVITY_STORAGE_KEY = 'retro-game-collector-activity-events'
 const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
+const COVER_HASH_CACHE_STORE = 'cover-hashes'
 const CATALOG_CACHE_SNAPSHOT_KEY = 'all-consoles'
 const CATALOG_CACHE_VERSION = '2026-04-25-v1'
 const LITE_CATALOG_PATH = '/catalogs/retro-catalog-lite.json'
+const COVER_MATCH_MAX_SCOPE = 1500
 const MAX_ACTIVITY_EVENTS = 250
 const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
@@ -220,6 +227,7 @@ let barcodeReader: BarcodeReaderInstance | null = null
 let barcodeCameraControls: BarcodeScannerControls | null = null
 let barcodeCameraStartPromise: Promise<void> | null = null
 let barcodeModulePromise: Promise<{ BrowserMultiFormatReader: new () => BarcodeReaderInstance }> | null = null
+const coverHashMemoryCache = new Map<string, string>()
 let pendingCatalogSnapshotSave = 0
 let pendingLibrarySave = 0
 let pendingSyncStatusRender = 0
@@ -320,6 +328,9 @@ const state = {
   scannerOpen: false,
   scannerLiveActive: false,
   scannerStatus: 'Scan a barcode with your camera or upload a clear barcode photo.' as string,
+  coverScanStatus: '' as string,
+  coverScanRunning: false,
+  coverScanMatches: [] as CoverMatchSuggestion[],
   barcodeLinkCode: null as string | null,
   barcodeSearch: '',
   isCatalogLoading: true,
@@ -871,13 +882,17 @@ function openCatalogSnapshotDb() {
   }
 
   catalogSnapshotDbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(CATALOG_CACHE_DB_NAME, 1)
+    const request = indexedDB.open(CATALOG_CACHE_DB_NAME, 2)
 
     request.onupgradeneeded = () => {
       const db = request.result
 
       if (!db.objectStoreNames.contains(CATALOG_CACHE_STORE)) {
         db.createObjectStore(CATALOG_CACHE_STORE)
+      }
+
+      if (!db.objectStoreNames.contains(COVER_HASH_CACHE_STORE)) {
+        db.createObjectStore(COVER_HASH_CACHE_STORE)
       }
     }
 
@@ -990,6 +1005,176 @@ async function writeCatalogSnapshot() {
     })
   } catch {
     // Warm catalog caching must never block the app.
+  }
+}
+
+function getCoverHashCacheKey(game: CatalogEntry) {
+  return `${game.id}|${game.coverUrl}`
+}
+
+async function readCoverHash(cacheKey: string) {
+  if (coverHashMemoryCache.has(cacheKey)) {
+    return coverHashMemoryCache.get(cacheKey) ?? ''
+  }
+
+  try {
+    const db = await openCatalogSnapshotDb()
+
+    const storedValue = await new Promise<string>((resolve, reject) => {
+      const transaction = db.transaction(COVER_HASH_CACHE_STORE, 'readonly')
+      const store = transaction.objectStore(COVER_HASH_CACHE_STORE)
+      const request = store.get(cacheKey)
+
+      request.onsuccess = () => resolve(typeof request.result === 'string' ? request.result : '')
+      request.onerror = () => reject(request.error ?? new Error('Cover hash cache could not be read.'))
+    })
+
+    coverHashMemoryCache.set(cacheKey, storedValue)
+    return storedValue
+  } catch {
+    return ''
+  }
+}
+
+async function writeCoverHash(cacheKey: string, hash: string) {
+  coverHashMemoryCache.set(cacheKey, hash)
+
+  try {
+    const db = await openCatalogSnapshotDb()
+
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(COVER_HASH_CACHE_STORE, 'readwrite')
+      const store = transaction.objectStore(COVER_HASH_CACHE_STORE)
+      const request = store.put(hash, cacheKey)
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error ?? new Error('Cover hash cache could not be saved.'))
+    })
+  } catch {
+    // Cover hash caching must never block the scanner.
+  }
+}
+
+function getCoverScanScopeGames() {
+  const scopeGames = getCatalog().filter((game) => {
+    if (state.consoleFilter !== 'All consoles' && game.console !== state.consoleFilter) {
+      return false
+    }
+
+    if (state.regionFilter !== 'All regions' && game.region !== state.regionFilter) {
+      return false
+    }
+
+    return true
+  })
+
+  if (scopeGames.length > COVER_MATCH_MAX_SCOPE) {
+    return {
+      games: [] as CatalogEntry[],
+      error: 'Pick a console or region first so cover matching stays fast and accurate.',
+    }
+  }
+
+  return {
+    games: scopeGames,
+    error: '',
+  }
+}
+
+function getCoverScanStatusHint() {
+  const scope = getCoverScanScopeGames()
+
+  if (scope.error) {
+    return scope.error
+  }
+
+  if (!scope.games.length) {
+    return 'No games are in the current cover-scan scope yet.'
+  }
+
+  return `Front-cover matching is ready for ${scope.games.length.toLocaleString()} game${scope.games.length === 1 ? '' : 's'} in the current scope.`
+}
+
+async function loadImageFromUrl(sourceUrl: string, options: { crossOrigin?: string } = {}) {
+  return await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.decoding = 'async'
+
+    if (options.crossOrigin) {
+      image.crossOrigin = options.crossOrigin
+    }
+
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('That cover image could not be loaded.'))
+    image.src = sourceUrl
+  })
+}
+
+function computeImageDHash(image: CanvasImageSource) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 9
+  canvas.height = 8
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+
+  if (!context) {
+    throw new Error('Image processing is not available in this browser.')
+  }
+
+  context.drawImage(image, 0, 0, 9, 8)
+  const pixels = context.getImageData(0, 0, 9, 8).data
+  let hash = ''
+
+  for (let row = 0; row < 8; row += 1) {
+    for (let column = 0; column < 8; column += 1) {
+      const leftIndex = (row * 9 + column) * 4
+      const rightIndex = (row * 9 + column + 1) * 4
+      const leftLuma = pixels[leftIndex] * 0.299 + pixels[leftIndex + 1] * 0.587 + pixels[leftIndex + 2] * 0.114
+      const rightLuma =
+        pixels[rightIndex] * 0.299 + pixels[rightIndex + 1] * 0.587 + pixels[rightIndex + 2] * 0.114
+      hash += leftLuma > rightLuma ? '1' : '0'
+    }
+  }
+
+  return hash
+}
+
+function getHammingDistance(left: string, right: string) {
+  if (!left || !right || left.length !== right.length) {
+    return Number.POSITIVE_INFINITY
+  }
+
+  let distance = 0
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      distance += 1
+    }
+  }
+
+  return distance
+}
+
+async function getGameCoverHash(game: CatalogEntry) {
+  const cacheKey = getCoverHashCacheKey(game)
+  const cached = await readCoverHash(cacheKey)
+
+  if (cached) {
+    return cached
+  }
+
+  if (!game.coverUrl) {
+    await writeCoverHash(cacheKey, '')
+    return ''
+  }
+
+  try {
+    const image = await loadImageFromUrl(game.coverUrl, { crossOrigin: 'anonymous' })
+    const hash = computeImageDHash(image)
+    await writeCoverHash(cacheKey, hash)
+    return hash
+  } catch {
+    await writeCoverHash(cacheKey, '')
+    return ''
   }
 }
 
@@ -3472,6 +3657,20 @@ function renderScannerModal() {
 
   const linkedGame = getLinkedBarcodeGame()
   const matches = getBarcodeSearchMatches()
+  const coverMatchGames = state.coverScanMatches
+    .map((match) => {
+      const game = getGameById(match.gameId)
+
+      if (!game) {
+        return null
+      }
+
+      return {
+        game,
+        distance: match.distance,
+      }
+    })
+    .filter((entry): entry is { game: CatalogEntry; distance: number } => entry !== null)
 
   return `
     <div class="game-modal-backdrop" data-action="close-scanner">
@@ -3492,6 +3691,10 @@ function renderScannerModal() {
             <label class="toggle-button scanner-upload">
               Upload photo
               <input id="barcode-file-input" type="file" accept="image/*" capture="environment" hidden />
+            </label>
+            <label class="toggle-button scanner-upload">
+              Front cover photo
+              <input id="cover-scan-input" type="file" accept="image/*" capture="environment" hidden />
             </label>
             <button class="ghost-button" data-action="manual-barcode" type="button">Enter barcode</button>
           </div>
@@ -3535,6 +3738,28 @@ function renderScannerModal() {
               `
               : '<p class="subtle">Use live camera scan, a saved barcode photo, or manual entry. Once you link a barcode to the right game, Retro Vault will remember it for future scans.</p>'
           }
+          <div class="scanner-result">
+            <p><strong>Front cover match beta</strong></p>
+            <p>${escapeHtml(state.coverScanStatus || getCoverScanStatusHint())}</p>
+            ${
+              coverMatchGames.length
+                ? `
+                  <div class="barcode-match-list">
+                    ${coverMatchGames
+                      .map(
+                        ({ game, distance }) => `
+                          <button class="barcode-match" type="button" data-action="open-cover-match" data-id="${escapeHtml(game.id)}">
+                            <strong>${escapeHtml(game.title)}</strong>
+                            <span>${escapeHtml(game.console)} / ${escapeHtml(game.region)} / Match score ${Math.max(1, 64 - distance)}/64</span>
+                          </button>
+                        `,
+                      )
+                      .join('')}
+                  </div>
+                `
+                : ''
+            }
+          </div>
         </div>
       </section>
     </div>
@@ -4120,6 +4345,18 @@ async function handleFormControlChange(target: HTMLInputElement | HTMLSelectElem
     return
   }
 
+  if (target.id === 'cover-scan-input' && target instanceof HTMLInputElement) {
+    const file = target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    await detectCoverMatchesFromFile(file)
+    target.value = ''
+    return
+  }
+
   if (target.id === 'catalog-import' && target instanceof HTMLInputElement) {
     await importCatalogFile(target)
   }
@@ -4472,6 +4709,9 @@ async function handleAction(element: HTMLElement) {
       state.scannerOpen = true
       state.scannerLiveActive = false
       state.scannerStatus = 'Scan a barcode with your camera or upload a clear barcode photo.'
+      state.coverScanRunning = false
+      state.coverScanMatches = []
+      state.coverScanStatus = getCoverScanStatusHint()
       render()
       break
     case 'open-custom-entry':
@@ -4507,6 +4747,9 @@ async function handleAction(element: HTMLElement) {
       stopLiveBarcodeScan()
       state.scannerOpen = false
       state.scannerLiveActive = false
+      state.coverScanRunning = false
+      state.coverScanMatches = []
+      state.coverScanStatus = ''
       state.barcodeLinkCode = null
       state.barcodeSearch = ''
       render()
@@ -4538,6 +4781,18 @@ async function handleAction(element: HTMLElement) {
       }
 
       await linkBarcodeToGame(state.barcodeLinkCode, id)
+      break
+    case 'open-cover-match':
+      if (!id) {
+        return
+      }
+
+      stopLiveBarcodeScan()
+      state.scannerOpen = false
+      state.scannerLiveActive = false
+      state.coverScanRunning = false
+      state.selectedGameId = id
+      render()
       break
     case 'open-register':
       openAuthView('register')
@@ -5283,6 +5538,76 @@ async function detectBarcodeFromFile(file: File) {
     await handleBarcodeDetected(code)
   } catch (error) {
     state.scannerStatus = error instanceof Error ? error.message : 'Barcode detection failed. Try another photo or use manual entry.'
+    render()
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
+
+async function detectCoverMatchesFromFile(file: File) {
+  const scope = getCoverScanScopeGames()
+
+  if (scope.error) {
+    state.coverScanRunning = false
+    state.coverScanMatches = []
+    state.coverScanStatus = scope.error
+    render()
+    return
+  }
+
+  const objectUrl = URL.createObjectURL(file)
+
+  try {
+    state.coverScanRunning = true
+    state.coverScanMatches = []
+    state.coverScanStatus = `Reading your cover photo and checking ${scope.games.length.toLocaleString()} possible matches...`
+    render()
+
+    const scanImage = await loadImageFromUrl(objectUrl)
+    const scanHash = computeImageDHash(scanImage)
+    const matches: CoverMatchSuggestion[] = []
+
+    for (let index = 0; index < scope.games.length; index += 6) {
+      const batch = scope.games.slice(index, index + 6)
+      const hashes = await Promise.all(batch.map((game) => getGameCoverHash(game)))
+
+      for (let batchIndex = 0; batchIndex < batch.length; batchIndex += 1) {
+        const hash = hashes[batchIndex]
+
+        if (!hash) {
+          continue
+        }
+
+        matches.push({
+          gameId: batch[batchIndex].id,
+          distance: getHammingDistance(scanHash, hash),
+        })
+      }
+
+      if (index === 0 || (index + batch.length) % 48 === 0 || index + batch.length >= scope.games.length) {
+        state.coverScanStatus = `Checking cover matches... ${Math.min(index + batch.length, scope.games.length).toLocaleString()} / ${scope.games.length.toLocaleString()}`
+        render()
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    }
+
+    const topMatches = matches
+      .filter((match) => Number.isFinite(match.distance))
+      .sort((left, right) => left.distance - right.distance)
+      .slice(0, 6)
+
+    state.coverScanRunning = false
+    state.coverScanMatches = topMatches
+    state.coverScanStatus = topMatches.length
+      ? 'Likely cover matches ready. Pick the right game below.'
+      : 'No strong cover matches yet. Try a straighter photo or narrow the console scope first.'
+    render()
+  } catch (error) {
+    state.coverScanRunning = false
+    state.coverScanMatches = []
+    state.coverScanStatus =
+      error instanceof Error ? error.message : 'That cover photo could not be matched. Try another photo.'
     render()
   } finally {
     URL.revokeObjectURL(objectUrl)
