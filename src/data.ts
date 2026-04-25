@@ -1,4 +1,5 @@
 export type RarityTier = 'Common' | 'Classic' | 'Grail'
+export type ReleaseType = 'licensed' | 'unlicensed' | 'homebrew' | 'custom'
 
 export type CatalogEntry = {
   id: string
@@ -13,6 +14,8 @@ export type CatalogEntry = {
   coverSourceUrl: string
   trendDelta: number
   rarity: RarityTier
+  releaseType?: ReleaseType
+  variantLabel?: string
 }
 
 export const priceSnapshotDate = 'April 11, 2026'

@@ -1,6 +1,7 @@
 import './style.css'
-import { priceSnapshotDate, sampleCatalog, type CatalogEntry, type RarityTier } from './data'
+import { priceSnapshotDate, sampleCatalog, type CatalogEntry, type RarityTier, type ReleaseType } from './data'
 import { appConfig } from './appConfig'
+import { catalogEntryOverrides, extraCatalogEntries, getReleaseTypeLabel } from './catalogEnhancements'
 import {
   changePassword,
   confirmPasswordReset,
@@ -20,6 +21,7 @@ import {
 import { initMobileBannerAd } from './mobileAds'
 
 type OwnershipFilter = 'all' | 'owned' | 'wanted' | 'missing'
+type ReleaseTypeFilter = 'All release types' | 'Licensed' | 'Unlicensed' | 'Homebrew' | 'Custom'
 type SortMode = 'title' | 'year' | 'loose-high' | 'complete-high' | 'trend-high' | 'shelf-score'
 type GameStatus = 'missing' | 'wanted' | 'owned'
 type EditionStatus = 'loose' | 'boxed' | 'manual' | 'cib' | 'sealed' | 'graded'
@@ -201,7 +203,7 @@ const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
 const CATALOG_CACHE_SNAPSHOT_KEY = 'all-consoles'
-const CATALOG_CACHE_VERSION = '2026-04-25-v1'
+const CATALOG_CACHE_VERSION = '2026-04-25-v2'
 const LITE_CATALOG_PATH = '/catalogs/retro-catalog-lite.json'
 const COVER_MATCH_MAX_SCOPE = 1500
 const MAX_ACTIVITY_EVENTS = 250
@@ -290,6 +292,7 @@ const state = {
   consoleFilter: 'All consoles',
   regionFilter: 'All regions',
   yearFilter: 'All years',
+  releaseTypeFilter: 'All release types' as ReleaseTypeFilter,
   ownershipFilter: 'all' as OwnershipFilter,
   sortMode: 'title' as SortMode,
   visibleGameCount: getInitialVisibleGameCount(),
@@ -762,7 +765,7 @@ function saveBarcodeMappings() {
   scheduleCloudSync()
 }
 
-function normalizeCatalogEntry(value: unknown) {
+function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
   if (!value || typeof value !== 'object') {
     return null
   }
@@ -799,10 +802,12 @@ function normalizeCatalogEntry(value: unknown) {
     coverSourceUrl,
     trendDelta: typeof entry.trendDelta === 'number' ? entry.trendDelta : 0,
     rarity: isRarityTier(entry.rarity) ? entry.rarity : 'Classic',
+    releaseType: normalizeReleaseType(entry.releaseType),
+    variantLabel: typeof entry.variantLabel === 'string' && entry.variantLabel.trim() ? entry.variantLabel.trim() : undefined,
   } satisfies CatalogEntry
 }
 
-function normalizeLiteCatalogEntry(value: unknown) {
+function normalizeLiteCatalogEntry(value: unknown): CatalogEntry | null {
   if (!Array.isArray(value) || value.length < 12) {
     return null
   }
@@ -855,6 +860,44 @@ function normalizeCoverUrl(value: string) {
   }
 
   return isTrustedCoverUrl(url) ? url : ''
+}
+
+function normalizeReleaseType(value: unknown): ReleaseType | undefined {
+  return value === 'licensed' || value === 'unlicensed' || value === 'homebrew' || value === 'custom' ? value : undefined
+}
+
+function applyCatalogEntryOverride(entry: CatalogEntry) {
+  const override = catalogEntryOverrides[entry.id]
+
+  if (!override) {
+    return entry
+  }
+
+  return {
+    ...entry,
+    ...override,
+  }
+}
+
+function applyCatalogEnhancements(entries: CatalogEntry[]) {
+  const merged = [...entries.map(applyCatalogEntryOverride), ...extraCatalogEntries.map(applyCatalogEntryOverride)]
+
+  return merged.map((entry) => {
+    if (entry.coverUrl) {
+      return entry
+    }
+
+    const sibling = merged.find(
+      (candidate) =>
+        candidate.id !== entry.id &&
+        candidate.console === entry.console &&
+        candidate.region === entry.region &&
+        normalizeSearchText(candidate.title) === normalizeSearchText(entry.title) &&
+        Boolean(candidate.coverUrl),
+    )
+
+    return sibling ? { ...entry, coverUrl: sibling.coverUrl } : entry
+  })
 }
 
 function normalizeCustomCoverUrl(value: string) {
@@ -1310,7 +1353,7 @@ function getCatalog() {
     return catalogCache
   }
 
-  const catalogEntries = [...state.generatedCatalog, ...sampleCatalog, ...state.customCatalog]
+  const catalogEntries = applyCatalogEnhancements([...state.generatedCatalog, ...sampleCatalog, ...state.customCatalog])
   catalogCache = dedupeCatalog(catalogEntries)
   catalogByIdCache = new Map(catalogCache.map((game) => [game.id, game]))
   catalogCacheKey = key
@@ -1338,6 +1381,41 @@ function getConsoles() {
     .map((entry) => entry.console)
 
   return ['All consoles', ...[...new Set([...metaNames, ...customNames])]]
+}
+
+function getReleaseTypeOptions() {
+  const available = new Set<ReleaseTypeFilter>(['All release types'])
+
+  getCatalog().forEach((game) => {
+    switch (getEffectiveReleaseType(game)) {
+      case 'licensed':
+        available.add('Licensed')
+        break
+      case 'unlicensed':
+        available.add('Unlicensed')
+        break
+      case 'homebrew':
+        available.add('Homebrew')
+        break
+      case 'custom':
+        available.add('Custom')
+        break
+      default:
+        break
+    }
+  })
+
+  return ['All release types', 'Licensed', 'Unlicensed', 'Homebrew', 'Custom'].filter((option) =>
+    available.has(option as ReleaseTypeFilter),
+  )
+}
+
+function getEffectiveReleaseType(game: CatalogEntry): ReleaseType {
+  if (game.priceSourceUrl.includes('/custom-entry')) {
+    return 'custom'
+  }
+
+  return game.releaseType ?? 'licensed'
 }
 
 function getConsoleMeta(consoleName: string) {
@@ -1495,11 +1573,15 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
     return true
   }
 
-  const cacheKey = `${game.id}|${game.title}|${game.console}|${game.region}|${game.rarity}`
+  const cacheKey = `${game.id}|${game.title}|${game.console}|${game.region}|${game.rarity}|${game.releaseType ?? ''}|${game.variantLabel ?? ''}`
   let haystack = searchHaystackCache.get(cacheKey)
 
   if (!haystack) {
-    haystack = normalizeSearchText([game.title, game.console, game.region, game.rarity, game.id].join(' '))
+    haystack = normalizeSearchText(
+      [game.title, game.console, game.region, game.rarity, game.id, game.variantLabel ?? '', getReleaseTypeLabel(getEffectiveReleaseType(game))].join(
+        ' ',
+      ),
+    )
     searchHaystackCache.set(cacheKey, haystack)
   }
 
@@ -1530,6 +1612,7 @@ function getFilteredGames() {
     state.consoleFilter,
     state.regionFilter,
     state.yearFilter,
+    state.releaseTypeFilter,
     state.ownershipFilter,
     state.sortMode,
   ].join(':')
@@ -1547,6 +1630,23 @@ function getFilteredGames() {
   filteredGamesCache = activeCatalog
     .filter((game) => state.regionFilter === 'All regions' || game.region === state.regionFilter)
     .filter((game) => state.yearFilter === 'All years' || String(game.year ?? '') === state.yearFilter)
+    .filter((game) => {
+      const releaseType = getEffectiveReleaseType(game)
+
+      switch (state.releaseTypeFilter) {
+        case 'Licensed':
+          return releaseType === 'licensed'
+        case 'Unlicensed':
+          return releaseType === 'unlicensed'
+        case 'Homebrew':
+          return releaseType === 'homebrew'
+        case 'Custom':
+          return releaseType === 'custom'
+        case 'All release types':
+        default:
+          return true
+      }
+    })
     .filter((game) => {
       if (!searchValue) {
         return true
@@ -2730,6 +2830,7 @@ function renderCard(game: CatalogEntry) {
   const yearText = game.year === null ? 'Release year unavailable' : `Released ${game.year}`
   const isOwned = record.status === 'owned'
   const ownedEditionText = getOwnedEditionSummary(record)
+  const variantSummary = getVariantSummary(game)
   const ownedPulseClass = state.justOwnedGameId === game.id ? 'just-owned' : ''
   const safeGameId = escapeHtml(game.id)
 
@@ -2756,6 +2857,7 @@ function renderCard(game: CatalogEntry) {
           <p class="eyebrow">${escapeHtml(game.console)} / ${escapeHtml(game.region)}</p>
           <h3>${escapeHtml(game.title)}</h3>
           <p class="subtle">${yearText}</p>
+          ${variantSummary ? `<p class="subtle">${escapeHtml(variantSummary)}</p>` : ''}
           <p class="collector-line">${escapeHtml(ownedEditionText)} / ${getConditionLabel(record.condition)}</p>
         </div>
         <dl class="price-grid">
@@ -2793,6 +2895,7 @@ function renderSelectedGameModal() {
   const record = getRecord(game.id)
   const safeGameId = escapeHtml(game.id)
   const safePriceSourceUrl = escapeHtml(game.priceSourceUrl)
+  const variantSummary = getVariantSummary(game)
   const valueGap =
     record.pricePaid === null ? null : getOwnedMarketPrice(game) - record.pricePaid
 
@@ -2818,6 +2921,7 @@ function renderSelectedGameModal() {
           <div class="modal-pill-row">
             <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
             <span class="rarity-badge">${game.rarity}</span>
+            ${variantSummary ? `<span class="detail-chip">${escapeHtml(variantSummary)}</span>` : ''}
             <span class="detail-chip">${escapeHtml(getOwnedEditionSummary(record))}</span>
             <span class="detail-chip">Shelf score ${getShelfScore(game)}</span>
             <span class="detail-chip">${getEditionLabel(record.editionStatus)}</span>
@@ -2980,6 +3084,7 @@ function renderControlSummary(resultCount: number, visibleCount: number) {
     state.regionFilter !== 'All regions' ? getRegionOptionLabel(state.regionFilter) : '',
     state.consoleFilter !== 'All consoles' ? getConsoleOptionLabel(state.consoleFilter) : '',
     state.yearFilter !== 'All years' ? `Release year ${state.yearFilter}` : '',
+    state.releaseTypeFilter !== 'All release types' ? state.releaseTypeFilter : '',
     state.ownershipFilter !== 'all' ? state.ownershipFilter : '',
     state.search.trim() ? `Search: ${state.search.trim()}` : '',
   ].filter(Boolean)
@@ -3051,6 +3156,11 @@ function renderFiltersSection() {
       <input id="catalog-import" type="file" accept=".json,application/json" hidden />
     </section>
   `
+}
+
+function getVariantSummary(game: CatalogEntry) {
+  const parts = [game.variantLabel ?? '', getReleaseTypeLabel(game.releaseType)].filter(Boolean)
+  return parts.join(' / ')
 }
 
 function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: CatalogEntry[]) {
@@ -3973,6 +4083,17 @@ function renderNow() {
           </select>
         </label>
         <label class="select-field">
+          <span>Release type</span>
+          <select id="release-type-filter">
+            ${getReleaseTypeOptions()
+              .map(
+                (option) =>
+                  `<option value="${escapeHtml(option)}" ${option === state.releaseTypeFilter ? 'selected' : ''}>${escapeHtml(option)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="select-field">
           <span>Currency</span>
           <select id="currency-code">
             ${currencyOptions
@@ -4080,6 +4201,7 @@ function renderCatalogOnlyNow() {
   const toolbarRegion = app.querySelector<HTMLSelectElement>('#region-filter')
   const toolbarSort = app.querySelector<HTMLSelectElement>('#sort-mode')
   const toolbarYear = app.querySelector<HTMLSelectElement>('#year-filter')
+  const toolbarReleaseType = app.querySelector<HTMLSelectElement>('#release-type-filter')
 
   if (!controlSummary || !filters || !catalogSection || !viewSummary) {
     render()
@@ -4115,6 +4237,10 @@ function renderCatalogOnlyNow() {
 
   if (toolbarYear) {
     toolbarYear.value = state.yearFilter
+  }
+
+  if (toolbarReleaseType) {
+    toolbarReleaseType.value = state.releaseTypeFilter
   }
 
   if (pendingCatalogScrollRestore !== null) {
@@ -4321,6 +4447,13 @@ async function handleFormControlChange(target: HTMLInputElement | HTMLSelectElem
 
   if (target.id === 'year-filter') {
     state.yearFilter = target.value
+    resetVisibleGameCount()
+    renderCatalogOnly()
+    return
+  }
+
+  if (target.id === 'release-type-filter') {
+    state.releaseTypeFilter = target.value as ReleaseTypeFilter
     resetVisibleGameCount()
     renderCatalogOnly()
     return
@@ -4614,6 +4747,7 @@ function createCustomCatalogEntry(options: {
     coverSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
     trendDelta: 0,
     rarity: 'Classic',
+    releaseType: 'custom',
   } satisfies CatalogEntry
 }
 
@@ -4622,7 +4756,17 @@ function dedupeCatalog(entries: CatalogEntry[]) {
 }
 
 function getCatalogDedupeKey(entry: CatalogEntry) {
-  return [entry.title, entry.console, entry.region].map(normalizeSearchText).join('|')
+  if (entry.priceSourceUrl.includes('/custom-entry')) {
+    return `custom|${normalizeSearchText(entry.id)}`
+  }
+
+  if (entry.priceSourceUrl) {
+    return `source|${normalizeSearchText(entry.priceSourceUrl)}`
+  }
+
+  return [entry.title, entry.console, entry.region, entry.variantLabel ?? '', entry.releaseType ?? '']
+    .map(normalizeSearchText)
+    .join('|')
 }
 
 async function handleAction(element: HTMLElement) {
@@ -4920,6 +5064,7 @@ async function handleAction(element: HTMLElement) {
       state.regionFilter = 'All regions'
       state.consoleFilter = 'All consoles'
       state.yearFilter = 'All years'
+      state.releaseTypeFilter = 'All release types'
       state.ownershipFilter = 'all'
       state.sortMode = 'title'
       resetVisibleGameCount()
