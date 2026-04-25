@@ -156,12 +156,14 @@ const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricechar
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
 const INITIAL_VISIBLE_GAME_COUNT = 96
 const VISIBLE_GAME_INCREMENT = 96
+const SEARCH_RENDER_DELAY_MS = 180
 const appElement = document.querySelector<HTMLDivElement>('#app')
 let catalogCache: CatalogEntry[] | null = null
 let catalogCacheKey = ''
 let catalogByIdCache = new Map<string, CatalogEntry>()
 let filteredGamesCache: CatalogEntry[] | null = null
 let filteredGamesCacheKey = ''
+const searchHaystackCache = new Map<string, string>()
 let renderFrame = 0
 let pendingLibrarySave = 0
 let pendingSyncStatusRender = 0
@@ -975,10 +977,18 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
     return true
   }
 
-  const haystack = normalizeSearchText([game.title, game.console, game.region, game.rarity, game.id].join(' '))
-  const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean)
+  const cacheKey = `${game.id}|${game.title}|${game.console}|${game.region}|${game.rarity}`
+  let haystack = searchHaystackCache.get(cacheKey)
 
-  return haystack.includes(normalizedSearch) || searchTokens.every((token) => haystack.split(/\s+/).includes(token))
+  if (!haystack) {
+    haystack = normalizeSearchText([game.title, game.console, game.region, game.rarity, game.id].join(' '))
+    searchHaystackCache.set(cacheKey, haystack)
+  }
+
+  const searchTokens = normalizedSearch.split(/\s+/).filter(Boolean)
+  const paddedHaystack = ` ${haystack} `
+
+  return haystack.includes(normalizedSearch) || searchTokens.every((token) => paddedHaystack.includes(` ${token} `))
 }
 
 function getFilteredGames() {
@@ -3387,7 +3397,7 @@ function scheduleSearchRender(value: string) {
   pendingSearchRender = window.setTimeout(() => {
     pendingSearchRender = 0
     render()
-  }, 140)
+  }, SEARCH_RENDER_DELAY_MS)
 }
 
 function scheduleBarcodeSearchRender(value: string) {
