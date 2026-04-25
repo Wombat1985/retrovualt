@@ -2,6 +2,7 @@ import './style.css'
 import { priceSnapshotDate, sampleCatalog, type CatalogEntry, type RarityTier, type ReleaseType } from './data'
 import { appConfig } from './appConfig'
 import { catalogEntryOverrides, extraCatalogEntries, getReleaseTypeLabel } from './catalogEnhancements'
+import { famicomReferenceByGameId } from './famicomReference'
 import {
   changePassword,
   confirmPasswordReset,
@@ -1500,16 +1501,32 @@ function getBarcodeSearchMatches() {
     return [] as CatalogEntry[]
   }
 
-  const query = state.barcodeSearch.trim().toLowerCase()
-  const catalog = getCatalog()
+  const query = state.barcodeSearch.trim()
+  const catalog = getCatalog().filter((game) => {
+    if (state.consoleFilter !== 'All consoles' && game.console !== state.consoleFilter) {
+      return false
+    }
+
+    if (state.regionFilter !== 'All regions' && game.region !== state.regionFilter) {
+      return false
+    }
+
+    return true
+  })
 
   if (!query) {
+    if (state.consoleFilter === 'All consoles' && state.regionFilter === 'All regions') {
+      return []
+    }
+
     return catalog.slice(0, 12)
   }
 
-  return catalog
-    .filter((game) => [game.title, game.console, game.region].some((field) => field.toLowerCase().includes(query)))
-    .slice(0, 12)
+  return catalog.filter((game) => matchesSearchValue(game, query)).slice(0, 12)
+}
+
+function getFamicomReference(game: CatalogEntry) {
+  return famicomReferenceByGameId[game.id]
 }
 
 function getSelectedCurrency() {
@@ -1577,8 +1594,20 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
   let haystack = searchHaystackCache.get(cacheKey)
 
   if (!haystack) {
+    const famicomReference = getFamicomReference(game)
     haystack = normalizeSearchText(
-      [game.title, game.console, game.region, game.rarity, game.id, game.variantLabel ?? '', getReleaseTypeLabel(getEffectiveReleaseType(game))].join(
+      [
+        game.title,
+        game.console,
+        game.region,
+        game.rarity,
+        game.id,
+        game.variantLabel ?? '',
+        getReleaseTypeLabel(getEffectiveReleaseType(game)),
+        famicomReference?.productId ?? '',
+        famicomReference?.alias ?? '',
+        famicomReference?.publisher ?? '',
+      ].join(
         ' ',
       ),
     )
@@ -2896,6 +2925,7 @@ function renderSelectedGameModal() {
   const safeGameId = escapeHtml(game.id)
   const safePriceSourceUrl = escapeHtml(game.priceSourceUrl)
   const variantSummary = getVariantSummary(game)
+  const famicomReference = getFamicomReference(game)
   const valueGap =
     record.pricePaid === null ? null : getOwnedMarketPrice(game) - record.pricePaid
 
@@ -2962,6 +2992,8 @@ function renderSelectedGameModal() {
             <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus ${getOwnedValueLabel(game).toLowerCase()}.`}</p>
             <p><strong>Alert target:</strong> ${record.targetPrice === null ? 'No target set.' : `Notify yourself when loose value hits ${formatPrice(record.targetPrice)} or less.`}</p>
             <p><strong>Art source:</strong> ${getCoverSourceLabel(game)}</p>
+            ${famicomReference?.productId ? `<p><strong>Reference ID:</strong> ${escapeHtml(famicomReference.productId)}</p>` : ''}
+            ${famicomReference?.publisher ? `<p><strong>Publisher:</strong> ${escapeHtml(famicomReference.publisher)}</p>` : ''}
             <p><strong>Market note:</strong> ${appConfig.marketDisclaimer}</p>
             <p><strong>Collector notes:</strong> ${record.notes ? escapeHtml(record.notes) : 'No collector notes yet.'}</p>
           </div>
@@ -3831,19 +3863,29 @@ function renderScannerModal() {
                 </div>
                 <label class="search-field">
                   <span>Search game to link</span>
-                  <input id="barcode-search" type="search" aria-label="Search a title or console" value="${escapeHtml(state.barcodeSearch)}" />
+                  <input id="barcode-search" type="search" aria-label="Search a title, console, or Famicom ID" value="${escapeHtml(state.barcodeSearch)}" />
                 </label>
                 <div class="barcode-match-list">
-                  ${matches
-                    .map(
-                      (game) => `
-                        <button class="barcode-match" type="button" data-action="link-barcode" data-id="${escapeHtml(game.id)}">
-                          <strong>${escapeHtml(game.title)}</strong>
-                          <span>${escapeHtml(game.console)} / ${formatPrice(game.priceLoose)}</span>
-                        </button>
-                      `,
-                    )
-                    .join('')}
+                  ${
+                    matches.length
+                      ? matches
+                          .map(
+                            (game) => `
+                              <button class="barcode-match" type="button" data-action="link-barcode" data-id="${escapeHtml(game.id)}">
+                                <strong>${escapeHtml(game.title)}</strong>
+                                <span>${escapeHtml(game.console)}${getFamicomReference(game)?.productId ? ` / ${escapeHtml(getFamicomReference(game)!.productId)}` : ''} / ${formatPrice(game.priceLoose)}</span>
+                              </button>
+                            `,
+                          )
+                          .join('')
+                      : `<p class="subtle">${
+                          state.barcodeSearch.trim()
+                            ? 'No match yet. Search by title, console, or a Famicom reference ID.'
+                            : state.consoleFilter === 'All consoles' && state.regionFilter === 'All regions'
+                              ? 'Start typing to search the catalog, or narrow the vault to a console first so the list stays useful.'
+                              : 'Start typing to narrow the list further.'
+                        }</p>`
+                  }
                 </div>
               `
               : '<p class="subtle">Use live camera scan, a saved barcode photo, or manual entry. Once you link a barcode to the right game, Retro Vault will remember it for future scans.</p>'
