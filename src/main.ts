@@ -1,5 +1,4 @@
 import './style.css'
-import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
 import { priceSnapshotDate, sampleCatalog, type CatalogEntry, type RarityTier } from './data'
 import { appConfig } from './appConfig'
 import {
@@ -167,6 +166,23 @@ type CatalogSnapshot = {
   loadedConsoles: string[]
 }
 
+type BarcodeReaderResult = {
+  getText: () => string
+}
+
+type BarcodeScannerControls = {
+  stop: () => void
+}
+
+type BarcodeReaderInstance = {
+  decodeFromImageElement: (source: string | HTMLImageElement) => Promise<BarcodeReaderResult>
+  decodeFromVideoDevice: (
+    deviceId: string | undefined,
+    previewElem: string | HTMLVideoElement | undefined,
+    callbackFn: (result: BarcodeReaderResult | undefined) => void,
+  ) => Promise<BarcodeScannerControls>
+}
+
 const LIBRARY_STORAGE_KEY = 'retro-game-collector-library'
 const CUSTOM_STORAGE_KEY = 'retro-game-collector-custom-catalog'
 const CURRENCY_STORAGE_KEY = 'retro-game-collector-currency'
@@ -180,6 +196,7 @@ const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const CATALOG_CACHE_SNAPSHOT_KEY = 'all-consoles'
 const CATALOG_CACHE_VERSION = '2026-04-25-v1'
+const FULL_CATALOG_PATH = '/catalogs/retro-catalog.json'
 const MAX_ACTIVITY_EVENTS = 250
 const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
@@ -199,9 +216,10 @@ let dashboardSummaryCache: DashboardSummary | null = null
 let dashboardSummaryCacheKey = ''
 let renderFrame = 0
 let pendingCatalogScrollRestore: number | null = null
-let barcodeReader: BrowserMultiFormatReader | null = null
-let barcodeCameraControls: IScannerControls | null = null
+let barcodeReader: BarcodeReaderInstance | null = null
+let barcodeCameraControls: BarcodeScannerControls | null = null
 let barcodeCameraStartPromise: Promise<void> | null = null
+let barcodeModulePromise: Promise<{ BrowserMultiFormatReader: new () => BarcodeReaderInstance }> | null = null
 let pendingCatalogSnapshotSave = 0
 let pendingLibrarySave = 0
 let pendingSyncStatusRender = 0
@@ -959,9 +977,14 @@ function flushCatalogSnapshotSave() {
   void writeCatalogSnapshot()
 }
 
-function getBarcodeReader() {
+async function getBarcodeReader() {
+  if (!barcodeModulePromise) {
+    barcodeModulePromise = import('@zxing/browser')
+  }
+
   if (!barcodeReader) {
-    barcodeReader = new BrowserMultiFormatReader()
+    const barcodeModule = await barcodeModulePromise
+    barcodeReader = new barcodeModule.BrowserMultiFormatReader()
   }
 
   return barcodeReader
@@ -995,7 +1018,7 @@ async function syncLiveBarcodeScan() {
 
   barcodeCameraStartPromise = (async () => {
     try {
-      barcodeCameraControls = await getBarcodeReader().decodeFromVideoDevice(undefined, preview, (result) => {
+      barcodeCameraControls = await (await getBarcodeReader()).decodeFromVideoDevice(undefined, preview, (result) => {
         if (!result) {
           return
         }
@@ -5212,7 +5235,7 @@ async function detectBarcodeFromFile(file: File) {
       image.src = objectUrl
     })
 
-    const result = await getBarcodeReader().decodeFromImageElement(image)
+    const result = await (await getBarcodeReader()).decodeFromImageElement(image)
     const code = normalizeBarcodeValue(result.getText())
 
     if (!code) {
@@ -5521,7 +5544,10 @@ async function loadGeneratedCatalog() {
   }
 
   try {
-    const response = await fetch('/catalogs/retro-catalog-meta.json')
+    const metaResponsePromise = fetch('/catalogs/retro-catalog-meta.json')
+    const fullCatalogResponsePromise =
+      state.consoleFilter === 'All consoles' ? fetch(FULL_CATALOG_PATH).catch(() => null) : null
+    const response = await metaResponsePromise
 
     if (!response.ok) {
       throw new Error(`Catalog request failed: ${response.status}`)
@@ -5570,7 +5596,30 @@ async function loadGeneratedCatalog() {
 
     state.catalogMeta = parsedMeta
 
-    if (!hasCompleteWarmCatalog) {
+    if (state.consoleFilter === 'All consoles' && !hasCompleteWarmCatalog) {
+      try {
+        const fullCatalogResponse = await fullCatalogResponsePromise
+
+        if (!fullCatalogResponse?.ok) {
+          throw new Error(`Full catalog request failed: ${fullCatalogResponse?.status ?? 'unknown'}`)
+        }
+
+        const parsedCatalog = await fullCatalogResponse.json()
+
+        if (!Array.isArray(parsedCatalog)) {
+          throw new Error('Full catalog payload was not an array.')
+        }
+
+        state.generatedCatalog = parsedCatalog.map(normalizeCatalogEntry).filter(isCatalogEntry)
+        state.loadedConsoles = parsedMeta.map((entry) => entry.console)
+        invalidateCatalogCache()
+      } catch {
+        state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
+        state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
+        invalidateCatalogCache()
+        await ensureConsoleCatalogLoaded(state.consoleFilter)
+      }
+    } else if (!hasCompleteWarmCatalog) {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
       invalidateCatalogCache()
