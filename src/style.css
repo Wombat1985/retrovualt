@@ -1162,9 +1162,15 @@ a {
 
 .hero-stats strong {
   display: block;
-  margin: 8px 0 4px;
-  font-size: 1.9rem;
-  font-family: var(--display);
+  margin: 10px 0 5px;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: clamp(10px, 2vw, 15px);
+  line-height: 1.4;
+  color: #f1c95f;
+  text-shadow:
+    0 0 10px rgba(241, 201, 95, 0.6),
+    0 0 28px rgba(241, 201, 95, 0.2);
+  word-break: break-word;
 }
 
 .toolbar,
@@ -1662,22 +1668,36 @@ a {
 }
 
 .progress-bar {
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(241, 201, 95, 0.18);
+  background: rgba(0, 0, 0, 0.35);
   overflow: hidden;
 }
 
+/* 8-bit segmented fill with glow */
 .progress-bar span {
   display: block;
   height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-radius: 0;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.28) 0px,
+      rgba(0, 0, 0, 0.28) 1px,
+      transparent 1px,
+      transparent 8px
+    ),
+    linear-gradient(90deg, #f1c95f 0%, #ff8c1a 100%);
+  box-shadow: 0 0 8px rgba(241, 201, 95, 0.45) inset;
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .progress-percent {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 7.5px;
   color: var(--accent-2);
-  font-weight: 700;
+  white-space: nowrap;
 }
 
 .catalog-section {
@@ -1801,6 +1821,29 @@ a {
   align-items: center;
   justify-content: center;
   padding: 10px;
+}
+
+/* CRT scanline + vignette overlay */
+.cover-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 3px,
+      rgba(0, 0, 0, 0.07) 3px,
+      rgba(0, 0, 0, 0.07) 4px
+    ),
+    radial-gradient(ellipse at center, transparent 48%, rgba(0, 0, 18, 0.28) 100%);
+  transition: opacity 200ms ease;
+}
+
+.game-card:hover .cover-wrap::after {
+  opacity: 0.5;
 }
 
 .game-cover {
@@ -2647,7 +2690,7 @@ a {
   }
 
   .hero-stats strong {
-    font-size: 1.35rem;
+    font-size: clamp(9px, 3vw, 13px);
   }
 
   .account-status-pill {
