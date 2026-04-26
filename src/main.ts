@@ -43,6 +43,8 @@ type GameRecord = {
   condition: ConditionRating
   targetPrice: number | null
   notes: string
+  dateAcquired: string | null
+  acquiredFrom: string
 }
 
 type ExportEntry = CatalogEntry & {
@@ -55,6 +57,8 @@ type ExportEntry = CatalogEntry & {
   condition: ConditionRating
   targetPrice: number | null
   notes: string
+  dateAcquired: string | null
+  acquiredFrom: string
 }
 
 type Spotlight = {
@@ -365,6 +369,8 @@ function defaultRecord(): GameRecord {
     condition: 'good',
     targetPrice: null,
     notes: '',
+    dateAcquired: null,
+    acquiredFrom: '',
   }
 }
 
@@ -398,6 +404,8 @@ function loadLibrary() {
         const condition = entry.condition
         const targetPrice = entry.targetPrice
         const notes = entry.notes
+        const dateAcquired = entry.dateAcquired
+        const acquiredFrom = entry.acquiredFrom
 
         if (status !== 'missing' && status !== 'wanted' && status !== 'owned') {
           return []
@@ -416,6 +424,8 @@ function loadLibrary() {
               condition: isConditionRating(condition) ? condition : 'good',
               targetPrice: typeof targetPrice === 'number' ? targetPrice : null,
               notes: typeof notes === 'string' ? notes : '',
+              dateAcquired: typeof dateAcquired === 'string' && dateAcquired ? dateAcquired : null,
+              acquiredFrom: typeof acquiredFrom === 'string' ? acquiredFrom.slice(0, 80) : '',
             } satisfies GameRecord,
           ],
         ]
@@ -1522,7 +1532,7 @@ function getBarcodeSearchMatches() {
     return catalog.slice(0, 12)
   }
 
-  return catalog.filter((game) => matchesSearchValue(game, query)).slice(0, 12)
+  return catalog.filter((game) => matchesSearchValue(game, query, true)).slice(0, 12)
 }
 
 function getGameReference(game: CatalogEntry) {
@@ -1639,14 +1649,14 @@ function slugifyCustomValue(value: string) {
   return normalizeSearchText(value).replace(/\s+/g, '-')
 }
 
-function matchesSearchValue(game: CatalogEntry, searchValue: string) {
+function matchesSearchValue(game: CatalogEntry, searchValue: string, includeIdFields = false) {
   const normalizedSearch = normalizeSearchText(searchValue)
 
   if (!normalizedSearch) {
     return true
   }
 
-  const cacheKey = `${game.id}|${game.title}|${game.console}|${game.region}|${game.rarity}|${game.releaseType ?? ''}|${game.variantLabel ?? ''}`
+  const cacheKey = `${includeIdFields ? '1' : '0'}|${game.id}|${game.title}|${game.console}|${game.region}|${game.rarity}|${game.releaseType ?? ''}|${game.variantLabel ?? ''}`
   let haystack = searchHaystackCache.get(cacheKey)
 
   if (!haystack) {
@@ -1659,6 +1669,7 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
         game.rarity,
         game.variantLabel ?? '',
         getReleaseTypeLabel(getEffectiveReleaseType(game)),
+        ...(includeIdFields ? [game.id, reference?.productId ?? ''] : []),
         reference?.alias ?? '',
         reference?.publisher ?? '',
       ].join(
@@ -3060,6 +3071,8 @@ function renderSelectedGameModal() {
             <p><strong>Price snapshot:</strong> ${priceSnapshotDate}</p>
             <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus ${getOwnedValueLabel(game).toLowerCase()}.`}</p>
             <p><strong>Alert target:</strong> ${record.targetPrice === null ? 'No target set.' : `Notify yourself when loose value hits ${formatPrice(record.targetPrice)} or less.`}</p>
+            <p><strong>Date found:</strong> ${record.dateAcquired ? escapeHtml(record.dateAcquired) : 'Not recorded.'}</p>
+            <p><strong>Found at:</strong> ${record.acquiredFrom ? escapeHtml(record.acquiredFrom) : 'Not recorded.'}</p>
             <p><strong>Art source:</strong> ${getCoverSourceLabel(game)}</p>
             <p><strong>Market note:</strong> ${appConfig.marketDisclaimer}</p>
             <p><strong>Collector notes:</strong> ${record.notes ? escapeHtml(record.notes) : 'No collector notes yet.'}</p>
@@ -3071,6 +3084,8 @@ function renderSelectedGameModal() {
             <button class="ghost-button" data-action="set-copies" data-id="${safeGameId}" type="button">Copies ${getOwnedCopyCount(record)}</button>
             <button class="ghost-button" data-action="set-condition" data-id="${safeGameId}" type="button">Condition</button>
             <button class="ghost-button" data-action="edit-notes" data-id="${safeGameId}" type="button">Notes</button>
+            <button class="ghost-button" data-action="set-date-acquired" data-id="${safeGameId}" type="button">Date found</button>
+            <button class="ghost-button" data-action="set-acquired-from" data-id="${safeGameId}" type="button">Source</button>
             <a class="link-button" href="${safePriceSourceUrl}" target="_blank" rel="noreferrer">Open market source</a>
           </div>
         </div>
@@ -3284,6 +3299,90 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
           ? `<div class="load-more-row"><button class="secondary-button" data-action="load-more-games" type="button">Load more games (${(filteredGames.length - visibleGames.length).toLocaleString()} left)</button></div>`
           : ''
       }
+    </section>
+  `
+}
+
+function getMissingGamesForConsole(consoleName: string, limit = 6) {
+  const rarityRank: Record<string, number> = { Grail: 0, Classic: 1, Common: 2 }
+  return getCatalog()
+    .filter((g) => g.console === consoleName && getRecord(g.id).status !== 'owned')
+    .sort((a, b) => {
+      const rd = (rarityRank[a.rarity] ?? 2) - (rarityRank[b.rarity] ?? 2)
+      if (rd !== 0) return rd
+      return (b.priceLoose ?? 0) - (a.priceLoose ?? 0)
+    })
+    .slice(0, limit)
+}
+
+function renderFinishLineBanner() {
+  const nearComplete = getNearCompleteConsoles()[0]
+
+  if (!nearComplete) {
+    return ''
+  }
+
+  const remaining = nearComplete.total - nearComplete.owned
+
+  if (remaining > 10 || remaining === 0) {
+    return ''
+  }
+
+  return `
+    <section class="finish-line-banner">
+      <div class="finish-line-text">
+        <p class="kicker">Finish line</p>
+        <h3>You are <strong>${remaining}</strong> game${remaining === 1 ? '' : 's'} from completing ${escapeHtml(nearComplete.consoleName)}.</h3>
+        <p>${nearComplete.owned} of ${nearComplete.total} owned &mdash; ${nearComplete.progress}% done. You are this close.</p>
+      </div>
+      <button class="toggle-button" type="button" data-action="daily-console" data-console="${escapeHtml(nearComplete.consoleName)}">See missing games</button>
+    </section>
+  `
+}
+
+function renderHuntCard() {
+  const nearComplete = getNearCompleteConsoles()[0]
+
+  if (!nearComplete) {
+    return ''
+  }
+
+  const remaining = nearComplete.total - nearComplete.owned
+
+  if (remaining === 0 || remaining > 30) {
+    return ''
+  }
+
+  const missingGames = getMissingGamesForConsole(nearComplete.consoleName, 6)
+
+  if (!missingGames.length) {
+    return ''
+  }
+
+  return `
+    <section class="hunt-missing-card">
+      <div class="hunt-missing-header">
+        <div>
+          <p class="kicker">Hunt list</p>
+          <h3>Missing from ${escapeHtml(nearComplete.consoleName)}</h3>
+          <p>${remaining} game${remaining === 1 ? '' : 's'} to go &mdash; here are the ones worth finding first.</p>
+        </div>
+        <button class="ghost-button" type="button" data-action="daily-console" data-console="${escapeHtml(nearComplete.consoleName)}">See all missing</button>
+      </div>
+      <ul class="hunt-missing-list">
+        ${missingGames
+          .map(
+            (game) => `
+          <li>
+            <button class="hunt-missing-item" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
+              <span class="rarity-badge">${game.rarity}</span>
+              <strong>${escapeHtml(game.title)}</strong>
+              <span>${formatPrice(getReferencePrice(game))}</span>
+            </button>
+          </li>`,
+          )
+          .join('')}
+      </ul>
     </section>
   `
 }
@@ -4248,6 +4347,7 @@ function renderNow() {
       </section>
 
       ${renderCollectionIdentityCard()}
+      ${renderFinishLineBanner()}
 
       <section class="smart-grid smart-grid--secondary">
         ${renderSmartList('Top shelf', getTopShelfGames(), 'Favorite or own some games to build your brag shelf.')}
@@ -4255,6 +4355,7 @@ function renderNow() {
         ${renderConsolePush('Close to completion', nearCompleteConsoles, 'Own some games on a console and this will surface the easiest set to finish next.')}
       </section>
 
+      ${renderHuntCard()}
       ${renderAchievementStrip()}
       ${renderTodayHunt()}
       ${renderRetentionRecap()}
@@ -5135,6 +5236,20 @@ async function handleAction(element: HTMLElement) {
 
       updateNotes(id)
       break
+    case 'set-date-acquired':
+      if (!id) {
+        return
+      }
+
+      updateDateAcquired(id)
+      break
+    case 'set-acquired-from':
+      if (!id) {
+        return
+      }
+
+      updateAcquiredFrom(id)
+      break
     case 'open-details':
       if (!id) {
         return
@@ -5506,6 +5621,40 @@ function updateNotes(id: string) {
   setRecord(id, (record) => ({
     ...record,
     notes: response.trim(),
+  }))
+}
+
+function updateDateAcquired(id: string) {
+  const current = getRecord(id)
+  const response = window.prompt(
+    'When did you find this? Enter any date format (e.g. 15 March 2024, April 2024, or 2024-03-15). Leave blank to clear.',
+    current.dateAcquired ?? '',
+  )
+
+  if (response === null) {
+    return
+  }
+
+  setRecord(id, (record) => ({
+    ...record,
+    dateAcquired: response.trim() || null,
+  }))
+}
+
+function updateAcquiredFrom(id: string) {
+  const current = getRecord(id)
+  const response = window.prompt(
+    'Where did you find this? e.g. eBay, flea market, trade, game store, gift, convention. Leave blank to clear.',
+    current.acquiredFrom,
+  )
+
+  if (response === null) {
+    return
+  }
+
+  setRecord(id, (record) => ({
+    ...record,
+    acquiredFrom: response.trim().slice(0, 80),
   }))
 }
 

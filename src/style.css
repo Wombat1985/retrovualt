@@ -600,6 +600,117 @@ a {
   margin-top: auto;
 }
 
+.finish-line-banner {
+  margin-top: 18px;
+  padding: 24px 28px;
+  border-radius: 28px;
+  background: linear-gradient(145deg, rgba(0, 70, 55, 0.72), rgba(10, 25, 35, 0.92));
+  border: 1px solid rgba(88, 216, 170, 0.28);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.finish-line-text .kicker {
+  color: #62dfad;
+}
+
+.finish-line-text h3 {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  margin: 4px 0 6px;
+}
+
+.finish-line-text h3 strong {
+  color: #62dfad;
+}
+
+.finish-line-text p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.hunt-missing-card {
+  margin-top: 18px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92));
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+  border-radius: 28px;
+  padding: 24px 28px;
+}
+
+.hunt-missing-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.hunt-missing-header .kicker {
+  color: var(--accent-2);
+}
+
+.hunt-missing-header h3 {
+  font-family: var(--display);
+  font-size: 1.4rem;
+  margin: 4px 0 6px;
+}
+
+.hunt-missing-header p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.hunt-missing-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+
+.hunt-missing-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.hunt-missing-item:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.hunt-missing-item strong {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hunt-missing-item span:last-child {
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 .retention-grid {
   display: grid;
   grid-template-columns: minmax(240px, 0.35fr) minmax(0, 1fr);
