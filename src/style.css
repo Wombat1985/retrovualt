@@ -1888,6 +1888,64 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Rarity-tier badges — pixel font + icons */
+.rarity-badge {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 6.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.rarity-badge::before {
+  content: '';
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Common — silver dot */
+.rarity-badge--common {
+  color: #a0a8ba;
+  border-color: rgba(160, 168, 186, 0.25);
+}
+
+.rarity-badge--common::before {
+  content: '◆';
+  font-size: 6px;
+  opacity: 0.55;
+}
+
+/* Classic — gold star */
+.rarity-badge--classic {
+  color: #f1c95f;
+  border-color: rgba(241, 201, 95, 0.35);
+  background: rgba(26, 18, 4, 0.92);
+}
+
+.rarity-badge--classic::before {
+  content: '★';
+  font-size: 8px;
+}
+
+/* Grail — purple glow + crown + pulse */
+.rarity-badge--grail {
+  color: #e879f9;
+  border-color: rgba(232, 121, 249, 0.45);
+  background: rgba(22, 6, 28, 0.95);
+  animation: grail-pulse 2.2s ease-in-out infinite;
+}
+
+.rarity-badge--grail::before {
+  content: '♛';
+  font-size: 9px;
+}
+
+@keyframes grail-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(232, 121, 249, 0.3); }
+  50% { box-shadow: 0 0 18px rgba(232, 121, 249, 0.65), 0 0 32px rgba(232, 121, 249, 0.2); }
+}
+
 .ownership-pill--owned {
   color: var(--good);
   background: rgba(10, 38, 32, 0.92);

@@ -2946,7 +2946,7 @@ function renderCard(game: CatalogEntry) {
         />
         <div class="cover-chips">
           <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
-          <span class="rarity-badge">${game.rarity}</span>
+          <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
         </div>
         ${isOwned ? `<div class="owned-stamp"><strong>Owned</strong><span>${escapeHtml(ownedEditionText)}</span></div>` : ''}
       </div>
@@ -3019,7 +3019,7 @@ function renderSelectedGameModal() {
           <p class="modal-subtitle">${escapeHtml(game.console)} / ${escapeHtml(game.region)} / ${game.year ?? 'Release year unavailable'}</p>
           <div class="modal-pill-row">
             <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
-            <span class="rarity-badge">${game.rarity}</span>
+            <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
             ${variantSummary ? `<span class="detail-chip">${escapeHtml(variantSummary)}</span>` : ''}
             <span class="detail-chip">${escapeHtml(getOwnedEditionSummary(record))}</span>
             <span class="detail-chip">Shelf score ${getShelfScore(game)}</span>
@@ -3379,7 +3379,7 @@ function renderHuntCard() {
             (game) => `
           <li>
             <button class="hunt-missing-item" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
-              <span class="rarity-badge">${game.rarity}</span>
+              <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
               <strong>${escapeHtml(game.title)}</strong>
               <span>${formatPrice(getReferencePrice(game))}</span>
             </button>
