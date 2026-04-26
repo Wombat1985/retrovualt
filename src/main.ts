@@ -344,12 +344,12 @@ const state = {
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault()
   deferredInstallPrompt = event as InstallPromptEvent
-  render()
+  updateInstallButton()
 })
 
 window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null
-  render()
+  updateInstallButton()
 })
 
 registerServiceWorker()
@@ -1657,10 +1657,8 @@ function matchesSearchValue(game: CatalogEntry, searchValue: string) {
         game.console,
         game.region,
         game.rarity,
-        game.id,
         game.variantLabel ?? '',
         getReleaseTypeLabel(getEffectiveReleaseType(game)),
-        reference?.productId ?? '',
         reference?.alias ?? '',
         reference?.publisher ?? '',
       ].join(
@@ -4293,6 +4291,21 @@ function renderNow() {
   void syncLiveBarcodeScan()
 }
 
+function updateInstallButton() {
+  const heroActions = app?.querySelector('.hero-actions')
+  if (!heroActions) {
+    render()
+    return
+  }
+  const existing = heroActions.querySelector('[data-action="install-app"]')
+  const markup = renderInstallButton()
+  if (markup && !existing) {
+    heroActions.insertAdjacentHTML('beforeend', markup)
+  } else if (!markup && existing) {
+    existing.remove()
+  }
+}
+
 function render() {
   if (renderFrame) {
     window.cancelAnimationFrame(renderFrame)
@@ -6293,7 +6306,7 @@ async function ensureConsoleBatchLoaded(consoleNames: string[], rerenderAfterBat
     await Promise.all(batch.map((consoleName) => ensureConsoleCatalogLoaded(consoleName, false)))
 
     if (rerenderAfterBatch) {
-      render()
+      renderCatalogOnly()
     }
 
     await new Promise((resolve) => window.setTimeout(resolve, 0))
