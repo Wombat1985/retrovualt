@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 :root {
   --bg: #09111b;
   --panel: rgba(8, 13, 22, 0.68);
@@ -275,6 +277,47 @@ a {
   position: relative;
   z-index: 1;
 }
+
+/* ── Site logo ─────────────────────────────────────── */
+
+.site-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  color: inherit;
+  margin-bottom: 20px;
+}
+
+.site-logo__icon {
+  width: 40px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.site-logo__words {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  line-height: 1;
+}
+
+.site-logo__name {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 13px;
+  color: #f1c95f;
+  letter-spacing: 0.02em;
+}
+
+.site-logo__tag {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 7px;
+  color: #c9a8ff;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+
+/* ── Kicker / eyebrow labels ────────────────────────── */
 
 .kicker,
 .eyebrow,
