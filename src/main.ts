@@ -1,4 +1,5 @@
 import './style.css'
+import { playItemGet, playUnmark, playWanted } from './chiptune'
 import { priceSnapshotDate, sampleCatalog, type CatalogEntry, type RarityTier, type ReleaseType } from './data'
 import { appConfig } from './appConfig'
 import { catalogEntryOverrides, extraCatalogEntries, getReleaseTypeLabel } from './catalogEnhancements'
@@ -5031,6 +5032,7 @@ async function handleAction(element: HTMLElement) {
       }
 
       if (getRecord(id).status === 'owned') {
+        playUnmark()
         setRecord(id, (record) => ({
           ...record,
           status: 'missing',
@@ -5063,6 +5065,12 @@ async function handleAction(element: HTMLElement) {
     case 'toggle-wanted':
       if (!id) {
         return
+      }
+
+      if (getRecord(id).status === 'wanted') {
+        playUnmark()
+      } else {
+        playWanted()
       }
 
       setRecord(id, (record) => ({
@@ -5466,6 +5474,7 @@ function recordNewBadgeUnlocks(previousBadgeIds: Set<string>) {
 function markGameOwned(id: string, editionStatus: EditionStatus) {
   const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
 
+  playItemGet()
   state.ownershipPickerGameId = null
   state.justOwnedGameId = id
 
