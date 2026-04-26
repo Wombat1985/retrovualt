@@ -2678,6 +2678,8 @@ function normalizeGameRecord(value: unknown): GameRecord {
     condition: isConditionRating(record.condition) ? record.condition : 'good',
     targetPrice: typeof record.targetPrice === 'number' ? record.targetPrice : null,
     notes: typeof record.notes === 'string' ? record.notes : '',
+    dateAcquired: typeof record.dateAcquired === 'string' && record.dateAcquired ? record.dateAcquired : null,
+    acquiredFrom: typeof record.acquiredFrom === 'string' ? record.acquiredFrom : '',
   }
 }
 
@@ -2725,6 +2727,8 @@ function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: Game
     condition: safeLocalRecord.condition !== 'good' ? safeLocalRecord.condition : safeRemoteRecord.condition,
     targetPrice: safeLocalRecord.targetPrice ?? safeRemoteRecord.targetPrice,
     notes: safeLocalRecord.notes.trim() ? safeLocalRecord.notes : safeRemoteRecord.notes,
+    dateAcquired: safeLocalRecord.dateAcquired ?? safeRemoteRecord.dateAcquired,
+    acquiredFrom: safeLocalRecord.acquiredFrom.trim() ? safeLocalRecord.acquiredFrom : safeRemoteRecord.acquiredFrom,
   } satisfies GameRecord
 }
 
@@ -6280,6 +6284,8 @@ function exportCatalog() {
       condition: record.condition,
       targetPrice: record.targetPrice,
       notes: record.notes,
+      dateAcquired: record.dateAcquired,
+      acquiredFrom: record.acquiredFrom,
     }
   })
 
