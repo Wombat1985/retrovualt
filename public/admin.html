@@ -199,7 +199,10 @@
             Admin key
             <input id="admin-key" type="password" autocomplete="current-password" aria-label="Admin key" />
           </label>
-          <button type="submit">Load stats</button>
+          <div style="display:flex; gap:10px; align-items:end">
+            <button type="submit">Load stats</button>
+            <button type="button" id="refresh-btn" class="small-button" style="display:none">Refresh</button>
+          </div>
         </form>
         <p id="status"></p>
       </section>
@@ -211,6 +214,7 @@
       const form = document.querySelector('#admin-form')
       const statusEl = document.querySelector('#status')
       const resultsEl = document.querySelector('#results')
+      const refreshBtn = document.querySelector('#refresh-btn')
       const cachedStatsKey = 'retro-vault-admin-stats-cache'
       const cachedBarcodesKey = 'retro-vault-admin-barcodes-cache'
       const lifetimeViewsKey = 'retro-vault-lifetime-page-views'
@@ -491,6 +495,16 @@
         return []
       }
 
+      async function fetchWithTimeout(url, options = {}, timeoutMs = 35000) {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), timeoutMs)
+        try {
+          return await fetch(url, { ...options, signal: controller.signal })
+        } finally {
+          clearTimeout(timer)
+        }
+      }
+
       async function loadBarcodes() {
         const key = keyInput.value.trim()
 
@@ -498,7 +512,7 @@
           return
         }
 
-        const response = await fetch(`${API_BASE_URL}/admin/barcodes`, {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/admin/barcodes`, {
           headers: {
             'X-Admin-Key': key,
           },
@@ -566,8 +580,6 @@
         try {
           const stats = JSON.parse(cached)
           renderStats(stats)
-          statusEl.className = 'ok'
-          statusEl.textContent = `Showing last cached admin metrics from ${stats.generatedAt || 'an earlier visit'}. Refreshing...`
           return true
         } catch {
           localStorage.removeItem(cachedStatsKey)
@@ -584,11 +596,11 @@
           return
         }
 
-        statusEl.className = ''
-        statusEl.textContent = 'Loading admin metrics...'
-
         try {
-          const response = await fetch(`${API_BASE_URL}/admin/stats`, {
+          statusEl.className = ''
+          statusEl.textContent = 'Waking backend and loading admin metrics (may take up to 35 s on cold start)...'
+
+          const response = await fetchWithTimeout(`${API_BASE_URL}/admin/stats`, {
             headers: {
               'X-Admin-Key': key,
             },
@@ -604,10 +616,16 @@
           await loadBarcodes().catch(() => {})
           statusEl.className = 'ok'
           statusEl.textContent = `Loaded. Last updated ${stats.generatedAt}.`
+          refreshBtn.style.display = ''
           renderStats(stats)
         } catch (error) {
+          const isTimeout = error instanceof Error && error.name === 'AbortError'
           statusEl.className = 'error'
-          statusEl.textContent = error instanceof Error ? `${error.message} Showing cached stats if available.` : 'Could not load stats.'
+          statusEl.textContent = isTimeout
+            ? 'Backend timed out (cold start may need longer). Showing cached stats. Click "Load stats" to try again.'
+            : error instanceof Error
+              ? `${error.message} Showing cached stats if available.`
+              : 'Could not load stats.'
           renderCachedStats()
         }
       }
@@ -682,12 +700,19 @@
         statusEl.textContent = `Copied ${emailList.length} account email address${emailList.length === 1 ? '' : 'es'}.`
       })
 
+      refreshBtn.addEventListener('click', () => loadStats())
+
       if (keyInput.value.trim()) {
-        renderCachedStats()
         try {
           latestBarcodeMappings = JSON.parse(localStorage.getItem(cachedBarcodesKey) || '[]')
         } catch {
           latestBarcodeMappings = []
+        }
+        const hadCache = renderCachedStats()
+        if (hadCache) {
+          refreshBtn.style.display = ''
+          statusEl.className = 'ok'
+          statusEl.textContent = `Showing cached stats. Click Refresh for latest data.`
         }
         loadStats()
       }
