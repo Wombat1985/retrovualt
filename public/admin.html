@@ -216,7 +216,7 @@
       const lifetimeViewsKey = 'retro-vault-lifetime-page-views'
       let latestBarcodeMappings = []
 
-      keyInput.value = localStorage.getItem('retro-vault-admin-key') || ''
+      keyInput.value = sessionStorage.getItem('retro-vault-admin-key') || ''
 
       function escapeHtml(value) {
         return String(value ?? '')
@@ -599,7 +599,7 @@
             throw new Error(stats.error || 'Could not load stats.')
           }
 
-          localStorage.setItem('retro-vault-admin-key', key)
+          sessionStorage.setItem('retro-vault-admin-key', key)
           localStorage.setItem(cachedStatsKey, JSON.stringify(stats))
           await loadBarcodes().catch(() => {})
           statusEl.className = 'ok'

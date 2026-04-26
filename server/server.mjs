@@ -25,6 +25,9 @@ const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '
 const supabaseStateTable = String(process.env.SUPABASE_STATE_TABLE ?? 'retro_vault_state')
 const supabaseStateId = String(process.env.SUPABASE_STATE_ID ?? 'main')
 const requestLimits = new Map()
+const MAX_LIBRARY_ENTRIES = 10000
+const MAX_CATALOG_ENTRIES = 1000
+const MAX_BARCODE_MAPPINGS = 10000
 let lastStorageStatus = {
   mode: 'local',
   ok: true,
@@ -36,7 +39,7 @@ const defaultAllowedOrigins = [
   'https://retrovaultelite.com',
   'https://retro-vault-web.onrender.com',
 ]
-const allowedOrigins = (process.env.CORS_ORIGIN ?? '*')
+const allowedOrigins = (process.env.CORS_ORIGIN ?? '')
   .split(',')
   .map((value) => value.trim())
   .filter(Boolean)
@@ -390,12 +393,7 @@ function normalizeAnalyticsState(analytics) {
 
 function getCorsOrigin(request) {
   const requestOrigin = request.headers.origin ?? ''
-
-  if (allowedOrigins.includes('*')) {
-    return '*'
-  }
-
-  return allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0] ?? '*'
+  return allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0] ?? ''
 }
 
 function json(request, response, statusCode, data) {
@@ -404,6 +402,9 @@ function json(request, response, statusCode, data) {
     'Access-Control-Allow-Origin': getCorsOrigin(request),
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Key',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'X-Content-Type-Options': 'nosniff',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'Cache-Control': 'no-store',
   })
   response.end(JSON.stringify(data))
 }
@@ -552,7 +553,7 @@ function isAdminRequest(request, url) {
     return false
   }
 
-  const suppliedKey = request.headers['x-admin-key'] ?? url.searchParams.get('key') ?? ''
+  const suppliedKey = request.headers['x-admin-key'] ?? ''
   return timingSafeStringEqual(String(suppliedKey), adminKey)
 }
 
@@ -728,6 +729,11 @@ function createDefaultSyncState() {
   }
 }
 
+function getSafeResetAppUrl(rawAppUrl, requestOrigin) {
+  const candidates = [rawAppUrl, requestOrigin].map((s) => String(s ?? '').replace(/\/$/, ''))
+  return candidates.find((url) => defaultAllowedOrigins.includes(url)) ?? defaultAllowedOrigins[0]
+}
+
 async function sendPasswordResetEmail(email, resetLink) {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
@@ -767,6 +773,8 @@ const server = createServer(async (request, response) => {
       'Access-Control-Allow-Origin': getCorsOrigin(request),
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Key',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      'X-Content-Type-Options': 'nosniff',
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
     })
     response.end()
     return
@@ -1016,7 +1024,7 @@ const server = createServer(async (request, response) => {
 
       const body = await readBody(request)
       const email = String(body.email ?? '').trim().toLowerCase()
-      const appUrl = String(body.appUrl ?? request.headers.origin ?? '').replace(/\/$/, '')
+      const appUrl = getSafeResetAppUrl(body.appUrl, request.headers.origin)
 
       if (!isValidEmail(email)) {
         json(request, response, 400, { error: 'Enter a valid email address.' })
@@ -1035,7 +1043,7 @@ const server = createServer(async (request, response) => {
           expiresAt: new Date(Date.now() + resetTtlMs).toISOString(),
         })
         await saveDb(db, { required: true })
-        const resetLink = `${appUrl || `http://${request.headers.host}`}/?resetToken=${encodeURIComponent(token)}`
+        const resetLink = `${appUrl}/?resetToken=${encodeURIComponent(token)}`
         await sendPasswordResetEmail(email, resetLink)
       }
 
@@ -1044,6 +1052,11 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'POST' && url.pathname === '/auth/password-reset/confirm') {
+      if (!rateLimit(request, 'password-reset-confirm', 10, 15 * 60 * 1000)) {
+        json(request, response, 429, { error: 'Too many attempts. Please wait and try again.' })
+        return
+      }
+
       const body = await readBody(request)
       const token = String(body.token ?? '').trim()
       const password = String(body.password ?? '')
@@ -1183,11 +1196,13 @@ const server = createServer(async (request, response) => {
       }
 
       const body = await readBody(request)
+      const rawLibrary = body.library && typeof body.library === 'object' ? body.library : {}
+      const rawBarcodes = body.barcodeMappings && typeof body.barcodeMappings === 'object' ? body.barcodeMappings : {}
       user.syncState = {
-        library: body.library ?? {},
-        customCatalog: body.customCatalog ?? [],
+        library: Object.fromEntries(Object.entries(rawLibrary).slice(0, MAX_LIBRARY_ENTRIES)),
+        customCatalog: Array.isArray(body.customCatalog) ? body.customCatalog.slice(0, MAX_CATALOG_ENTRIES) : [],
         currencyCode: body.currencyCode ?? 'USD',
-        barcodeMappings: body.barcodeMappings ?? {},
+        barcodeMappings: Object.fromEntries(Object.entries(rawBarcodes).slice(0, MAX_BARCODE_MAPPINGS)),
         activityEvents: Array.isArray(body.activityEvents) ? body.activityEvents.slice(0, 250) : user.syncState?.activityEvents ?? [],
         clientUpdatedAt: typeof body.clientUpdatedAt === 'string' ? body.clientUpdatedAt : new Date().toISOString(),
         version: typeof body.version === 'number' ? body.version : 1,
