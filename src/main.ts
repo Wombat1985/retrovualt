@@ -1746,7 +1746,7 @@ function getFilteredGames() {
         return true
       }
 
-      return matchesSearchValue(game, searchValue)
+      return matchesSearchValue(game, searchValue, true)
     })
     .filter((game) => {
       if (state.ownershipFilter === 'all') {
@@ -5930,13 +5930,47 @@ async function deleteCurrentAccount() {
 }
 
 async function enterBarcodeManually() {
-  const response = window.prompt('Enter the UPC or barcode number.')
+  const response = window.prompt('Enter a barcode number, or a game reference ID like CAP-XR or HVC-KI.')
 
   if (!response) {
     return
   }
 
-  await handleBarcodeDetected(normalizeBarcodeValue(response))
+  const trimmed = response.trim()
+
+  // Try direct vault ID match (e.g. "famicom-rockman-2")
+  const gameById = getGameById(trimmed)
+
+  if (gameById) {
+    stopLiveBarcodeScan()
+    state.scannerOpen = false
+    state.scannerLiveActive = false
+    state.barcodeLinkCode = null
+    state.barcodeSearch = ''
+    state.selectedGameId = gameById.id
+    render()
+    return
+  }
+
+  // Try reference code match — strip hyphens/spaces for comparison (e.g. "CAP-XR" → "CAPXR")
+  const normalizedInput = normalizeBarcodeValue(trimmed).toUpperCase()
+  const gameByRef = getCatalog().find((game) => {
+    const ref = getGameReference(game)
+    return ref?.productId ? normalizeBarcodeValue(ref.productId).toUpperCase() === normalizedInput : false
+  })
+
+  if (gameByRef) {
+    stopLiveBarcodeScan()
+    state.scannerOpen = false
+    state.scannerLiveActive = false
+    state.barcodeLinkCode = null
+    state.barcodeSearch = ''
+    state.selectedGameId = gameByRef.id
+    render()
+    return
+  }
+
+  await handleBarcodeDetected(normalizeBarcodeValue(trimmed))
 }
 
 async function detectBarcodeFromFile(file: File) {
