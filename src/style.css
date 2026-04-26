@@ -1185,6 +1185,7 @@ a {
 .trust-strip,
 .onboarding-panel,
 .control-summary,
+.view-summary,
 .catalog-section,
 .roadmap-strip {
   margin-top: 18px;
@@ -2919,4 +2920,196 @@ a {
   .onboarding-step {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── View toggle (grid / shelf) ── */
+
+.catalog-kicker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.catalog-kicker-row .kicker {
+  margin: 0;
+}
+
+.view-toggle-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid rgba(154, 190, 220, 0.2);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.view-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border-color: rgba(154, 190, 220, 0.4);
+}
+
+.view-toggle-btn.is-active {
+  background: rgba(241, 201, 95, 0.12);
+  color: var(--accent-2);
+  border-color: rgba(241, 201, 95, 0.4);
+}
+
+/* ── Shelf view ── */
+
+.shelf-stage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 24px 20px 36px;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 198px,
+      rgba(101, 64, 30, 0.55) 198px,
+      rgba(70, 40, 12, 0.9) 206px,
+      rgba(50, 28, 8, 0.6) 210px,
+      transparent 210px
+    ),
+    linear-gradient(180deg, #1a0f05 0%, #2b1a0a 50%, #1a0f05 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(101, 64, 30, 0.4);
+  box-shadow: inset 0 -4px 20px rgba(0, 0, 0, 0.5);
+  min-height: 240px;
+  row-gap: 0;
+  align-content: flex-start;
+}
+
+.spine-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 34px;
+  height: 190px;
+  padding: 0;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(0, 0, 0, 0.35);
+  background: var(--spine-bg, #1e2a3a);
+  color: var(--spine-text, #f4f8ff);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.spine-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent);
+  pointer-events: none;
+}
+
+.spine-card:hover {
+  transform: translateY(-14px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+  filter: brightness(1.15);
+}
+
+.spine-card:focus-visible {
+  outline: 2px solid var(--spine-accent, #f1c95f);
+  outline-offset: 2px;
+  z-index: 3;
+}
+
+.spine-top {
+  display: flex;
+  justify-content: center;
+  padding-top: 5px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.spine-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: block;
+}
+
+.spine-dot--common {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.spine-dot--classic {
+  background: #5ac8fa;
+  box-shadow: 0 0 4px #5ac8fa;
+}
+
+.spine-dot--grail {
+  background: #f1c95f;
+  box-shadow: 0 0 6px #f1c95f;
+  animation: grail-pulse 2s ease-in-out infinite;
+}
+
+.spine-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: 'Press Start 2P', 'Courier New', Courier, monospace;
+  font-size: 5.5px;
+  line-height: 1.3;
+  letter-spacing: 0.05em;
+  color: var(--spine-text, #f4f8ff);
+  padding: 6px 4px;
+  text-align: center;
+  overflow: hidden;
+  max-height: 150px;
+  word-break: break-word;
+  pointer-events: none;
+}
+
+/* Ownership states */
+.spine-card--missing {
+  opacity: 0.45;
+  filter: saturate(0.4);
+}
+
+.spine-card--missing:hover {
+  opacity: 0.75;
+  filter: saturate(0.65);
+}
+
+.spine-card--wanted {
+  outline: 1.5px solid rgba(241, 201, 95, 0.5);
+  outline-offset: -1px;
+}
+
+.spine-card--owned::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--spine-accent, #f1c95f);
+  opacity: 0.7;
 }

@@ -344,6 +344,7 @@ const state = {
   barcodeSearch: '',
   isCatalogLoading: true,
   catalogLoadError: false,
+  viewMode: 'grid' as 'grid' | 'shelf',
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -3282,23 +3283,73 @@ function getVariantSummary(game: CatalogEntry) {
   return parts.join(' / ')
 }
 
+function getConsoleSpineColor(consoleName: string): { bg: string; text: string; accent: string } {
+  const n = consoleName.toLowerCase()
+  if ((n.includes('famicom') && !n.includes('super')) || n.includes(' nes') || n === 'nes') return { bg: '#c8102e', text: '#fff1c4', accent: '#f1c95f' }
+  if (n.includes('super famicom') || n.includes('snes')) return { bg: '#6a0dad', text: '#fff', accent: '#c9a8ff' }
+  if (n.includes('game boy advance') || n.includes('gba')) return { bg: '#7b4fa0', text: '#fff', accent: '#ffd66e' }
+  if (n.includes('game boy color') || n.includes('gbc')) return { bg: '#007a33', text: '#fff', accent: '#ffd66e' }
+  if (n.includes('game boy') || n.includes(' gb')) return { bg: '#3a3a3a', text: '#e0e0e0', accent: '#a8b8ca' }
+  if (n.includes('n64') || n.includes('nintendo 64')) return { bg: '#006699', text: '#fff', accent: '#f1c95f' }
+  if (n.includes('gamecube')) return { bg: '#5b2a8c', text: '#fff', accent: '#00c8ff' }
+  if (n.includes('genesis') || n.includes('mega drive')) return { bg: '#0f2c67', text: '#c9d4e8', accent: '#5ac8fa' }
+  if (n.includes('master system')) return { bg: '#cc0000', text: '#fff', accent: '#ffd66e' }
+  if (n.includes('game gear')) return { bg: '#222', text: '#5ac8fa', accent: '#5ac8fa' }
+  if (n.includes('saturn')) return { bg: '#232f3e', text: '#c9a8ff', accent: '#9b59b6' }
+  if (n.includes('dreamcast')) return { bg: '#e8501a', text: '#fff', accent: '#ffd66e' }
+  if (n.includes('playstation') || n.includes('ps1') || n.includes('psx')) return { bg: '#003087', text: '#fff', accent: '#00c8ff' }
+  if (n.includes('ps2')) return { bg: '#00439c', text: '#fff', accent: '#c9a8ff' }
+  if (n.includes('atari')) return { bg: '#b22222', text: '#fff1c4', accent: '#f1c95f' }
+  return { bg: '#1e2a3a', text: '#f4f8ff', accent: '#f1c95f' }
+}
+
+function renderSpine(game: CatalogEntry) {
+  const status = getRecord(game.id).status
+  const rarity = game.rarity.toLowerCase()
+  const colors = getConsoleSpineColor(game.console)
+  return `<button
+      class="spine-card spine-card--${status} spine-card--${rarity}"
+      data-action="open-details"
+      data-id="${escapeHtml(game.id)}"
+      type="button"
+      aria-label="${escapeHtml(game.title)}"
+      style="--spine-bg:${colors.bg};--spine-text:${colors.text};--spine-accent:${colors.accent}"
+    ><div class="spine-top"><span class="spine-dot spine-dot--${rarity}"></span></div><span class="spine-title">${escapeHtml(game.title)}</span></button>`
+}
+
+function renderShelfView(games: CatalogEntry[]) {
+  if (!games.length) {
+    return '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
+  }
+  return `<div class="shelf-stage">${games.map(renderSpine).join('')}</div>`
+}
+
 function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: CatalogEntry[]) {
+  const isShelf = state.viewMode === 'shelf'
+  const emptyState = '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
   return `
     <section class="catalog-section">
       <div class="section-heading">
         <div>
-          <p class="kicker">Collection grid</p>
+          <div class="catalog-kicker-row">
+            <p class="kicker">Collection ${isShelf ? 'shelf' : 'grid'}</p>
+            <div class="view-toggle-group">
+              <button class="view-toggle-btn${!isShelf ? ' is-active' : ''}" data-action="view-grid" type="button" aria-label="Grid view" title="Grid view">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+              </button>
+              <button class="view-toggle-btn${isShelf ? ' is-active' : ''}" data-action="view-shelf" type="button" aria-label="Shelf view" title="Shelf view">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="2" height="14" rx="1"/><rect x="4" y="1" width="2" height="14" rx="1"/><rect x="7" y="1" width="2" height="14" rx="1"/><rect x="10" y="1" width="2" height="14" rx="1"/><rect x="13" y="1" width="2" height="14" rx="1"/></svg>
+              </button>
+            </div>
+          </div>
           <h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>
         </div>
-        <p class="section-note">Showing ${visibleGames.length.toLocaleString()} at a time for speed. Every cover stays in full color, and owned games get a strong vault stamp.</p>
       </div>
-      <div class="catalog-grid">
-        ${
-          visibleGames.length
-            ? visibleGames.map(renderCard).join('')
-            : '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
-        }
-      </div>
+      ${
+        isShelf
+          ? renderShelfView(visibleGames)
+          : `<div class="catalog-grid">${visibleGames.length ? visibleGames.map(renderCard).join('') : emptyState}</div>`
+      }
       ${
         filteredGames.length > visibleGames.length
           ? `<div class="load-more-row"><button class="secondary-button" data-action="load-more-games" type="button">Load more games (${(filteredGames.length - visibleGames.length).toLocaleString()} left)</button></div>`
@@ -5314,6 +5365,14 @@ async function handleAction(element: HTMLElement) {
       renderCatalogOnly()
       break
     }
+    case 'view-grid':
+      state.viewMode = 'grid'
+      renderCatalogOnly()
+      break
+    case 'view-shelf':
+      state.viewMode = 'shelf'
+      renderCatalogOnly()
+      break
     case 'load-more-games':
       pendingCatalogScrollRestore = window.scrollY
       ;(document.activeElement as HTMLElement | null)?.blur?.()
