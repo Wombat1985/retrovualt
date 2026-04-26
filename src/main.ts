@@ -3307,6 +3307,7 @@ function renderSpine(game: CatalogEntry) {
   const status = getRecord(game.id).status
   const rarity = game.rarity.toLowerCase()
   const colors = getConsoleSpineColor(game.console)
+  const coverSrc = game.coverUrl ? escapeHtml(game.coverUrl) : ''
   return `<button
       class="spine-card spine-card--${status} spine-card--${rarity}"
       data-action="open-details"
@@ -3314,7 +3315,7 @@ function renderSpine(game: CatalogEntry) {
       type="button"
       aria-label="${escapeHtml(game.title)}"
       style="--spine-bg:${colors.bg};--spine-text:${colors.text};--spine-accent:${colors.accent}"
-    ><div class="spine-top"><span class="spine-dot spine-dot--${rarity}"></span></div><span class="spine-title">${escapeHtml(game.title)}</span></button>`
+    >${coverSrc ? `<img class="spine-img" src="${coverSrc}" alt="" decoding="async" loading="lazy" />` : ''}<div class="spine-top"><span class="spine-dot spine-dot--${rarity}"></span></div><span class="spine-title">${escapeHtml(game.title)}</span></button>`
 }
 
 function renderShelfView(games: CatalogEntry[]) {
