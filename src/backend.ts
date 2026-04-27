@@ -265,6 +265,7 @@ export type TradeProfile = {
   displayName: string
   ownedGameIds: string[]
   wantedGameIds: string[]
+  forTradeGameIds: string[]
 }
 
 export async function getTradeProfile(token: string, userId: string) {

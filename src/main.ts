@@ -57,6 +57,7 @@ type GameRecord = {
   notes: string
   dateAcquired: string | null
   acquiredFrom: string
+  forTrade?: boolean
 }
 
 type ExportEntry = CatalogEntry & {
@@ -371,6 +372,7 @@ const state = {
   tradeProfileUserId: null as string | null,
   tradeProfile: null as TradeProfile | null,
   tradeProfileLoading: false,
+  tradePromptGameId: null as string | null,
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -399,6 +401,7 @@ function defaultRecord(): GameRecord {
     notes: '',
     dateAcquired: null,
     acquiredFrom: '',
+    forTrade: false,
   }
 }
 
@@ -434,6 +437,7 @@ function loadLibrary() {
         const notes = entry.notes
         const dateAcquired = entry.dateAcquired
         const acquiredFrom = entry.acquiredFrom
+        const forTrade = entry.forTrade
 
         if (status !== 'missing' && status !== 'wanted' && status !== 'owned') {
           return []
@@ -454,6 +458,7 @@ function loadLibrary() {
               notes: typeof notes === 'string' ? notes : '',
               dateAcquired: typeof dateAcquired === 'string' && dateAcquired ? dateAcquired : null,
               acquiredFrom: typeof acquiredFrom === 'string' ? acquiredFrom.slice(0, 80) : '',
+              forTrade: typeof forTrade === 'boolean' ? forTrade : false,
             } satisfies GameRecord,
           ],
         ]
@@ -3058,6 +3063,7 @@ function renderSelectedGameModal() {
             <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${record.status === 'owned' ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
             <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
             <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
+            ${record.status === 'owned' && state.authToken ? `<button class="ghost-button for-trade-btn ${record.forTrade ? 'is-active' : ''}" data-action="toggle-for-trade" data-id="${safeGameId}" type="button">${record.forTrade ? 'For trade ✓' : 'Offer for trade'}</button>` : ''}
           </div>
           <p class="modal-description">
             This collector view keeps the market snapshot, ownership state, and source art together in one place so the title feels like a real piece of your collection.
@@ -3442,6 +3448,23 @@ function renderTradeInbox() {
     </section>`
 }
 
+function renderTradePromptToast() {
+  const gameId = state.tradePromptGameId
+  if (!gameId) return ''
+  const game = getGameById(gameId)
+  const title = game?.title ?? gameId
+  return `<div class="trade-prompt-toast">
+    <div class="trade-prompt-toast-text">
+      <strong>${escapeHtml(title)}</strong> added to your collection.<br>
+      <span>Would you like to offer it for trade with other collectors?</span>
+    </div>
+    <div class="trade-prompt-toast-actions">
+      <button class="toggle-button trade-prompt-yes" data-action="trade-prompt-yes" data-id="${escapeHtml(gameId)}" type="button">Yes, offer it</button>
+      <button class="ghost-button trade-prompt-no" data-action="trade-prompt-no" type="button">No thanks</button>
+    </div>
+  </div>`
+}
+
 function renderTradeProfile() {
   const profile = state.tradeProfile
   const catalog = getCatalog()
@@ -3472,11 +3495,14 @@ function renderTradeProfile() {
   }
 
   const myOwned = new Set(catalog.filter((g) => getRecord(g.id).status === 'owned').map((g) => g.id))
+  const myForTrade = new Set(catalog.filter((g) => getRecord(g.id).forTrade).map((g) => g.id))
   const myWanted = new Set(catalog.filter((g) => getRecord(g.id).status === 'wanted').map((g) => g.id))
+  const theirForTrade = new Set(profile.forTradeGameIds ?? [])
 
-  const theyHaveIWant = profile.ownedGameIds.filter((id) => myWanted.has(id))
-  const iHaveTheyWant = profile.wantedGameIds.filter((id) => myOwned.has(id))
-  const theirOtherOwned = profile.ownedGameIds.filter((id) => !myWanted.has(id))
+  const theyHaveIWant = profile.forTradeGameIds.filter((id) => myWanted.has(id))
+  const iHaveTheyWant = profile.wantedGameIds.filter((id) => myForTrade.has(id))
+  const theirOtherForTrade = profile.forTradeGameIds.filter((id) => !myWanted.has(id))
+  const theirOtherOwned = profile.ownedGameIds.filter((id) => !theirForTrade.has(id) && !myWanted.has(id))
   const theirOtherWanted = profile.wantedGameIds.filter((id) => !myOwned.has(id))
 
   return `<section class="trade-profile-view">
@@ -3484,12 +3510,20 @@ function renderTradeProfile() {
     <h2 class="trade-profile-name">${escapeHtml(profile.displayName)}'s Collection</h2>
 
     ${theyHaveIWant.length ? `
-      <h3 class="trade-section-title trade-section-title--match">They have what you want (${theyHaveIWant.length})</h3>
+      <h3 class="trade-section-title trade-section-title--match">Up for trade — you want these (${theyHaveIWant.length})</h3>
       <div class="trade-profile-game-list">${theyHaveIWant.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
 
     ${iHaveTheyWant.length ? `
-      <h3 class="trade-section-title trade-section-title--match">They want what you have (${iHaveTheyWant.length})</h3>
+      <h3 class="trade-section-title trade-section-title--match">They want — you have these for trade (${iHaveTheyWant.length})</h3>
       <div class="trade-profile-game-list">${iHaveTheyWant.map((id) => gameCard(id, 'wanted')).join('')}</div>` : ''}
+
+    ${theirOtherForTrade.length ? `
+      <h3 class="trade-section-title">Also up for trade (${theirOtherForTrade.length})</h3>
+      <div class="trade-profile-game-list">${theirOtherForTrade.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
+
+    ${theirOtherOwned.length ? `
+      <h3 class="trade-section-title">Rest of their collection (${theirOtherOwned.length})</h3>
+      <div class="trade-profile-game-list">${theirOtherOwned.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
 
     ${theirOtherOwned.length ? `
       <h3 class="trade-section-title">Rest of their collection (${theirOtherOwned.length})</h3>
@@ -4674,6 +4708,7 @@ function renderNow() {
       ${renderCustomEntryModal()}
       ${renderBadgesModal()}
       ${renderAuthModal()}
+      ${renderTradePromptToast()}
       ${state.tradeView ? `
         <div class="trade-panel-backdrop" data-action="trade-close"></div>
         <aside class="trade-panel">
@@ -5749,6 +5784,21 @@ async function handleAction(element: HTMLElement) {
       state.tradeSendError = ''
       render()
       break
+    case 'toggle-for-trade':
+      if (!id) break
+      setRecord(id, (record) => ({ ...record, forTrade: !(record.forTrade ?? false) }))
+      render()
+      break
+    case 'trade-prompt-yes':
+      if (!id) break
+      setRecord(id, (record) => ({ ...record, forTrade: true }))
+      state.tradePromptGameId = null
+      render()
+      break
+    case 'trade-prompt-no':
+      state.tradePromptGameId = null
+      render()
+      break
     case 'trade-send-request': {
       if (!state.tradeInterestGameId || !state.tradeInterestUserId || !state.authToken) break
       const noteEl = document.querySelector<HTMLTextAreaElement>('#trade-note-input')
@@ -5941,6 +5991,12 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
   window.setTimeout(() => {
     if (state.justOwnedGameId === id) {
       state.justOwnedGameId = null
+      if (state.authToken && !getRecord(id).forTrade) {
+        const hasWanted = Object.values(state.library).some((r) => (r as GameRecord).status === 'wanted')
+        if (hasWanted) {
+          state.tradePromptGameId = id
+        }
+      }
       render()
     }
   }, 1300)

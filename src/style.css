@@ -3192,6 +3192,54 @@ a {
   z-index: 3;
 }
 
+/* ── Trade prompt toast ── */
+
+.trade-prompt-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f1e30;
+  border: 1px solid rgba(241, 201, 95, 0.45);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  z-index: 300;
+  animation: trade-fade-in 0.2s ease;
+}
+
+.trade-prompt-toast-text {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.trade-prompt-toast-text strong {
+  color: var(--accent-2);
+}
+
+.trade-prompt-toast-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.trade-prompt-yes,
+.trade-prompt-no {
+  font-size: 0.8rem;
+  padding: 7px 14px;
+}
+
+.for-trade-btn.is-active {
+  color: var(--good);
+  border-color: rgba(88, 216, 170, 0.4);
+  background: rgba(88, 216, 170, 0.08);
+}
+
 /* ── Trade Panel Overlay ── */
 
 .trade-panel-backdrop {

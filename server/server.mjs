@@ -1351,18 +1351,18 @@ const server = createServer(async (request, response) => {
       if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
 
       const myLib = user.syncState?.library ?? {}
-      const myOwned = new Set(Object.entries(myLib).filter(([,r]) => r?.status === 'owned').map(([id]) => id))
+      const myForTrade = new Set(Object.entries(myLib).filter(([,r]) => r?.status === 'owned' && r?.forTrade === true).map(([id]) => id))
       const myWanted = new Set(Object.entries(myLib).filter(([,r]) => r?.status === 'wanted').map(([id]) => id))
 
       const matches = []
       for (const other of db.users) {
         if (other.id === user.id) continue
         const otherLib = other.syncState?.library ?? {}
-        const otherOwned = new Set(Object.entries(otherLib).filter(([,r]) => r?.status === 'owned').map(([id]) => id))
+        const otherOwned = new Set(Object.entries(otherLib).filter(([,r]) => r?.status === 'owned' && r?.forTrade === true).map(([id]) => id))
         const otherWanted = new Set(Object.entries(otherLib).filter(([,r]) => r?.status === 'wanted').map(([id]) => id))
 
         const theyHaveWhatIWant = [...myWanted].filter(id => otherOwned.has(id))
-        const iHaveWhatTheyWant = [...myOwned].filter(id => otherWanted.has(id))
+        const iHaveWhatTheyWant = [...myForTrade].filter(id => otherWanted.has(id))
 
         if (theyHaveWhatIWant.length === 0 && iHaveWhatTheyWant.length === 0) continue
 
@@ -1392,12 +1392,14 @@ const server = createServer(async (request, response) => {
       const lib = target.syncState?.library ?? {}
       const ownedGameIds = Object.entries(lib).filter(([,r]) => r?.status === 'owned').map(([id]) => id)
       const wantedGameIds = Object.entries(lib).filter(([,r]) => r?.status === 'wanted').map(([id]) => id)
+      const forTradeGameIds = Object.entries(lib).filter(([,r]) => r?.status === 'owned' && r?.forTrade === true).map(([id]) => id)
 
       json(request, response, 200, {
         userId: target.id,
         displayName: target.displayName ?? 'Unknown Collector',
         ownedGameIds,
         wantedGameIds,
+        forTradeGameIds,
       })
       return
     }
