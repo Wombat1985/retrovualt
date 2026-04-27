@@ -3139,3 +3139,257 @@ a {
   opacity: 0.85;
   z-index: 3;
 }
+
+/* ── Trade Inbox & Thread ── */
+
+.trade-inbox-btn {
+  font-size: 0.82rem;
+  padding: 8px 14px;
+  position: relative;
+}
+
+.trade-inbox,
+.trade-thread {
+  display: grid;
+  gap: 20px;
+}
+
+.trade-matches-panel {
+  background: rgba(11, 20, 31, 0.8);
+  border: 1px solid rgba(241, 201, 95, 0.25);
+  border-radius: 20px;
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.trade-match-list {
+  display: grid;
+  gap: 12px;
+}
+
+.trade-match-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.trade-match-card--mutual {
+  border-color: rgba(241, 201, 95, 0.4);
+  background: rgba(241, 201, 95, 0.05);
+}
+
+.trade-match-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trade-mutual-badge {
+  font-size: 0.7rem;
+  background: rgba(241, 201, 95, 0.15);
+  color: var(--accent-2);
+  border: 1px solid rgba(241, 201, 95, 0.35);
+  border-radius: 999px;
+  padding: 3px 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.trade-match-games {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trade-interest-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 7px 12px;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.trade-interest-btn:hover {
+  background: rgba(241, 201, 95, 0.1);
+  border-color: rgba(241, 201, 95, 0.4);
+}
+
+.trade-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+
+.trade-req-card {
+  background: rgba(11, 20, 31, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.trade-req-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.trade-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.trade-status--pending {
+  background: rgba(255, 200, 60, 0.15);
+  color: #ffd66e;
+  border: 1px solid rgba(255, 200, 60, 0.35);
+}
+
+.trade-status--accepted {
+  background: rgba(88, 216, 170, 0.12);
+  color: var(--good);
+  border: 1px solid rgba(88, 216, 170, 0.3);
+}
+
+.trade-status--declined {
+  background: rgba(255, 143, 143, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(255, 143, 143, 0.25);
+}
+
+.trade-req-dir {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.trade-unread-badge {
+  font-size: 0.72rem;
+  background: var(--accent);
+  color: #000;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-weight: 700;
+}
+
+.trade-req-game code {
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.trade-req-note {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
+.trade-req-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.trade-compose {
+  background: rgba(11, 20, 31, 0.8);
+  border: 1px solid rgba(241, 201, 95, 0.2);
+  border-radius: 16px;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.trade-note-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  padding: 10px 14px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.trade-note-input:focus {
+  border-color: rgba(241, 201, 95, 0.5);
+}
+
+.trade-compose-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.trade-messages {
+  display: grid;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.trade-msg {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 4px;
+  max-width: 80%;
+}
+
+.trade-msg--own {
+  background: rgba(241, 201, 95, 0.07);
+  border-color: rgba(241, 201, 95, 0.18);
+  justify-self: end;
+}
+
+.trade-msg-sender {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.trade-msg-text {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.trade-msg-time {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.trade-privacy-note {
+  font-size: 0.78rem;
+  color: var(--danger);
+  background: rgba(255, 143, 143, 0.07);
+  border: 1px solid rgba(255, 143, 143, 0.18);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.error-note {
+  color: var(--danger);
+  font-size: 0.85rem;
+}

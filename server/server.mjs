@@ -55,6 +55,8 @@ function createEmptyDb() {
     newsletterSubscribers: [],
     sharedBarcodeMappings: {},
     analytics: createDefaultAnalyticsState(),
+    tradeRequests: [],
+    messages: [],
   }
 }
 
@@ -80,6 +82,8 @@ function normalizeDb(parsed) {
     newsletterSubscribers: Array.isArray(parsed?.newsletterSubscribers) ? parsed.newsletterSubscribers : [],
     sharedBarcodeMappings: normalizeSharedBarcodeMappings(parsed?.sharedBarcodeMappings),
     analytics: normalizeAnalyticsState(parsed?.analytics),
+    tradeRequests: Array.isArray(parsed?.tradeRequests) ? parsed.tradeRequests.map(normalizeTradeRequest) : [],
+    messages: Array.isArray(parsed?.messages) ? parsed.messages.map(normalizeMessage) : [],
   }
 }
 
@@ -734,6 +738,57 @@ function getSafeResetAppUrl(rawAppUrl, requestOrigin) {
   return candidates.find((url) => defaultAllowedOrigins.includes(url)) ?? defaultAllowedOrigins[0]
 }
 
+function normalizeTradeRequest(raw) {
+  return {
+    id: String(raw?.id ?? ''),
+    fromUserId: String(raw?.fromUserId ?? ''),
+    toUserId: String(raw?.toUserId ?? ''),
+    gameId: String(raw?.gameId ?? '').slice(0, 200),
+    note: String(raw?.note ?? '').slice(0, 500),
+    status: ['pending', 'accepted', 'declined'].includes(raw?.status) ? raw.status : 'pending',
+    createdAt: typeof raw?.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+    updatedAt: typeof raw?.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+  }
+}
+
+function normalizeMessage(raw) {
+  return {
+    id: String(raw?.id ?? ''),
+    tradeRequestId: String(raw?.tradeRequestId ?? ''),
+    senderUserId: String(raw?.senderUserId ?? ''),
+    text: String(raw?.text ?? '').slice(0, 2000),
+    createdAt: typeof raw?.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+    readAt: typeof raw?.readAt === 'string' ? raw.readAt : null,
+  }
+}
+
+async function sendTradeNotificationEmail(email, subject) {
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.RESET_FROM_EMAIL
+  const appUrl = defaultAllowedOrigins[0] ?? 'https://www.retrovaultelite.com'
+
+  if (!apiKey || !from) {
+    console.log(`[trade-notify] ${email}: ${subject}`)
+    return
+  }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from,
+        to: email,
+        subject: `Retro Vault Elite — ${subject}`,
+        html: `<p>${subject}</p><p><a href="${appUrl}">Log in to view your trade inbox.</a></p><p>Do not reply. Never share personal details over this system.</p>`,
+      }),
+    })
+    if (!res.ok) console.error('Trade notification email failed:', res.status)
+  } catch (err) {
+    console.error('Trade notification email error:', err?.message)
+  }
+}
+
 async function sendPasswordResetEmail(email, resetLink) {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
@@ -788,7 +843,8 @@ const server = createServer(async (request, response) => {
       url.pathname === '/sync' ||
       request.method === 'PUT' && url.pathname.startsWith('/barcode/') ||
       url.pathname.startsWith('/admin/barcodes') ||
-      url.pathname === '/admin/stats'
+      url.pathname === '/admin/stats' ||
+      url.pathname.startsWith('/trade/')
     const db = await loadDb({ required: accountRoute })
     pruneSecurityState(db)
 
@@ -1266,6 +1322,267 @@ const server = createServer(async (request, response) => {
       user.syncState.updatedAt = new Date().toISOString()
       await saveDb(db, { required: true })
       json(request, response, 200, { code, gameId })
+      return
+    }
+
+    function sanitizeTradeRequest(tr, viewingUserId, db) {
+      const fromUser = db.users.find(u => u.id === tr.fromUserId)
+      const toUser = db.users.find(u => u.id === tr.toUserId)
+      const isIncoming = tr.toUserId === viewingUserId
+      const unread = (db.messages ?? []).filter(m => m.tradeRequestId === tr.id && m.senderUserId !== viewingUserId && !m.readAt).length
+      return {
+        id: tr.id,
+        gameId: tr.gameId,
+        note: tr.note,
+        status: tr.status,
+        createdAt: tr.createdAt,
+        updatedAt: tr.updatedAt,
+        isIncoming,
+        fromDisplayName: fromUser?.displayName ?? 'Unknown Collector',
+        toDisplayName: toUser?.displayName ?? 'Unknown Collector',
+        partnerDisplayName: isIncoming ? (fromUser?.displayName ?? 'Unknown Collector') : (toUser?.displayName ?? 'Unknown Collector'),
+        unreadCount: unread,
+      }
+    }
+
+    // ── Trade: compute matches ──────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/trade/matches') {
+      const user = await getSessionUser(request, db)
+      if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const myLib = user.syncState?.library ?? {}
+      const myOwned = new Set(Object.entries(myLib).filter(([,r]) => r?.status === 'owned').map(([id]) => id))
+      const myWanted = new Set(Object.entries(myLib).filter(([,r]) => r?.status === 'wanted').map(([id]) => id))
+
+      const matches = []
+      for (const other of db.users) {
+        if (other.id === user.id) continue
+        const otherLib = other.syncState?.library ?? {}
+        const otherOwned = new Set(Object.entries(otherLib).filter(([,r]) => r?.status === 'owned').map(([id]) => id))
+        const otherWanted = new Set(Object.entries(otherLib).filter(([,r]) => r?.status === 'wanted').map(([id]) => id))
+
+        const theyHaveWhatIWant = [...myWanted].filter(id => otherOwned.has(id))
+        const iHaveWhatTheyWant = [...myOwned].filter(id => otherWanted.has(id))
+
+        if (theyHaveWhatIWant.length === 0 && iHaveWhatTheyWant.length === 0) continue
+
+        matches.push({
+          userId: other.id,
+          displayName: other.displayName ?? 'Unknown Collector',
+          theyHaveWhatIWant,
+          iHaveWhatTheyWant,
+          isMutual: theyHaveWhatIWant.length > 0 && iHaveWhatTheyWant.length > 0,
+        })
+      }
+
+      matches.sort((a, b) => (b.isMutual ? 1 : 0) - (a.isMutual ? 1 : 0))
+      json(request, response, 200, { matches })
+      return
+    }
+
+    // ── Trade: create request ───────────────────────────────
+    if (request.method === 'POST' && url.pathname === '/trade/requests') {
+      if (!rateLimit(request, 'trade-create', 20, 60 * 60 * 1000)) {
+        json(request, response, 429, { error: 'Too many trade requests. Try again later.' }); return
+      }
+
+      const user = await getSessionUser(request, db)
+      if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const body = await readBody(request)
+      const toUserId = String(body.toUserId ?? '').trim()
+      const gameId = String(body.gameId ?? '').trim().slice(0, 200)
+      const note = String(body.note ?? '').trim().slice(0, 500)
+
+      if (!toUserId || !gameId) {
+        json(request, response, 400, { error: 'toUserId and gameId are required.' }); return
+      }
+      if (toUserId === user.id) {
+        json(request, response, 400, { error: 'You cannot trade with yourself.' }); return
+      }
+      const toUser = db.users.find(u => u.id === toUserId)
+      if (!toUser) { json(request, response, 404, { error: 'User not found.' }); return }
+
+      // Prevent duplicate pending requests for same game between same users
+      const existing = db.tradeRequests.find(r =>
+        r.status === 'pending' &&
+        ((r.fromUserId === user.id && r.toUserId === toUserId) ||
+         (r.fromUserId === toUserId && r.toUserId === user.id)) &&
+        r.gameId === gameId
+      )
+      if (existing) {
+        json(request, response, 409, { error: 'A pending trade request already exists for this game with that user.' }); return
+      }
+
+      const tradeRequest = normalizeTradeRequest({
+        id: randomBytes(12).toString('hex'),
+        fromUserId: user.id,
+        toUserId,
+        gameId,
+        note,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+
+      if (!db.tradeRequests) db.tradeRequests = []
+      db.tradeRequests.push(tradeRequest)
+
+      if (note) {
+        if (!db.messages) db.messages = []
+        db.messages.push(normalizeMessage({
+          id: randomBytes(12).toString('hex'),
+          tradeRequestId: tradeRequest.id,
+          senderUserId: user.id,
+          text: note,
+          createdAt: new Date().toISOString(),
+          readAt: null,
+        }))
+      }
+
+      await saveDb(db, { required: true })
+
+      // Email notification — no personal details
+      await sendTradeNotificationEmail(toUser.email, 'You have a new trade request. Log in to view it.').catch(() => {})
+
+      json(request, response, 201, { tradeRequest: sanitizeTradeRequest(tradeRequest, user.id, db) })
+      return
+    }
+
+    // ── Trade: inbox ────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/trade/requests') {
+      const user = await getSessionUser(request, db)
+      if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const userRequests = (db.tradeRequests ?? []).filter(r => r.fromUserId === user.id || r.toUserId === user.id)
+      const result = userRequests.map(r => sanitizeTradeRequest(r, user.id, db))
+      result.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+
+      const unreadCount = (db.messages ?? []).filter(m => {
+        const req = (db.tradeRequests ?? []).find(r => r.id === m.tradeRequestId)
+        return req && (req.fromUserId === user.id || req.toUserId === user.id) && m.senderUserId !== user.id && !m.readAt
+      }).length
+
+      json(request, response, 200, { requests: result, unreadCount })
+      return
+    }
+
+    // ── Trade: accept / decline ─────────────────────────────
+    if (request.method === 'PATCH' && url.pathname.startsWith('/trade/requests/')) {
+      const user = await getSessionUser(request, db)
+      if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const requestId = url.pathname.slice('/trade/requests/'.length).split('/')[0]
+      const tradeRequest = (db.tradeRequests ?? []).find(r => r.id === requestId)
+      if (!tradeRequest) { json(request, response, 404, { error: 'Trade request not found.' }); return }
+      if (tradeRequest.toUserId !== user.id) { json(request, response, 403, { error: 'Only the recipient can respond.' }); return }
+      if (tradeRequest.status !== 'pending') { json(request, response, 409, { error: 'This request is no longer pending.' }); return }
+
+      const body = await readBody(request)
+      const newStatus = body.status === 'accepted' ? 'accepted' : 'declined'
+      tradeRequest.status = newStatus
+      tradeRequest.updatedAt = new Date().toISOString()
+      await saveDb(db, { required: true })
+
+      const fromUser = db.users.find(u => u.id === tradeRequest.fromUserId)
+      if (fromUser) {
+        const subj = newStatus === 'accepted'
+          ? 'Your trade request was accepted. You can now exchange messages.'
+          : 'Your trade request was declined.'
+        await sendTradeNotificationEmail(fromUser.email, subj).catch(() => {})
+      }
+
+      json(request, response, 200, { tradeRequest: sanitizeTradeRequest(tradeRequest, user.id, db) })
+      return
+    }
+
+    // ── Trade: get messages ─────────────────────────────────
+    if (request.method === 'GET' && url.pathname.match(/^\/trade\/requests\/[^/]+\/messages$/)) {
+      const user = await getSessionUser(request, db)
+      if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const requestId = url.pathname.split('/')[3]
+      const tradeRequest = (db.tradeRequests ?? []).find(r => r.id === requestId)
+      if (!tradeRequest) { json(request, response, 404, { error: 'Trade request not found.' }); return }
+      if (tradeRequest.fromUserId !== user.id && tradeRequest.toUserId !== user.id) {
+        json(request, response, 403, { error: 'Not part of this trade.' }); return
+      }
+
+      const msgs = (db.messages ?? []).filter(m => m.tradeRequestId === requestId)
+
+      // Mark unread messages as read
+      let changed = false
+      for (const m of msgs) {
+        if (m.senderUserId !== user.id && !m.readAt) {
+          m.readAt = new Date().toISOString()
+          changed = true
+        }
+      }
+      if (changed) await saveDb(db)
+
+      const otherUserId = tradeRequest.fromUserId === user.id ? tradeRequest.toUserId : tradeRequest.fromUserId
+      const otherUser = db.users.find(u => u.id === otherUserId)
+
+      json(request, response, 200, {
+        tradeRequest: sanitizeTradeRequest(tradeRequest, user.id, db),
+        otherUser: { id: otherUser?.id ?? '', displayName: otherUser?.displayName ?? 'Unknown Collector' },
+        messages: msgs.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).map(m => ({
+          id: m.id,
+          senderUserId: m.senderUserId,
+          senderDisplayName: m.senderUserId === user.id ? (user.displayName ?? 'You') : (otherUser?.displayName ?? 'Them'),
+          text: m.text,
+          createdAt: m.createdAt,
+          readAt: m.readAt,
+          isOwn: m.senderUserId === user.id,
+        })),
+      })
+      return
+    }
+
+    // ── Trade: send message ─────────────────────────────────
+    if (request.method === 'POST' && url.pathname.match(/^\/trade\/requests\/[^/]+\/messages$/)) {
+      if (!rateLimit(request, 'trade-msg', 60, 60 * 1000)) {
+        json(request, response, 429, { error: 'Slow down — too many messages.' }); return
+      }
+
+      const user = await getSessionUser(request, db)
+      if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const requestId = url.pathname.split('/')[3]
+      const tradeRequest = (db.tradeRequests ?? []).find(r => r.id === requestId)
+      if (!tradeRequest) { json(request, response, 404, { error: 'Trade request not found.' }); return }
+      if (tradeRequest.fromUserId !== user.id && tradeRequest.toUserId !== user.id) {
+        json(request, response, 403, { error: 'Not part of this trade.' }); return
+      }
+      if (tradeRequest.status !== 'accepted') {
+        json(request, response, 403, { error: 'Trade must be accepted before messaging.' }); return
+      }
+
+      const body = await readBody(request)
+      const text = String(body.text ?? '').trim().slice(0, 2000)
+      if (!text) { json(request, response, 400, { error: 'Message text is required.' }); return }
+
+      const message = normalizeMessage({
+        id: randomBytes(12).toString('hex'),
+        tradeRequestId: requestId,
+        senderUserId: user.id,
+        text,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+      })
+      if (!db.messages) db.messages = []
+      db.messages.push(message)
+      await saveDb(db, { required: true })
+
+      const otherUserId = tradeRequest.fromUserId === user.id ? tradeRequest.toUserId : tradeRequest.fromUserId
+      const otherUser = db.users.find(u => u.id === otherUserId)
+      if (otherUser) {
+        await sendTradeNotificationEmail(otherUser.email, 'You have a new trade message. Log in to view it.').catch(() => {})
+      }
+
+      json(request, response, 201, {
+        message: { id: message.id, senderUserId: message.senderUserId, senderDisplayName: user.displayName ?? 'You', text: message.text, createdAt: message.createdAt, readAt: null, isOwn: true },
+      })
       return
     }
 

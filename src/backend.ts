@@ -185,3 +185,77 @@ export async function subscribeToNewsletter(email: string, source = 'app') {
     body: JSON.stringify({ email, source }),
   })
 }
+
+// ── Trade types ─────────────────────────────────────────────────────────────
+
+export type TradeMatch = {
+  userId: string
+  displayName: string
+  theyHaveWhatIWant: string[]
+  iHaveWhatTheyWant: string[]
+  isMutual: boolean
+}
+
+export type TradeRequest = {
+  id: string
+  gameId: string
+  note: string
+  status: 'pending' | 'accepted' | 'declined'
+  createdAt: string
+  updatedAt: string
+  isIncoming: boolean
+  fromDisplayName: string
+  toDisplayName: string
+  partnerDisplayName: string
+  unreadCount: number
+}
+
+export type TradeMessage = {
+  id: string
+  senderUserId: string
+  senderDisplayName: string
+  text: string
+  createdAt: string
+  readAt: string | null
+  isOwn: boolean
+}
+
+export async function getTradeMatches(token: string) {
+  return request<{ matches: TradeMatch[] }>('/trade/matches', { method: 'GET' }, token)
+}
+
+export async function createTradeRequest(token: string, toUserId: string, gameId: string, note = '') {
+  return request<{ tradeRequest: TradeRequest }>(
+    '/trade/requests',
+    { method: 'POST', body: JSON.stringify({ toUserId, gameId, note }) },
+    token,
+  )
+}
+
+export async function getTradeRequests(token: string) {
+  return request<{ requests: TradeRequest[]; unreadCount: number }>('/trade/requests', { method: 'GET' }, token)
+}
+
+export async function respondToTradeRequest(token: string, requestId: string, status: 'accepted' | 'declined') {
+  return request<{ tradeRequest: TradeRequest }>(
+    `/trade/requests/${encodeURIComponent(requestId)}`,
+    { method: 'PATCH', body: JSON.stringify({ status }) },
+    token,
+  )
+}
+
+export async function getTradeMessages(token: string, requestId: string) {
+  return request<{ tradeRequest: TradeRequest; otherUser: { id: string; displayName: string }; messages: TradeMessage[] }>(
+    `/trade/requests/${encodeURIComponent(requestId)}/messages`,
+    { method: 'GET' },
+    token,
+  )
+}
+
+export async function sendTradeMessage(token: string, requestId: string, text: string) {
+  return request<{ message: TradeMessage }>(
+    `/trade/requests/${encodeURIComponent(requestId)}/messages`,
+    { method: 'POST', body: JSON.stringify({ text }) },
+    token,
+  )
+}

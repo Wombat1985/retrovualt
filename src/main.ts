@@ -7,18 +7,27 @@ import { famicomReferenceByGameId } from './famicomReference'
 import {
   changePassword,
   confirmPasswordReset,
+  createTradeRequest,
   deleteAccount,
   getCurrentAccount,
+  getTradeMatches,
+  getTradeMessages,
+  getTradeRequests,
   loginAccount,
   lookupBarcodeMapping,
   logoutAccount,
   pushSyncState,
   registerAccount,
   requestPasswordReset,
+  respondToTradeRequest,
   saveBarcodeMapping,
+  sendTradeMessage,
   subscribeToNewsletter,
   trackPageView,
   updateAccountProfile,
+  type TradeMatch,
+  type TradeMessage,
+  type TradeRequest,
 } from './backend'
 import { initMobileBannerAd } from './mobileAds'
 
@@ -345,6 +354,18 @@ const state = {
   isCatalogLoading: true,
   catalogLoadError: false,
   viewMode: 'grid' as 'grid' | 'shelf',
+  tradeView: false,
+  tradeThreadId: null as string | null,
+  tradeMatches: [] as TradeMatch[],
+  tradeMatchesLoading: false,
+  tradeRequests: [] as TradeRequest[],
+  tradeUnread: 0,
+  tradeInboxLoading: false,
+  tradeThread: null as { messages: TradeMessage[]; tradeRequest: TradeRequest; otherUser: { id: string; displayName: string } } | null,
+  tradeThreadLoading: false,
+  tradeSendError: '',
+  tradeInterestGameId: null as string | null,
+  tradeInterestUserId: null as string | null,
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -3325,6 +3346,136 @@ function renderShelfView(games: CatalogEntry[]) {
   return `<div class="shelf-stage">${games.map(renderSpine).join('')}</div>`
 }
 
+function renderTradeInbox() {
+  const reqs = state.tradeRequests
+  const pending = reqs.filter((r) => r.status === 'pending')
+  const accepted = reqs.filter((r) => r.status === 'accepted')
+  const declined = reqs.filter((r) => r.status === 'declined')
+
+  function renderReqCard(r: TradeRequest) {
+    const statusLabel = r.status === 'pending' ? 'Pending' : r.status === 'accepted' ? 'Accepted' : 'Declined'
+    const statusClass = r.status === 'pending' ? 'trade-status--pending' : r.status === 'accepted' ? 'trade-status--accepted' : 'trade-status--declined'
+    const dir = r.isIncoming ? `From <strong>${escapeHtml(r.fromDisplayName)}</strong>` : `To <strong>${escapeHtml(r.toDisplayName)}</strong>`
+    return `
+      <div class="trade-req-card">
+        <div class="trade-req-meta">
+          <span class="trade-status ${statusClass}">${statusLabel}</span>
+          <span class="trade-req-dir">${dir}</span>
+          ${r.unreadCount ? `<span class="trade-unread-badge">${r.unreadCount} new</span>` : ''}
+        </div>
+        <p class="trade-req-game">Game: <code>${escapeHtml(r.gameId)}</code></p>
+        ${r.note ? `<p class="trade-req-note">${escapeHtml(r.note)}</p>` : ''}
+        <div class="trade-req-actions">
+          ${r.status === 'pending' && r.isIncoming ? `
+            <button class="toggle-button" data-action="trade-accept" data-id="${escapeHtml(r.id)}" type="button">Accept</button>
+            <button class="ghost-button" data-action="trade-decline" data-id="${escapeHtml(r.id)}" type="button">Decline</button>
+          ` : ''}
+          ${r.status === 'accepted' ? `
+            <button class="toggle-button" data-action="trade-open-thread" data-id="${escapeHtml(r.id)}" type="button">${r.unreadCount ? `View messages (${r.unreadCount} new)` : 'View messages'}</button>
+          ` : ''}
+        </div>
+      </div>`
+  }
+
+  return `
+    <section class="trade-inbox">
+      <div class="section-heading">
+        <div>
+          <p class="kicker">Trade Inbox</p>
+          <h2>Your trade requests</h2>
+        </div>
+        <button class="ghost-button" data-action="trade-close" type="button">← Back to collection</button>
+      </div>
+
+      ${state.tradeInboxLoading ? '<p class="subtle">Loading…</p>' : ''}
+
+      ${state.tradeMatches.length > 0 ? `
+        <div class="trade-matches-panel">
+          <p class="kicker">Trade Matches</p>
+          <p class="subtle">Other collectors with complementary collections.</p>
+          <div class="trade-match-list">
+            ${state.tradeMatches.map((m) => `
+              <div class="trade-match-card${m.isMutual ? ' trade-match-card--mutual' : ''}">
+                <div class="trade-match-name">
+                  ${m.isMutual ? '<span class="trade-mutual-badge">Mutual match</span>' : ''}
+                  <strong>${escapeHtml(m.displayName)}</strong>
+                </div>
+                ${m.theyHaveWhatIWant.length ? `<p class="subtle">They own ${m.theyHaveWhatIWant.length} game${m.theyHaveWhatIWant.length > 1 ? 's' : ''} you want.</p>` : ''}
+                ${m.iHaveWhatTheyWant.length ? `<p class="subtle">They want ${m.iHaveWhatTheyWant.length} game${m.iHaveWhatTheyWant.length > 1 ? 's' : ''} you own.</p>` : ''}
+                <div class="trade-match-games">
+                  ${m.theyHaveWhatIWant.slice(0, 3).map((gid) => `
+                    <button class="trade-interest-btn" data-action="trade-interest-select" data-user-id="${escapeHtml(m.userId)}" data-game-id="${escapeHtml(gid)}" type="button">
+                      I'm interested in <code>${escapeHtml(gid)}</code>
+                    </button>`).join('')}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${state.tradeInterestGameId && state.tradeInterestUserId ? `
+        <div class="trade-compose">
+          <p class="kicker">New trade request</p>
+          <p>Requesting <code>${escapeHtml(state.tradeInterestGameId)}</code> from <strong>${escapeHtml(state.tradeMatches.find((m) => m.userId === state.tradeInterestUserId)?.displayName ?? '')}</strong></p>
+          <textarea id="trade-note-input" class="trade-note-input" placeholder="Add a note (optional, max 500 chars)" maxlength="500" rows="3"></textarea>
+          <div class="trade-compose-actions">
+            <button class="toggle-button" data-action="trade-send-request" type="button">Send trade request</button>
+            <button class="ghost-button" data-action="trade-interest-cancel" type="button">Cancel</button>
+          </div>
+          ${state.tradeSendError ? `<p class="error-note">${escapeHtml(state.tradeSendError)}</p>` : ''}
+        </div>
+      ` : ''}
+
+      ${!state.tradeInboxLoading && reqs.length === 0 && state.tradeMatches.length === 0 ? `
+        <div class="empty-state">
+          <h3>No trades yet</h3>
+          <p>Trade matches appear when another collector owns games you want, or wants games you own. Make sure your collection is synced.</p>
+        </div>
+      ` : ''}
+
+      ${pending.length ? `<h3 class="trade-section-title">Pending (${pending.length})</h3>${pending.map(renderReqCard).join('')}` : ''}
+      ${accepted.length ? `<h3 class="trade-section-title">Active Trades (${accepted.length})</h3>${accepted.map(renderReqCard).join('')}` : ''}
+      ${declined.length ? `<h3 class="trade-section-title">Declined (${declined.length})</h3>${declined.map(renderReqCard).join('')}` : ''}
+    </section>`
+}
+
+function renderTradeThread() {
+  const thread = state.tradeThread
+  if (!thread) return '<p class="subtle">Loading thread…</p>'
+  const { messages, tradeRequest: tr, otherUser } = thread
+
+  return `
+    <section class="trade-thread">
+      <div class="section-heading">
+        <div>
+          <p class="kicker">Trade conversation</p>
+          <h2>With ${escapeHtml(otherUser.displayName)}</h2>
+        </div>
+        <button class="ghost-button" data-action="trade-back-to-inbox" type="button">← Back to inbox</button>
+      </div>
+      <p class="subtle">Game: <code>${escapeHtml(tr.gameId)}</code> &middot; Status: ${tr.status}</p>
+      <p class="subtle trade-privacy-note">Never share your email, phone, or address here. Arrange trades safely.</p>
+
+      <div class="trade-messages">
+        ${messages.length === 0 ? '<p class="subtle">No messages yet. Say hello!</p>' : ''}
+        ${messages.map((m) => `
+          <div class="trade-msg${m.isOwn ? ' trade-msg--own' : ''}">
+            <span class="trade-msg-sender">${escapeHtml(m.senderDisplayName)}</span>
+            <p class="trade-msg-text">${escapeHtml(m.text)}</p>
+            <span class="trade-msg-time">${new Date(m.createdAt).toLocaleString()}</span>
+          </div>`).join('')}
+      </div>
+
+      <div class="trade-compose">
+        <textarea id="trade-msg-input" class="trade-note-input" placeholder="Type your message… (max 2000 chars)" maxlength="2000" rows="3"></textarea>
+        <div class="trade-compose-actions">
+          <button class="toggle-button" data-action="trade-send-message" data-id="${escapeHtml(tr.id)}" type="button">Send</button>
+        </div>
+        ${state.tradeSendError ? `<p class="error-note">${escapeHtml(state.tradeSendError)}</p>` : ''}
+      </div>
+    </section>`
+}
+
 function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: CatalogEntry[]) {
   const isShelf = state.viewMode === 'shelf'
   const emptyState = '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
@@ -4286,6 +4437,7 @@ function renderNow() {
             ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button>'}
             <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
             <button class="secondary-button" type="button" data-action="open-scanner">Scan barcode</button>
+            ${state.authToken && !state.tradeView ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeUnread ? ` (${state.tradeUnread})` : ''}</button>` : ''}
             ${renderInstallButton()}
           </div>
         </div>
@@ -4400,7 +4552,7 @@ function renderNow() {
       ${renderControlSummary(filteredGames.length, visibleGames.length)}
       ${renderViewSummary(filteredGames)}
       ${renderFiltersSection()}
-      ${renderCatalogSection(filteredGames, visibleGames)}
+      ${state.tradeView && state.tradeThreadId ? renderTradeThread() : state.tradeView ? renderTradeInbox() : renderCatalogSection(filteredGames, visibleGames)}
 
       ${renderOnboardingPanel()}
 
@@ -5374,6 +5526,131 @@ async function handleAction(element: HTMLElement) {
       state.viewMode = 'shelf'
       renderCatalogOnly()
       break
+    case 'trade-open-inbox': {
+      state.tradeView = true
+      state.tradeThreadId = null
+      state.tradeThread = null
+      state.tradeSendError = ''
+      render()
+      if (state.authToken) {
+        state.tradeInboxLoading = true
+        render()
+        try {
+          const [inboxResult, matchResult] = await Promise.all([
+            getTradeRequests(state.authToken),
+            getTradeMatches(state.authToken),
+          ])
+          state.tradeRequests = inboxResult.requests
+          state.tradeUnread = inboxResult.unreadCount
+          state.tradeMatches = matchResult.matches
+        } catch {
+          // show empty state
+        } finally {
+          state.tradeInboxLoading = false
+          render()
+        }
+      }
+      break
+    }
+    case 'trade-close':
+      state.tradeView = false
+      state.tradeThreadId = null
+      state.tradeThread = null
+      state.tradeInterestGameId = null
+      state.tradeInterestUserId = null
+      state.tradeSendError = ''
+      render()
+      break
+    case 'trade-back-to-inbox':
+      state.tradeThreadId = null
+      state.tradeThread = null
+      state.tradeSendError = ''
+      render()
+      break
+    case 'trade-accept':
+    case 'trade-decline': {
+      if (!id || !state.authToken) break
+      const newStatus = action === 'trade-accept' ? 'accepted' : 'declined'
+      try {
+        const result = await respondToTradeRequest(state.authToken, id, newStatus)
+        state.tradeRequests = state.tradeRequests.map((r) => r.id === id ? result.tradeRequest : r)
+        render()
+      } catch (err) {
+        state.tradeSendError = err instanceof Error ? err.message : 'Could not update trade request.'
+        render()
+      }
+      break
+    }
+    case 'trade-open-thread': {
+      if (!id || !state.authToken) break
+      state.tradeThreadId = id
+      state.tradeThread = null
+      state.tradeSendError = ''
+      render()
+      state.tradeThreadLoading = true
+      try {
+        const result = await getTradeMessages(state.authToken, id)
+        state.tradeThread = result
+      } catch {
+        state.tradeSendError = 'Could not load messages.'
+      } finally {
+        state.tradeThreadLoading = false
+        render()
+      }
+      break
+    }
+    case 'trade-send-message': {
+      if (!id || !state.authToken) break
+      const textarea = document.querySelector<HTMLTextAreaElement>('#trade-msg-input')
+      const text = textarea?.value.trim() ?? ''
+      if (!text) break
+      state.tradeSendError = ''
+      try {
+        const result = await sendTradeMessage(state.authToken, id, text)
+        if (state.tradeThread) {
+          state.tradeThread = { ...state.tradeThread, messages: [...state.tradeThread.messages, result.message] }
+        }
+        if (textarea) textarea.value = ''
+        render()
+      } catch (err) {
+        state.tradeSendError = err instanceof Error ? err.message : 'Could not send message.'
+        render()
+      }
+      break
+    }
+    case 'trade-interest-select': {
+      const gameId = element.dataset.gameId ?? ''
+      const userId = element.dataset.userId ?? ''
+      if (!gameId || !userId) break
+      state.tradeInterestGameId = gameId
+      state.tradeInterestUserId = userId
+      state.tradeSendError = ''
+      render()
+      break
+    }
+    case 'trade-interest-cancel':
+      state.tradeInterestGameId = null
+      state.tradeInterestUserId = null
+      state.tradeSendError = ''
+      render()
+      break
+    case 'trade-send-request': {
+      if (!state.tradeInterestGameId || !state.tradeInterestUserId || !state.authToken) break
+      const noteEl = document.querySelector<HTMLTextAreaElement>('#trade-note-input')
+      const note = noteEl?.value.trim() ?? ''
+      state.tradeSendError = ''
+      try {
+        const result = await createTradeRequest(state.authToken, state.tradeInterestUserId, state.tradeInterestGameId, note)
+        state.tradeRequests = [result.tradeRequest, ...state.tradeRequests]
+        state.tradeInterestGameId = null
+        state.tradeInterestUserId = null
+        render()
+      } catch (err) {
+        state.tradeSendError = err instanceof Error ? err.message : 'Could not send trade request.'
+        render()
+      }
+      break
+    }
     case 'load-more-games':
       pendingCatalogScrollRestore = window.scrollY
       ;(document.activeElement as HTMLElement | null)?.blur?.()
