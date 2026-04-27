@@ -4440,7 +4440,7 @@ function renderNow() {
             ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button>'}
             <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
             <button class="secondary-button" type="button" data-action="open-scanner">Scan barcode</button>
-            ${state.authToken && !state.tradeView ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeUnread ? ` (${state.tradeUnread})` : ''}</button>` : ''}
+            ${state.authToken ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeUnread ? ` <span class="trade-inbox-badge">${state.tradeUnread}</span>` : ''}</button>` : ''}
             ${renderInstallButton()}
           </div>
         </div>
@@ -4555,7 +4555,7 @@ function renderNow() {
       ${renderControlSummary(filteredGames.length, visibleGames.length)}
       ${renderViewSummary(filteredGames)}
       ${renderFiltersSection()}
-      ${state.tradeView && state.tradeThreadId ? renderTradeThread() : state.tradeView ? renderTradeInbox() : renderCatalogSection(filteredGames, visibleGames)}
+      ${renderCatalogSection(filteredGames, visibleGames)}
 
       ${renderOnboardingPanel()}
 
@@ -4613,6 +4613,17 @@ function renderNow() {
       ${renderCustomEntryModal()}
       ${renderBadgesModal()}
       ${renderAuthModal()}
+      ${state.tradeView ? `
+        <div class="trade-panel-backdrop" data-action="trade-close"></div>
+        <aside class="trade-panel">
+          <div class="trade-panel-header">
+            <span class="trade-panel-title">Trade Inbox${state.tradeUnread ? ` <span class="trade-panel-badge">${state.tradeUnread}</span>` : ''}</span>
+            <button class="trade-panel-close" data-action="trade-close" type="button" aria-label="Close">&#x2715;</button>
+          </div>
+          <div class="trade-panel-body">
+            ${state.tradeThreadId ? renderTradeThread() : renderTradeInbox()}
+          </div>
+        </aside>` : ''}
     </div>
   `
 
