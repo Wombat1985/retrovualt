@@ -4658,6 +4658,18 @@ function render() {
   })
 }
 
+function patchTradePanel() {
+  const body = document.querySelector<HTMLElement>('.trade-panel-body')
+  if (body) {
+    body.innerHTML = state.tradeThreadId ? renderTradeThread() : renderTradeInbox()
+  }
+  const badge = document.querySelector<HTMLElement>('.trade-panel-badge')
+  if (badge) {
+    badge.textContent = state.tradeUnread ? String(state.tradeUnread) : ''
+    badge.style.display = state.tradeUnread ? '' : 'none'
+  }
+}
+
 function renderCatalogOnlyNow() {
   const catalog = getCatalog()
   const filteredGames = getFilteredGames()
@@ -5548,7 +5560,7 @@ async function handleAction(element: HTMLElement) {
       render()
       if (state.authToken) {
         state.tradeInboxLoading = true
-        render()
+        patchTradePanel()
         try {
           const [inboxResult, matchResult] = await Promise.all([
             getTradeRequests(state.authToken),
@@ -5561,7 +5573,7 @@ async function handleAction(element: HTMLElement) {
           // show empty state
         } finally {
           state.tradeInboxLoading = false
-          render()
+          patchTradePanel()
         }
       }
       break
