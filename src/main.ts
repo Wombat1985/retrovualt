@@ -363,6 +363,7 @@ const state = {
   tradeMatchesLoading: false,
   tradeRequests: [] as TradeRequest[],
   tradeUnread: 0,
+  tradePending: 0,
   tradeInboxLoading: false,
   tradeThread: null as { messages: TradeMessage[]; tradeRequest: TradeRequest; otherUser: { id: string; displayName: string } } | null,
   tradeThreadLoading: false,
@@ -2939,6 +2940,19 @@ async function hydrateAccount() {
   }
 
   render()
+  void fetchTradeNotifications()
+}
+
+async function fetchTradeNotifications() {
+  if (!state.authToken) return
+  try {
+    const result = await getTradeRequests(state.authToken)
+    state.tradeUnread = result.unreadCount
+    state.tradePending = result.pendingCount ?? 0
+    render()
+  } catch {
+    // silent — badge just stays at 0
+  }
 }
 
 function renderFilterChip(filter: OwnershipFilter, label: string) {
@@ -4535,7 +4549,7 @@ function renderNow() {
             ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button>'}
             <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
             <button class="secondary-button" type="button" data-action="open-scanner">Scan barcode</button>
-            ${state.authToken ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeUnread ? ` <span class="trade-inbox-badge">${state.tradeUnread}</span>` : ''}</button>` : ''}
+            ${state.authToken ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button>` : ''}
             ${renderInstallButton()}
           </div>
         </div>
@@ -4713,7 +4727,7 @@ function renderNow() {
         <div class="trade-panel-backdrop" data-action="trade-close"></div>
         <aside class="trade-panel">
           <div class="trade-panel-header">
-            <span class="trade-panel-title">Trade Inbox${state.tradeUnread ? ` <span class="trade-panel-badge">${state.tradeUnread}</span>` : ''}</span>
+            <span class="trade-panel-title">Trade Inbox${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-panel-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</span>
             <button class="trade-panel-close" data-action="trade-close" type="button" aria-label="Close">&#x2715;</button>
           </div>
           <div class="trade-panel-body">
@@ -4765,10 +4779,11 @@ function patchTradePanel() {
   if (body) {
     body.innerHTML = currentTradePanelContent()
   }
+  const total = state.tradePending + state.tradeUnread
   const badge = document.querySelector<HTMLElement>('.trade-panel-badge')
   if (badge) {
-    badge.textContent = state.tradeUnread ? String(state.tradeUnread) : ''
-    badge.style.display = state.tradeUnread ? '' : 'none'
+    badge.textContent = total ? String(total) : ''
+    badge.style.display = total ? '' : 'none'
   }
 }
 
@@ -5670,6 +5685,7 @@ async function handleAction(element: HTMLElement) {
           ])
           state.tradeRequests = inboxResult.requests
           state.tradeUnread = inboxResult.unreadCount
+          state.tradePending = inboxResult.pendingCount ?? 0
           state.tradeMatches = matchResult.matches
         } catch {
           // show empty state
@@ -6269,6 +6285,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       await syncToCloud()
       state.syncStatus = 'Your collection is synced to your account'
       state.authView = 'none'
+      void fetchTradeNotifications()
       return
     }
 
@@ -6290,6 +6307,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       state.syncStatus = 'Your collection is synced to your account'
       state.authSuccess = 'Signed in successfully.'
       state.authView = 'none'
+      void fetchTradeNotifications()
       return
     }
 

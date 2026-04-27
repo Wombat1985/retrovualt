@@ -233,7 +233,7 @@ export async function createTradeRequest(token: string, toUserId: string, gameId
 }
 
 export async function getTradeRequests(token: string) {
-  return request<{ requests: TradeRequest[]; unreadCount: number }>('/trade/requests', { method: 'GET' }, token)
+  return request<{ requests: TradeRequest[]; unreadCount: number; pendingCount: number }>('/trade/requests', { method: 'GET' }, token)
 }
 
 export async function respondToTradeRequest(token: string, requestId: string, status: 'accepted' | 'declined') {

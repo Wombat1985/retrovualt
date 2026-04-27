@@ -1487,7 +1487,11 @@ const server = createServer(async (request, response) => {
         return req && (req.fromUserId === user.id || req.toUserId === user.id) && m.senderUserId !== user.id && !m.readAt
       }).length
 
-      json(request, response, 200, { requests: result, unreadCount })
+      const pendingCount = (db.tradeRequests ?? []).filter(r =>
+        r.toUserId === user.id && r.status === 'pending'
+      ).length
+
+      json(request, response, 200, { requests: result, unreadCount, pendingCount })
       return
     }
 
