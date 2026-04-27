@@ -2947,13 +2947,40 @@ async function fetchTradeNotifications() {
   if (!state.authToken) return
   try {
     const result = await getTradeRequests(state.authToken)
+    const prevTotal = state.tradePending + state.tradeUnread
     state.tradeUnread = result.unreadCount
     state.tradePending = result.pendingCount ?? 0
-    render()
+    if (state.tradePending + state.tradeUnread !== prevTotal) {
+      render()
+    }
   } catch {
     // silent — badge just stays at 0
   }
 }
+
+let tradeNotificationTimer = 0
+
+function startTradeNotificationPoll() {
+  if (tradeNotificationTimer) return
+  tradeNotificationTimer = window.setInterval(() => {
+    if (document.visibilityState === 'visible' && state.authToken) {
+      void fetchTradeNotifications()
+    }
+  }, 60_000)
+}
+
+function stopTradeNotificationPoll() {
+  if (tradeNotificationTimer) {
+    window.clearInterval(tradeNotificationTimer)
+    tradeNotificationTimer = 0
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.authToken) {
+    void fetchTradeNotifications()
+  }
+})
 
 function renderFilterChip(filter: OwnershipFilter, label: string) {
   const active = state.ownershipFilter === filter ? 'is-active' : ''
@@ -7129,9 +7156,11 @@ function escapeHtml(value: string) {
 window.addEventListener('pagehide', flushLibrarySave)
 window.addEventListener('pagehide', flushCatalogSnapshotSave)
 window.addEventListener('pagehide', stopLiveBarcodeScan)
+window.addEventListener('pagehide', stopTradeNotificationPoll)
 
 render()
 void trackPageView(Boolean(loadAuthToken()))
 void loadGeneratedCatalog()
 void hydrateAccount()
 void initMobileBannerAd()
+startTradeNotificationPoll()
