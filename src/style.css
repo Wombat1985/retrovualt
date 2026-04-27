@@ -3375,10 +3375,132 @@ a {
 }
 
 .trade-section-title {
-  font-size: 1rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--muted);
-  margin: 8px 0 0;
+  margin: 16px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.trade-section-title--match {
+  color: var(--good);
+}
+
+.trade-back-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s;
+  margin-bottom: 12px;
+}
+
+.trade-back-btn:hover {
+  color: var(--text);
+}
+
+/* ── Trade profile view ── */
+
+.trade-profile-view {
+  display: flex;
+  flex-direction: column;
+}
+
+.trade-profile-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--accent-2);
+  margin: 0 0 4px;
+}
+
+.trade-profile-game-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.trade-profile-game {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.trade-profile-cover {
+  width: 38px;
+  height: 38px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.trade-profile-cover--blank {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.trade-profile-game-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trade-profile-game-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trade-profile-game-console {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.trade-profile-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.trade-profile-badge--owned {
+  background: rgba(88, 216, 170, 0.15);
+  color: var(--good);
+}
+
+.trade-profile-badge--wanted {
+  background: rgba(241, 201, 95, 0.15);
+  color: var(--accent-2);
+}
+
+.trade-profile-request-btn {
+  font-size: 0.72rem;
+  padding: 5px 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.trade-view-profile-btn {
+  font-size: 0.78rem;
+  padding: 6px 12px;
+  margin-top: 6px;
 }
 
 .trade-req-card {

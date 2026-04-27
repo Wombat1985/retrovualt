@@ -1380,6 +1380,28 @@ const server = createServer(async (request, response) => {
       return
     }
 
+    // ── Trade: public profile ───────────────────────────────
+    if (request.method === 'GET' && url.pathname.startsWith('/trade/profile/')) {
+      const viewer = await getSessionUser(request, db)
+      if (!viewer) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const targetId = url.pathname.slice('/trade/profile/'.length)
+      const target = db.users.find(u => u.id === targetId)
+      if (!target) { json(request, response, 404, { error: 'User not found.' }); return }
+
+      const lib = target.syncState?.library ?? {}
+      const ownedGameIds = Object.entries(lib).filter(([,r]) => r?.status === 'owned').map(([id]) => id)
+      const wantedGameIds = Object.entries(lib).filter(([,r]) => r?.status === 'wanted').map(([id]) => id)
+
+      json(request, response, 200, {
+        userId: target.id,
+        displayName: target.displayName ?? 'Unknown Collector',
+        ownedGameIds,
+        wantedGameIds,
+      })
+      return
+    }
+
     // ── Trade: create request ───────────────────────────────
     if (request.method === 'POST' && url.pathname === '/trade/requests') {
       if (!rateLimit(request, 'trade-create', 20, 60 * 60 * 1000)) {

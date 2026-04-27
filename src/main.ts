@@ -12,6 +12,7 @@ import {
   getCurrentAccount,
   getTradeMatches,
   getTradeMessages,
+  getTradeProfile,
   getTradeRequests,
   loginAccount,
   lookupBarcodeMapping,
@@ -27,6 +28,7 @@ import {
   updateAccountProfile,
   type TradeMatch,
   type TradeMessage,
+  type TradeProfile,
   type TradeRequest,
 } from './backend'
 import { initMobileBannerAd } from './mobileAds'
@@ -366,6 +368,9 @@ const state = {
   tradeSendError: '',
   tradeInterestGameId: null as string | null,
   tradeInterestUserId: null as string | null,
+  tradeProfileUserId: null as string | null,
+  tradeProfile: null as TradeProfile | null,
+  tradeProfileLoading: false,
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -3405,12 +3410,7 @@ function renderTradeInbox() {
                 </div>
                 ${m.theyHaveWhatIWant.length ? `<p class="subtle">They own ${m.theyHaveWhatIWant.length} game${m.theyHaveWhatIWant.length > 1 ? 's' : ''} you want.</p>` : ''}
                 ${m.iHaveWhatTheyWant.length ? `<p class="subtle">They want ${m.iHaveWhatTheyWant.length} game${m.iHaveWhatTheyWant.length > 1 ? 's' : ''} you own.</p>` : ''}
-                <div class="trade-match-games">
-                  ${m.theyHaveWhatIWant.slice(0, 3).map((gid) => `
-                    <button class="trade-interest-btn" data-action="trade-interest-select" data-user-id="${escapeHtml(m.userId)}" data-game-id="${escapeHtml(gid)}" type="button">
-                      I'm interested in <code>${escapeHtml(gid)}</code>
-                    </button>`).join('')}
-                </div>
+                <button class="toggle-button trade-view-profile-btn" data-action="trade-view-profile" data-user-id="${escapeHtml(m.userId)}" type="button">View their collection</button>
               </div>`).join('')}
           </div>
         </div>
@@ -3440,6 +3440,67 @@ function renderTradeInbox() {
       ${accepted.length ? `<h3 class="trade-section-title">Active Trades (${accepted.length})</h3>${accepted.map(renderReqCard).join('')}` : ''}
       ${declined.length ? `<h3 class="trade-section-title">Declined (${declined.length})</h3>${declined.map(renderReqCard).join('')}` : ''}
     </section>`
+}
+
+function renderTradeProfile() {
+  const profile = state.tradeProfile
+  const catalog = getCatalog()
+
+  function gameCard(gameId: string, badge: string) {
+    const game = catalog.find((g) => g.id === gameId)
+    const title = game?.title ?? gameId
+    const cover = game?.coverUrl ? escapeHtml(game.coverUrl) : ''
+    const consoleName = game ? escapeHtml(game.console) : ''
+    return `<div class="trade-profile-game">
+      ${cover ? `<img class="trade-profile-cover" src="${cover}" alt="" loading="lazy" />` : '<div class="trade-profile-cover trade-profile-cover--blank"></div>'}
+      <div class="trade-profile-game-info">
+        <span class="trade-profile-game-title">${escapeHtml(title)}</span>
+        ${consoleName ? `<span class="trade-profile-game-console">${consoleName}</span>` : ''}
+        <span class="trade-profile-badge trade-profile-badge--${badge}">${badge === 'owned' ? 'Has it' : 'Wants it'}</span>
+      </div>
+      <button class="toggle-button trade-profile-request-btn" data-action="trade-interest-select" data-game-id="${escapeHtml(gameId)}" data-user-id="${escapeHtml(state.tradeProfileUserId ?? '')}" type="button">Trade</button>
+    </div>`
+  }
+
+  if (state.tradeProfileLoading) {
+    return `<button class="trade-back-btn" data-action="trade-back-to-inbox" type="button">&#8592; Back</button>
+      <p class="subtle" style="margin-top:16px">Loading collection…</p>`
+  }
+  if (!profile) {
+    return `<button class="trade-back-btn" data-action="trade-back-to-inbox" type="button">&#8592; Back</button>
+      <p class="subtle" style="margin-top:16px">Could not load profile.</p>`
+  }
+
+  const myOwned = new Set(catalog.filter((g) => getRecord(g.id).status === 'owned').map((g) => g.id))
+  const myWanted = new Set(catalog.filter((g) => getRecord(g.id).status === 'wanted').map((g) => g.id))
+
+  const theyHaveIWant = profile.ownedGameIds.filter((id) => myWanted.has(id))
+  const iHaveTheyWant = profile.wantedGameIds.filter((id) => myOwned.has(id))
+  const theirOtherOwned = profile.ownedGameIds.filter((id) => !myWanted.has(id))
+  const theirOtherWanted = profile.wantedGameIds.filter((id) => !myOwned.has(id))
+
+  return `<section class="trade-profile-view">
+    <button class="trade-back-btn" data-action="trade-back-to-inbox" type="button">&#8592; Back</button>
+    <h2 class="trade-profile-name">${escapeHtml(profile.displayName)}'s Collection</h2>
+
+    ${theyHaveIWant.length ? `
+      <h3 class="trade-section-title trade-section-title--match">They have what you want (${theyHaveIWant.length})</h3>
+      <div class="trade-profile-game-list">${theyHaveIWant.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
+
+    ${iHaveTheyWant.length ? `
+      <h3 class="trade-section-title trade-section-title--match">They want what you have (${iHaveTheyWant.length})</h3>
+      <div class="trade-profile-game-list">${iHaveTheyWant.map((id) => gameCard(id, 'wanted')).join('')}</div>` : ''}
+
+    ${theirOtherOwned.length ? `
+      <h3 class="trade-section-title">Rest of their collection (${theirOtherOwned.length})</h3>
+      <div class="trade-profile-game-list">${theirOtherOwned.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
+
+    ${theirOtherWanted.length ? `
+      <h3 class="trade-section-title">Rest of their wishlist (${theirOtherWanted.length})</h3>
+      <div class="trade-profile-game-list">${theirOtherWanted.map((id) => gameCard(id, 'wanted')).join('')}</div>` : ''}
+
+    ${!profile.ownedGameIds.length && !profile.wantedGameIds.length ? '<p class="subtle">This collector hasn\'t marked any games yet.</p>' : ''}
+  </section>`
 }
 
 function renderTradeThread() {
@@ -4621,7 +4682,7 @@ function renderNow() {
             <button class="trade-panel-close" data-action="trade-close" type="button" aria-label="Close">&#x2715;</button>
           </div>
           <div class="trade-panel-body">
-            ${state.tradeThreadId ? renderTradeThread() : renderTradeInbox()}
+            ${currentTradePanelContent()}
           </div>
         </aside>` : ''}
     </div>
@@ -4658,10 +4719,16 @@ function render() {
   })
 }
 
+function currentTradePanelContent() {
+  if (state.tradeThreadId) return renderTradeThread()
+  if (state.tradeProfileUserId) return renderTradeProfile()
+  return renderTradeInbox()
+}
+
 function patchTradePanel() {
   const body = document.querySelector<HTMLElement>('.trade-panel-body')
   if (body) {
-    body.innerHTML = state.tradeThreadId ? renderTradeThread() : renderTradeInbox()
+    body.innerHTML = currentTradePanelContent()
   }
   const badge = document.querySelector<HTMLElement>('.trade-panel-badge')
   if (badge) {
@@ -5584,15 +5651,37 @@ async function handleAction(element: HTMLElement) {
       state.tradeThread = null
       state.tradeInterestGameId = null
       state.tradeInterestUserId = null
+      state.tradeProfileUserId = null
+      state.tradeProfile = null
       state.tradeSendError = ''
       render()
       break
     case 'trade-back-to-inbox':
       state.tradeThreadId = null
       state.tradeThread = null
+      state.tradeProfileUserId = null
+      state.tradeProfile = null
       state.tradeSendError = ''
-      render()
+      patchTradePanel()
       break
+    case 'trade-view-profile': {
+      const userId = element.dataset.userId ?? ''
+      if (!userId || !state.authToken) break
+      state.tradeProfileUserId = userId
+      state.tradeProfile = null
+      state.tradeProfileLoading = true
+      patchTradePanel()
+      try {
+        const profile = await getTradeProfile(state.authToken, userId)
+        state.tradeProfile = profile
+      } catch {
+        state.tradeProfile = null
+      } finally {
+        state.tradeProfileLoading = false
+        patchTradePanel()
+      }
+      break
+    }
     case 'trade-accept':
     case 'trade-decline': {
       if (!id || !state.authToken) break

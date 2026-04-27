@@ -259,3 +259,14 @@ export async function sendTradeMessage(token: string, requestId: string, text: s
     token,
   )
 }
+
+export type TradeProfile = {
+  userId: string
+  displayName: string
+  ownedGameIds: string[]
+  wantedGameIds: string[]
+}
+
+export async function getTradeProfile(token: string, userId: string) {
+  return request<TradeProfile>(`/trade/profile/${encodeURIComponent(userId)}`, {}, token)
+}
