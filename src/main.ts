@@ -3329,14 +3329,17 @@ function renderSpine(game: CatalogEntry) {
   const rarity = game.rarity.toLowerCase()
   const colors = getConsoleSpineColor(game.console)
   const coverSrc = game.coverUrl ? escapeHtml(game.coverUrl) : ''
-  return `<button
+  return `<div class="spine-wrap">
+    <button
       class="spine-card spine-card--${status} spine-card--${rarity}"
       data-action="open-details"
       data-id="${escapeHtml(game.id)}"
       type="button"
       aria-label="${escapeHtml(game.title)}"
       style="--spine-bg:${colors.bg};--spine-text:${colors.text};--spine-accent:${colors.accent}"
-    >${coverSrc ? `<img class="spine-img" src="${coverSrc}" alt="" decoding="async" loading="lazy" />` : ''}<div class="spine-top"><span class="spine-dot spine-dot--${rarity}"></span></div><span class="spine-title">${escapeHtml(game.title)}</span></button>`
+    >${coverSrc ? `<img class="spine-img" src="${coverSrc}" alt="" decoding="async" loading="lazy" />` : ''}<div class="spine-top"><span class="spine-dot spine-dot--${rarity}"></span></div><span class="spine-title">${escapeHtml(game.title)}</span></button>
+    <div class="spine-label"><span>${escapeHtml(game.title)}</span><em>${escapeHtml(game.console)}</em></div>
+  </div>`
 }
 
 function renderShelfView(games: CatalogEntry[]) {
