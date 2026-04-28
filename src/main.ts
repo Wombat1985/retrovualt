@@ -2679,9 +2679,17 @@ function getCoverSourceLabel(game: CatalogEntry) {
   return 'Cover displayed from the linked source for identification. Artwork rights remain with their owners.'
 }
 
-function getOwnershipLabel(status: GameStatus) {
+function getOwnedButtonLabel(record: GameRecord): string {
+  if (record.status !== 'owned') return 'Mark owned'
+  const count = getOwnedCopyCount(record)
+  if (count > 1) return `${count} in collection`
+  return `Owned: ${getEditionLabel(record.editionStatus)}`
+}
+
+function getOwnershipLabel(status: GameStatus, record?: GameRecord) {
   if (status === 'owned') {
-    return 'Owned'
+    const count = record ? getOwnedCopyCount(record) : 1
+    return count > 1 ? `${count} in collection` : 'Owned'
   }
 
   if (status === 'wanted') {
@@ -3089,7 +3097,7 @@ function renderCard(game: CatalogEntry) {
           ${getCoverFallbackAttributes(game)}
         />
         <div class="cover-chips">
-          <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
+          <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status, record)}</span>
           <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
         </div>
         ${isOwned ? `<div class="owned-stamp"><strong>Owned</strong><span>${escapeHtml(ownedEditionText)}</span></div>` : ''}
@@ -3113,7 +3121,7 @@ function renderCard(game: CatalogEntry) {
           </div>
         </dl>
         <div class="card-actions">
-          <button class="toggle-button ${isOwned ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${isOwned ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
+          <button class="toggle-button ${isOwned ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${escapeHtml(getOwnedButtonLabel(record))}</button>
           <button class="ghost-button ${isWanted ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${isWanted ? 'Remove wanted' : 'Want it'}</button>
           <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
           <button class="ghost-button" data-action="open-details" data-id="${safeGameId}" type="button">Details</button>
@@ -3162,7 +3170,7 @@ function renderSelectedGameModal() {
           <h2 id="game-modal-title">${escapeHtml(game.title)}</h2>
           <p class="modal-subtitle">${escapeHtml(game.console)} / ${escapeHtml(game.region)} / ${game.year ?? 'Release year unavailable'}</p>
           <div class="modal-pill-row">
-            <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status)}</span>
+            <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status, record)}</span>
             <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
             ${variantSummary ? `<span class="detail-chip">${escapeHtml(variantSummary)}</span>` : ''}
             <span class="detail-chip">${escapeHtml(getOwnedEditionSummary(record))}</span>
@@ -3183,14 +3191,8 @@ function renderSelectedGameModal() {
             </div>
           ` : ''}
           <div class="modal-primary-actions">
-            ${record.status === 'owned' && state.ownershipConfirmId === game.id ? `
-              <button class="ghost-button" data-action="owned-add-copy" data-id="${safeGameId}" type="button">Add another copy</button>
-              <button class="danger-button" data-action="confirm-remove-owned" data-id="${safeGameId}" type="button">Remove from collection</button>
-              <button class="ghost-button" data-action="cancel-owned-confirm" data-id="${safeGameId}" type="button">Cancel</button>
-            ` : `
-              <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${record.status === 'owned' ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
-              <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
-            `}
+            <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${getOwnedButtonLabel(record)}</button>
+            <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
             <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
             ${record.status === 'owned' && state.authToken ? `<button class="ghost-button for-trade-btn ${record.forTrade ? 'is-active' : ''}" data-action="toggle-for-trade" data-id="${safeGameId}" type="button">${record.forTrade ? 'For trade ✓' : 'Offer for trade'}</button>` : ''}
           </div>
@@ -3248,7 +3250,7 @@ function renderSelectedGameModal() {
             <button class="ghost-button" data-action="set-price-paid" data-id="${safeGameId}" type="button">Set paid</button>
             <button class="ghost-button" data-action="set-target-price" data-id="${safeGameId}" type="button">Set alert</button>
             <button class="ghost-button" data-action="set-edition" data-id="${safeGameId}" type="button">Edition</button>
-            ${record.status === 'owned' ? `<button class="ghost-button" data-action="add-copy" data-id="${safeGameId}" type="button">Add copy</button>` : ''}
+            ${record.status === 'owned' ? `<button class="ghost-button danger-ghost" data-action="confirm-remove-owned" data-id="${safeGameId}" type="button">Remove from collection</button>` : ''}
             <button class="ghost-button" data-action="set-condition" data-id="${safeGameId}" type="button">Condition</button>
             <button class="ghost-button" data-action="edit-notes" data-id="${safeGameId}" type="button">Notes</button>
             <button class="ghost-button" data-action="set-date-acquired" data-id="${safeGameId}" type="button">Date found</button>
@@ -5890,37 +5892,19 @@ async function handleAction(element: HTMLElement) {
         return
       }
 
-      if (getRecord(id).status === 'owned') {
-        state.ownershipConfirmId = id
-        state.selectedGameId = id
-        render()
-      } else {
-        state.ownershipPickerGameId = id
-        state.selectedGameId = null
-        render()
-      }
+      state.ownershipPickerGameId = id
+      state.selectedGameId = null
+      render()
       break
     case 'confirm-remove-owned':
       if (!id) return
       playUnmark()
-      state.ownershipConfirmId = null
       setRecord(id, (record) => ({
         ...record,
         status: 'missing',
         ownedCopies: 1,
         copies: undefined,
       }))
-      break
-    case 'cancel-owned-confirm':
-      state.ownershipConfirmId = null
-      render()
-      break
-    case 'owned-add-copy':
-      if (!id) return
-      state.ownershipConfirmId = null
-      state.ownershipPickerGameId = id
-      state.selectedGameId = null
-      render()
       break
     case 'confirm-owned': {
       if (!id) {

@@ -2699,6 +2699,16 @@ a {
   justify-content: center;
 }
 
+.ghost-button.danger-ghost {
+  color: #ff7070;
+  border-color: rgba(220, 60, 60, 0.25);
+}
+
+.ghost-button.danger-ghost:hover {
+  background: rgba(220, 60, 60, 0.12);
+  border-color: rgba(220, 60, 60, 0.5);
+}
+
 .danger-button {
   border-radius: 999px;
   border: 1px solid rgba(220, 60, 60, 0.4);
