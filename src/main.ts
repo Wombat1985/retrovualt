@@ -396,8 +396,7 @@ const state = {
   tradeProfileLoading: false,
   tradePromptGameId: null as string | null,
   tradePromptIsDuplicate: false,
-  tradePromptCopyIndex: null as number | null,
-  tradePromptEdition: null as EditionStatus | null,
+  tradePromptPickingCopy: false,
   importStep: 'none' as ImportStep,
   importRows: [] as ImportRow[],
   importSourceName: '',
@@ -3113,6 +3112,7 @@ function renderCard(game: CatalogEntry) {
         <div class="cover-chips">
           <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status, record)}</span>
           <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
+          ${isOwned && record.forTrade ? `<span class="for-trade-chip">For Trade</span>` : ''}
         </div>
         ${isOwned ? `<div class="owned-stamp"><strong>Owned</strong><span>${escapeHtml(ownedEditionText)}</span></div>` : ''}
       </div>
@@ -3192,14 +3192,15 @@ function renderSelectedGameModal() {
             ${getCopiesSummary(record) ? `<span class="detail-chip detail-chip--copies">${escapeHtml(getCopiesSummary(record))}</span>` : `<span class="detail-chip">${getEditionLabel(record.editionStatus)}</span>`}
             <span class="detail-chip">${getConditionLabel(record.condition)}</span>
           </div>
-          ${record.status === 'owned' && getOwnedCopyCount(record) > 1 ? `
+          ${record.status === 'owned' ? `
             <div class="copies-section">
               <p class="modal-section-label">Copies (${getOwnedCopyCount(record)})</p>
               <div class="copies-list">
                 ${getRecordCopies(record).map((c, i) => `
                   <span class="copy-chip">
-                    <span>${escapeHtml(getEditionLabel(c.edition))} · ${escapeHtml(getConditionLabel(c.condition))}${c.forTrade ? ' · For trade' : ''}</span>
-                    <button class="copy-chip__remove" type="button" data-action="remove-copy" data-id="${safeGameId}" data-copy-index="${i}" aria-label="Remove this copy">×</button>
+                    <span>${escapeHtml(getEditionLabel(c.edition))} · ${escapeHtml(getConditionLabel(c.condition))}</span>
+                    ${c.forTrade ? '<span class="copy-trade-tag">For Trade</span>' : ''}
+                    <button class="copy-chip__remove" type="button" data-action="remove-copy" data-id="${safeGameId}" data-copy-index="${i}" aria-label="${getOwnedCopyCount(record) === 1 ? 'Remove from collection' : 'Remove this copy'}">×</button>
                   </span>`).join('')}
               </div>
             </div>
@@ -3264,7 +3265,7 @@ function renderSelectedGameModal() {
             <button class="ghost-button" data-action="set-price-paid" data-id="${safeGameId}" type="button">Set paid</button>
             <button class="ghost-button" data-action="set-target-price" data-id="${safeGameId}" type="button">Set alert</button>
             <button class="ghost-button" data-action="set-edition" data-id="${safeGameId}" type="button">Edition</button>
-            ${record.status === 'owned' ? `<button class="ghost-button danger-ghost" data-action="confirm-remove-owned" data-id="${safeGameId}" type="button">Remove from collection</button>` : ''}
+            ${record.status === 'owned' ? `<button class="ghost-button danger-ghost" data-action="confirm-remove-owned" data-id="${safeGameId}" type="button">${getOwnedCopyCount(record) > 1 ? 'Remove all copies' : 'Remove from collection'}</button>` : ''}
             <button class="ghost-button" data-action="set-condition" data-id="${safeGameId}" type="button">Condition</button>
             <button class="ghost-button" data-action="edit-notes" data-id="${safeGameId}" type="button">Notes</button>
             <button class="ghost-button" data-action="set-date-acquired" data-id="${safeGameId}" type="button">Date found</button>
@@ -3969,14 +3970,31 @@ function renderTradePromptToast() {
   const game = getGameById(gameId)
   const title = game?.title ?? gameId
   const isDuplicate = state.tradePromptIsDuplicate
-  const copyEdition = isDuplicate && state.tradePromptEdition ? getEditionLabel(state.tradePromptEdition) : null
+
+  if (state.tradePromptPickingCopy && isDuplicate) {
+    const record = state.library[gameId] ?? null
+    const copies = record ? getRecordCopies(record) : []
+    const copyButtons = copies
+      .map((c, i) => `<button class="toggle-button" data-action="trade-prompt-pick-copy" data-id="${escapeHtml(gameId)}" data-copy-index="${i}" type="button">Copy ${i + 1}: ${escapeHtml(getEditionLabel(c.edition))}</button>`)
+      .join('')
+    return `<div class="trade-prompt-toast">
+      <div class="trade-prompt-toast-text">
+        <strong>${escapeHtml(title)}</strong> — which copy do you want to offer?
+      </div>
+      <div class="trade-prompt-toast-actions">
+        ${copyButtons}
+        <button class="ghost-button trade-prompt-no" data-action="trade-prompt-no" type="button">Cancel</button>
+      </div>
+    </div>`
+  }
+
   return `<div class="trade-prompt-toast">
     <div class="trade-prompt-toast-text">
-      <strong>${escapeHtml(title)}</strong>${isDuplicate ? ` — your ${escapeHtml(copyEdition ?? 'extra')} copy` : ' added to your collection.'}<br>
-      <span>${isDuplicate ? 'Offer this copy for trade with other collectors?' : 'Would you like to offer it for trade with other collectors?'}</span>
+      <strong>${escapeHtml(title)}</strong>${isDuplicate ? ' — you now have multiple copies.' : ' added to your collection.'}<br>
+      <span>${isDuplicate ? 'Want to offer one of your copies for trade?' : 'Would you like to offer it for trade with other collectors?'}</span>
     </div>
     <div class="trade-prompt-toast-actions">
-      <button class="toggle-button trade-prompt-yes" data-action="trade-prompt-yes" data-id="${escapeHtml(gameId)}" type="button">Yes, offer it</button>
+      <button class="toggle-button trade-prompt-yes" data-action="trade-prompt-yes" data-id="${escapeHtml(gameId)}" type="button">${isDuplicate ? 'Yes, choose copy' : 'Yes, offer it'}</button>
       <button class="ghost-button trade-prompt-no" data-action="trade-prompt-no" type="button">No thanks</button>
     </div>
   </div>`
@@ -6138,23 +6156,27 @@ async function handleAction(element: HTMLElement) {
       if (!id) return
       const copyIdx = parseInt(element.dataset.copyIndex ?? '', 10)
       if (isNaN(copyIdx)) return
-      setRecord(id, (record) => {
-        const copies = getRecordCopies(record)
-        if (copies.length <= 1) return record
-        const next = copies.filter((_, i) => i !== copyIdx)
-        const best = bestCopyEdition(next)
-        return {
-          ...record,
-          copies: next,
-          ownedCopies: next.length,
-          editionStatus: best,
-          completeInBox: best === 'cib' || best === 'sealed' || best === 'graded',
-          condition: next[0].condition,
-          pricePaid: next[0].pricePaid,
-          forTrade: record.forTrade || next.some((c) => c.forTrade),
-        }
-      })
-      render()
+      const currentCopies = getRecordCopies(getRecord(id))
+      if (currentCopies.length <= 1) {
+        playUnmark()
+        setRecord(id, (record) => ({ ...record, status: 'missing', ownedCopies: 1, copies: undefined, forTrade: false }))
+      } else {
+        setRecord(id, (record) => {
+          const copies = getRecordCopies(record)
+          const next = copies.filter((_, i) => i !== copyIdx)
+          const best = bestCopyEdition(next)
+          return {
+            ...record,
+            copies: next,
+            ownedCopies: next.length,
+            editionStatus: best,
+            completeInBox: best === 'cib' || best === 'sealed' || best === 'graded',
+            condition: next[0].condition,
+            pricePaid: next[0].pricePaid,
+            forTrade: next.some((c) => c.forTrade),
+          }
+        })
+      }
       break
     }
     case 'set-condition':
@@ -6370,29 +6392,38 @@ async function handleAction(element: HTMLElement) {
       break
     case 'trade-prompt-yes':
       if (!id) break
+      if (state.tradePromptIsDuplicate) {
+        state.tradePromptPickingCopy = true
+        render()
+      } else {
+        setRecord(id, (record) => ({ ...record, forTrade: true }))
+        state.tradePromptGameId = null
+        state.tradePromptIsDuplicate = false
+        state.tradePromptPickingCopy = false
+        render()
+      }
+      break
+    case 'trade-prompt-pick-copy': {
+      if (!id) break
+      const copyIdx = parseInt(element.dataset.copyIndex ?? '', 10)
       setRecord(id, (record) => {
-        const copyIdx = state.tradePromptCopyIndex
-        const promptEdition = state.tradePromptEdition
         const copies = getRecordCopies(record)
-        // Mark the specific copy that was just added
-        let targetIdx = copyIdx !== null && copies[copyIdx] && !copies[copyIdx].forTrade
-          ? copyIdx
-          : copies.findIndex((c) => c.edition === promptEdition && !c.forTrade)
-        if (targetIdx !== -1 && copies[targetIdx]) {
-          const updated = copies.map((c, i) => i === targetIdx ? { ...c, forTrade: true } : c)
+        if (!isNaN(copyIdx) && copies[copyIdx]) {
+          const updated = copies.map((c, i) => i === copyIdx ? { ...c, forTrade: true } : c)
           return { ...record, copies: updated, forTrade: updated.some((c) => c.forTrade) }
         }
         return { ...record, forTrade: true }
       })
       state.tradePromptGameId = null
-      state.tradePromptCopyIndex = null
-      state.tradePromptEdition = null
+      state.tradePromptIsDuplicate = false
+      state.tradePromptPickingCopy = false
       render()
       break
+    }
     case 'trade-prompt-no':
       state.tradePromptGameId = null
-      state.tradePromptCopyIndex = null
-      state.tradePromptEdition = null
+      state.tradePromptIsDuplicate = false
+      state.tradePromptPickingCopy = false
       render()
       break
     case 'trade-send-request': {
@@ -6633,13 +6664,9 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
       state.justOwnedGameId = null
       if (state.authToken) {
         if (isAddingDuplicate) {
-          const copies = getRecordCopies(getRecord(id))
-          const newCopyIdx = copies.length - 1
-          const newCopyEdition = copies[newCopyIdx]?.edition ?? editionStatus
           state.tradePromptGameId = id
           state.tradePromptIsDuplicate = true
-          state.tradePromptCopyIndex = newCopyIdx
-          state.tradePromptEdition = newCopyEdition
+          state.tradePromptPickingCopy = false
         } else if (!getRecord(id).forTrade) {
           const hasWanted = Object.values(state.library).some((r) => (r as GameRecord).status === 'wanted')
           if (hasWanted) {

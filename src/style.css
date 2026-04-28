@@ -3441,6 +3441,31 @@ a {
 
 /* ── Trade prompt toast ── */
 
+.for-trade-chip {
+  display: inline-block;
+  background: rgba(241, 168, 30, 0.18);
+  border: 1px solid rgba(241, 168, 30, 0.55);
+  color: #f5c842;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+
+.copy-trade-tag {
+  background: rgba(241, 168, 30, 0.15);
+  border: 1px solid rgba(241, 168, 30, 0.45);
+  color: #f1c95f;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
 .trade-prompt-toast {
   position: fixed;
   bottom: 24px;
@@ -3472,6 +3497,7 @@ a {
 
 .trade-prompt-toast-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
