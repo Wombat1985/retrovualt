@@ -396,6 +396,8 @@ const state = {
   tradeProfileLoading: false,
   tradePromptGameId: null as string | null,
   tradePromptIsDuplicate: false,
+  tradePromptCopyIndex: null as number | null,
+  tradePromptEdition: null as EditionStatus | null,
   importStep: 'none' as ImportStep,
   importRows: [] as ImportRow[],
   importSourceName: '',
@@ -3967,10 +3969,11 @@ function renderTradePromptToast() {
   const game = getGameById(gameId)
   const title = game?.title ?? gameId
   const isDuplicate = state.tradePromptIsDuplicate
+  const copyEdition = isDuplicate && state.tradePromptEdition ? getEditionLabel(state.tradePromptEdition) : null
   return `<div class="trade-prompt-toast">
     <div class="trade-prompt-toast-text">
-      <strong>${escapeHtml(title)}</strong>${isDuplicate ? ' — looks like a duplicate!' : ' added to your collection.'}<br>
-      <span>${isDuplicate ? 'Offer the extra copy for trade with other collectors?' : 'Would you like to offer it for trade with other collectors?'}</span>
+      <strong>${escapeHtml(title)}</strong>${isDuplicate ? ` — your ${escapeHtml(copyEdition ?? 'extra')} copy` : ' added to your collection.'}<br>
+      <span>${isDuplicate ? 'Offer this copy for trade with other collectors?' : 'Would you like to offer it for trade with other collectors?'}</span>
     </div>
     <div class="trade-prompt-toast-actions">
       <button class="toggle-button trade-prompt-yes" data-action="trade-prompt-yes" data-id="${escapeHtml(gameId)}" type="button">Yes, offer it</button>
@@ -6367,12 +6370,29 @@ async function handleAction(element: HTMLElement) {
       break
     case 'trade-prompt-yes':
       if (!id) break
-      setRecord(id, (record) => ({ ...record, forTrade: true }))
+      setRecord(id, (record) => {
+        const copyIdx = state.tradePromptCopyIndex
+        const promptEdition = state.tradePromptEdition
+        const copies = getRecordCopies(record)
+        // Mark the specific copy that was just added
+        let targetIdx = copyIdx !== null && copies[copyIdx] && !copies[copyIdx].forTrade
+          ? copyIdx
+          : copies.findIndex((c) => c.edition === promptEdition && !c.forTrade)
+        if (targetIdx !== -1 && copies[targetIdx]) {
+          const updated = copies.map((c, i) => i === targetIdx ? { ...c, forTrade: true } : c)
+          return { ...record, copies: updated, forTrade: updated.some((c) => c.forTrade) }
+        }
+        return { ...record, forTrade: true }
+      })
       state.tradePromptGameId = null
+      state.tradePromptCopyIndex = null
+      state.tradePromptEdition = null
       render()
       break
     case 'trade-prompt-no':
       state.tradePromptGameId = null
+      state.tradePromptCopyIndex = null
+      state.tradePromptEdition = null
       render()
       break
     case 'trade-send-request': {
@@ -6613,8 +6633,13 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
       state.justOwnedGameId = null
       if (state.authToken) {
         if (isAddingDuplicate) {
+          const copies = getRecordCopies(getRecord(id))
+          const newCopyIdx = copies.length - 1
+          const newCopyEdition = copies[newCopyIdx]?.edition ?? editionStatus
           state.tradePromptGameId = id
           state.tradePromptIsDuplicate = true
+          state.tradePromptCopyIndex = newCopyIdx
+          state.tradePromptEdition = newCopyEdition
         } else if (!getRecord(id).forTrade) {
           const hasWanted = Object.values(state.library).some((r) => (r as GameRecord).status === 'wanted')
           if (hasWanted) {
