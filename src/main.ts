@@ -4654,10 +4654,10 @@ function renderNow() {
           ${
             state.authToken
               ? `<p class="account-status-pill"><span>Signed in</span><strong>${escapeHtml(accountIdentity)}</strong></p>`
-              : '<p class="account-status-pill account-status-pill--guest"><span>Guest mode</span><strong>Make an account when you want your collection synced across devices.</strong></p>'
+              : '<p class="account-status-pill account-status-pill--guest"><span>Guest mode</span><strong>Sign in or create an account to sync across devices.</strong></p>'
           }
           <div class="hero-actions">
-            ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button>'}
+            ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button><button class="secondary-button" type="button" data-action="open-login">Sign in</button>'}
             <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
             <button class="secondary-button" type="button" data-action="open-scanner">Scan barcode</button>
             ${state.authToken ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button>` : ''}
