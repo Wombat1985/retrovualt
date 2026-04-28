@@ -400,6 +400,7 @@ const state = {
   importRows: [] as ImportRow[],
   importSourceName: '',
   importDoneCount: 0,
+  ownershipConfirmId: null as string | null,
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -3182,8 +3183,14 @@ function renderSelectedGameModal() {
             </div>
           ` : ''}
           <div class="modal-primary-actions">
-            <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${record.status === 'owned' ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
-            <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
+            ${record.status === 'owned' && state.ownershipConfirmId === game.id ? `
+              <button class="ghost-button" data-action="owned-add-copy" data-id="${safeGameId}" type="button">Add another copy</button>
+              <button class="danger-button" data-action="confirm-remove-owned" data-id="${safeGameId}" type="button">Remove from collection</button>
+              <button class="ghost-button" data-action="cancel-owned-confirm" data-id="${safeGameId}" type="button">Cancel</button>
+            ` : `
+              <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${record.status === 'owned' ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
+              <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
+            `}
             <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
             ${record.status === 'owned' && state.authToken ? `<button class="ghost-button for-trade-btn ${record.forTrade ? 'is-active' : ''}" data-action="toggle-for-trade" data-id="${safeGameId}" type="button">${record.forTrade ? 'For trade ✓' : 'Offer for trade'}</button>` : ''}
           </div>
@@ -5884,18 +5891,35 @@ async function handleAction(element: HTMLElement) {
       }
 
       if (getRecord(id).status === 'owned') {
-        playUnmark()
-        setRecord(id, (record) => ({
-          ...record,
-          status: 'missing',
-          ownedCopies: 1,
-          copies: undefined,
-        }))
+        state.ownershipConfirmId = id
+        render()
       } else {
         state.ownershipPickerGameId = id
         state.selectedGameId = null
         render()
       }
+      break
+    case 'confirm-remove-owned':
+      if (!id) return
+      playUnmark()
+      state.ownershipConfirmId = null
+      setRecord(id, (record) => ({
+        ...record,
+        status: 'missing',
+        ownedCopies: 1,
+        copies: undefined,
+      }))
+      break
+    case 'cancel-owned-confirm':
+      state.ownershipConfirmId = null
+      render()
+      break
+    case 'owned-add-copy':
+      if (!id) return
+      state.ownershipConfirmId = null
+      state.ownershipPickerGameId = id
+      state.selectedGameId = null
+      render()
       break
     case 'confirm-owned': {
       if (!id) {
@@ -6166,10 +6190,12 @@ async function handleAction(element: HTMLElement) {
       }
 
       state.selectedGameId = id
+      state.ownershipConfirmId = null
       render()
       break
     case 'close-details':
       state.selectedGameId = null
+      state.ownershipConfirmId = null
       render()
       break
     case 'open-badges':
