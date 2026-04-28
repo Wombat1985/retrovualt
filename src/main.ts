@@ -40,6 +40,19 @@ type GameStatus = 'missing' | 'wanted' | 'owned'
 type EditionStatus = 'loose' | 'boxed' | 'manual' | 'cib' | 'sealed' | 'graded'
 type ConditionRating = 'mint' | 'excellent' | 'good' | 'fair'
 type AuthView = 'none' | 'register' | 'login' | 'reset' | 'account' | 'confirm-reset'
+type ImportStep = 'none' | 'preview' | 'done'
+type ImportRow = {
+  rawTitle: string
+  rawConsole: string
+  game: CatalogEntry | null
+  confidence: 'exact' | 'fuzzy' | 'none'
+  editionStatus: EditionStatus
+  condition: ConditionRating
+  pricePaid: number | null
+  notes: string
+  dateAcquired: string | null
+  include: boolean
+}
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
@@ -383,6 +396,10 @@ const state = {
   tradeProfileLoading: false,
   tradePromptGameId: null as string | null,
   tradePromptIsDuplicate: false,
+  importStep: 'none' as ImportStep,
+  importRows: [] as ImportRow[],
+  importSourceName: '',
+  importDoneCount: 0,
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -3399,6 +3416,374 @@ function renderViewSummary(filteredGames: CatalogEntry[]) {
   `
 }
 
+// ── Collection Import ─────────────────────────────────────────────────────────
+
+const CONSOLE_ALIASES: Record<string, string> = {
+  // NES
+  'nes': 'NES', 'nintendo entertainment system': 'NES', 'nintendo entertainment system (nes)': 'NES',
+  // Super Nintendo
+  'snes': 'Super Nintendo', 'super nintendo': 'Super Nintendo', 'super nes': 'Super Nintendo',
+  'super nintendo entertainment system': 'Super Nintendo', 'super nintendo entertainment system (snes)': 'Super Nintendo',
+  // Nintendo 64
+  'n64': 'Nintendo 64', 'nintendo 64': 'Nintendo 64', 'nintendo64': 'Nintendo 64',
+  // GameCube
+  'gamecube': 'GameCube', 'nintendo gamecube': 'GameCube', 'gcn': 'GameCube', 'gc': 'GameCube',
+  // Game Boy
+  'gb': 'Game Boy', 'game boy': 'Game Boy', 'nintendo game boy': 'Game Boy',
+  'gameboy': 'Game Boy', 'original game boy': 'Game Boy', 'game boy original': 'Game Boy',
+  // Game Boy Color
+  'gbc': 'Game Boy Color', 'game boy color': 'Game Boy Color', 'nintendo game boy color': 'Game Boy Color', 'gameboy color': 'Game Boy Color',
+  // Game Boy Advance
+  'gba': 'Game Boy Advance', 'game boy advance': 'Game Boy Advance', 'nintendo game boy advance': 'Game Boy Advance',
+  'gameboy advance': 'Game Boy Advance', 'game boy advance sp': 'Game Boy Advance',
+  // Nintendo DS
+  'ds': 'Nintendo DS', 'nds': 'Nintendo DS', 'nintendo ds': 'Nintendo DS',
+  // Famicom
+  'famicom': 'Famicom', 'family computer': 'Famicom', 'fc': 'Famicom', 'nintendo famicom': 'Famicom',
+  // Super Famicom
+  'super famicom': 'Super Famicom', 'sfc': 'Super Famicom',
+  // Sega Genesis / Mega Drive
+  'sega genesis': 'Sega Genesis', 'genesis': 'Sega Genesis', 'mega drive': 'Sega Genesis',
+  'sega mega drive': 'Sega Genesis', 'sega mega drive / genesis': 'Sega Genesis',
+  'megadrive': 'Sega Genesis', 'md': 'Sega Genesis',
+  // Sega Master System
+  'sega master system': 'Sega Master System', 'master system': 'Sega Master System', 'sms': 'Sega Master System',
+  // Sega Saturn
+  'sega saturn': 'Sega Saturn', 'saturn': 'Sega Saturn',
+  // Dreamcast
+  'dreamcast': 'Dreamcast', 'sega dreamcast': 'Dreamcast', 'dc': 'Dreamcast',
+  // Sega CD
+  'sega cd': 'Sega CD', 'mega cd': 'Sega CD', 'sega mega cd': 'Sega CD',
+  // Game Gear
+  'game gear': 'Game Gear', 'sega game gear': 'Game Gear', 'gg': 'Game Gear',
+  // Sega 32X
+  '32x': 'Sega 32X', 'sega 32x': 'Sega 32X', 'mega drive 32x': 'Sega 32X', 'genesis 32x': 'Sega 32X',
+  // TurboGrafx
+  'turbografx-16': 'TurboGrafx-16', 'turbografx 16': 'TurboGrafx-16', 'tg16': 'TurboGrafx-16',
+  'tg-16': 'TurboGrafx-16', 'pc engine': 'TurboGrafx-16', 'pce': 'TurboGrafx-16', 'turbografx': 'TurboGrafx-16',
+  'turbografx cd': 'TurboGrafx CD', 'turbografx-cd': 'TurboGrafx CD',
+  'pc engine cd': 'TurboGrafx CD', 'pc engine cd-rom': 'TurboGrafx CD',
+  // PlayStation
+  'playstation': 'PlayStation', 'sony playstation': 'PlayStation', 'ps1': 'PlayStation',
+  'psx': 'PlayStation', 'playstation 1': 'PlayStation',
+  // PlayStation 2
+  'playstation 2': 'PlayStation 2', 'sony playstation 2': 'PlayStation 2', 'ps2': 'PlayStation 2',
+  // PSP
+  'psp': 'PSP', 'playstation portable': 'PSP', 'sony psp': 'PSP',
+  // Xbox
+  'xbox': 'Xbox', 'microsoft xbox': 'Xbox', 'xbox original': 'Xbox',
+  // Atari
+  'atari 2600': 'Atari 2600', 'atari vcs': 'Atari 2600',
+  'atari 7800': 'Atari 7800',
+  'atari lynx': 'Atari Lynx', 'lynx': 'Atari Lynx',
+  'atari jaguar': 'Jaguar', 'jaguar': 'Jaguar',
+  'jaguar cd': 'Jaguar CD', 'atari jaguar cd': 'Jaguar CD',
+  // Neo Geo
+  'neo geo aes': 'Neo Geo AES', 'neo-geo aes': 'Neo Geo AES', 'neogeo aes': 'Neo Geo AES',
+  'neo geo cd': 'Neo Geo CD', 'neo-geo cd': 'Neo Geo CD',
+  'neo geo mvs': 'Neo Geo MVS',
+  'neo geo pocket color': 'Neo Geo Pocket Color', 'neo-geo pocket color': 'Neo Geo Pocket Color', 'ngpc': 'Neo Geo Pocket Color',
+  // 3DO
+  '3do': '3DO', '3do interactive multiplayer': '3DO', 'panasonic 3do': '3DO',
+  // Others
+  'intellivision': 'Intellivision', 'mattel intellivision': 'Intellivision',
+  'colecovision': 'ColecoVision',
+  'commodore 64': 'Commodore 64', 'c64': 'Commodore 64',
+  'virtual boy': 'Virtual Boy', 'nintendo virtual boy': 'Virtual Boy',
+  'vectrex': 'Vectrex',
+  'wonderswan': 'WonderSwan', 'wonder swan': 'WonderSwan',
+  'wonderswan color': 'WonderSwan Color', 'wonder swan color': 'WonderSwan Color',
+  'amiga': 'Amiga', 'commodore amiga': 'Amiga',
+  'amiga cd32': 'Amiga CD32',
+}
+
+function normalizeImportConsole(raw: string): string | null {
+  const key = raw.toLowerCase().trim().replace(/\s+/g, ' ')
+  return CONSOLE_ALIASES[key] ?? null
+}
+
+function normalizeImportTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^the (.+)$/, '$1 the')
+}
+
+function trigramSimilarity(a: string, b: string): number {
+  if (a === b) return 1
+  if (a.length < 3 || b.length < 3) return a === b ? 1 : 0
+  const getTrigrams = (s: string): Set<string> => {
+    const t = new Set<string>()
+    for (let i = 0; i <= s.length - 3; i++) t.add(s.slice(i, i + 3))
+    return t
+  }
+  const ta = getTrigrams(a)
+  const tb = getTrigrams(b)
+  let intersection = 0
+  for (const t of ta) { if (tb.has(t)) intersection++ }
+  return (2 * intersection) / (ta.size + tb.size)
+}
+
+function findImportMatch(title: string, consoleFilter: string | null): { game: CatalogEntry | null; confidence: 'exact' | 'fuzzy' | 'none' } {
+  const normTitle = normalizeImportTitle(title)
+  if (!normTitle) return { game: null, confidence: 'none' }
+  const pool = consoleFilter
+    ? state.generatedCatalog.filter((g) => g.console === consoleFilter)
+    : state.generatedCatalog
+  if (!pool.length) return { game: null, confidence: 'none' }
+  for (const entry of pool) {
+    if (normalizeImportTitle(entry.title) === normTitle) return { game: entry, confidence: 'exact' }
+  }
+  let bestScore = 0
+  let bestEntry: CatalogEntry | null = null
+  for (const entry of pool) {
+    const score = trigramSimilarity(normTitle, normalizeImportTitle(entry.title))
+    if (score > bestScore) { bestScore = score; bestEntry = entry }
+  }
+  if (bestScore >= 0.72) return { game: bestEntry, confidence: 'fuzzy' }
+  return { game: null, confidence: 'none' }
+}
+
+function mapImportCondition(raw: string): ConditionRating {
+  const n = raw.toLowerCase().trim()
+  if (n.includes('mint') && !n.includes('near')) return 'mint'
+  if (n.includes('near mint') || n.includes('nm') || n.includes('excellent') || n === '9' || n === '10') return 'excellent'
+  if (n.includes('very good') || n.includes('vg') || n.includes('good') || n === '7' || n === '8') return 'good'
+  if (n.includes('fair') || n.includes('poor') || n.includes('bad') || n.includes('acceptable') || n === '4' || n === '5' || n === '6') return 'fair'
+  return 'good'
+}
+
+function mapImportEdition(complete: string): EditionStatus {
+  const n = complete.toLowerCase().trim()
+  if (n === 'true' || n === 'yes' || n === '1' || n === 'cib' || n === 'complete' || n === 'complete in box') return 'cib'
+  if (n === 'sealed' || n === 'new' || n === 'sealed/new') return 'sealed'
+  if (n === 'boxed' || n === 'box' || n === 'box only') return 'boxed'
+  if (n === 'graded') return 'graded'
+  if (n === 'manual' || n === 'cart + manual' || n === 'cartridge + manual') return 'manual'
+  return 'loose'
+}
+
+function parseImportDate(raw: string): string | null {
+  if (!raw?.trim()) return null
+  const iso = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`
+  const slash = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (slash) {
+    const [, m, d, y] = slash
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  return null
+}
+
+function parseCSV(text: string): Record<string, string>[] {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  if (lines.length < 2) return []
+  function parseLine(line: string): string[] {
+    const result: string[] = []
+    let cur = ''
+    let inQ = false
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (ch === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++ } else { inQ = !inQ }
+      } else if (ch === ',' && !inQ) {
+        result.push(cur); cur = ''
+      } else { cur += ch }
+    }
+    result.push(cur)
+    return result
+  }
+  const headers = parseLine(lines[0]).map((h) => h.trim().replace(/^﻿/, ''))
+  const rows: Record<string, string>[] = []
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) continue
+    const vals = parseLine(line)
+    const row: Record<string, string> = {}
+    headers.forEach((h, idx) => { row[h] = vals[idx]?.trim() ?? '' })
+    rows.push(row)
+  }
+  return rows
+}
+
+function findImportCol(headers: string[], candidates: string[]): string | null {
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_\-\.]/g, '')
+  const normHeaders = headers.map(norm)
+  for (const c of candidates) {
+    const idx = normHeaders.indexOf(norm(c))
+    if (idx !== -1) return headers[idx]
+  }
+  return null
+}
+
+function detectImportCols(headers: string[]) {
+  return {
+    title: findImportCol(headers, ['title', 'name', 'game', 'game title', 'game name', 'item name', 'game_title', 'Title', 'Name', 'Game']),
+    console: findImportCol(headers, ['platform', 'console', 'system', 'console/system', 'game system', 'Platform', 'Console', 'System']),
+    complete: findImportCol(headers, ['complete', 'cib', 'complete in box', 'is_complete', 'is complete', 'boxed', 'completeness', 'Complete', 'CIB']),
+    condition: findImportCol(headers, ['condition', 'grade', 'quality', 'game condition', 'Condition']),
+    pricePaid: findImportCol(headers, ['price paid', 'buy price', 'buy_price', 'paid', 'purchase price', 'price', 'cost', 'amount paid']),
+    notes: findImportCol(headers, ['notes', 'note', 'comment', 'comments', 'description', 'memo', 'Notes']),
+    date: findImportCol(headers, ['date added', 'added on', 'added_on', 'purchase date', 'acquired date', 'date acquired', 'date', 'date of purchase', 'dateacquired']),
+  }
+}
+
+async function processImportFile(file: File): Promise<void> {
+  const text = await file.text()
+  let rows: Record<string, string>[]
+  try {
+    rows = parseCSV(text)
+  } catch {
+    window.alert('Could not parse the file. Make sure it is a valid CSV.')
+    return
+  }
+  if (rows.length === 0) {
+    window.alert('The file appears to be empty or has no data rows.')
+    return
+  }
+  const headers = Object.keys(rows[0])
+  const cols = detectImportCols(headers)
+  if (!cols.title) {
+    window.alert('Could not find a Title or Name column. Please check that the file is a valid collection export.')
+    return
+  }
+  const importRows: ImportRow[] = []
+  for (const row of rows) {
+    const rawTitle = (row[cols.title] ?? '').trim()
+    if (!rawTitle) continue
+    const rawConsole = cols.console ? (row[cols.console] ?? '').trim() : ''
+    const catalogConsole = rawConsole ? normalizeImportConsole(rawConsole) : null
+    const completeRaw = cols.complete ? (row[cols.complete] ?? '') : ''
+    const conditionRaw = cols.condition ? (row[cols.condition] ?? '') : ''
+    const priceRaw = cols.pricePaid ? (row[cols.pricePaid] ?? '') : ''
+    const notesRaw = cols.notes ? (row[cols.notes] ?? '') : ''
+    const dateRaw = cols.date ? (row[cols.date] ?? '') : ''
+    const { game, confidence } = findImportMatch(rawTitle, catalogConsole)
+    const priceParsed = parseFloat(priceRaw.replace(/[^0-9.]/g, ''))
+    importRows.push({
+      rawTitle,
+      rawConsole,
+      game,
+      confidence,
+      editionStatus: mapImportEdition(completeRaw),
+      condition: mapImportCondition(conditionRaw),
+      pricePaid: isNaN(priceParsed) ? null : Math.round(priceParsed * 100) / 100,
+      notes: notesRaw.slice(0, 500),
+      dateAcquired: parseImportDate(dateRaw),
+      include: confidence !== 'none',
+    })
+  }
+  if (importRows.length === 0) {
+    window.alert('No games were found in the file.')
+    return
+  }
+  state.importStep = 'preview'
+  state.importRows = importRows
+  state.importSourceName = file.name.replace(/\.(csv|json|xlsx?)$/i, '')
+  render()
+}
+
+function executeImport(): void {
+  const toImport = state.importRows.filter((r) => r.include && r.game)
+  for (const row of toImport) {
+    if (!row.game) continue
+    const { editionStatus, condition, pricePaid, notes, dateAcquired } = row
+    const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
+    state.library[row.game.id] = (() => {
+      const existing = getRecord(row.game!.id)
+      if (existing.status === 'owned') return existing
+      return {
+        ...existing,
+        status: 'owned',
+        editionStatus,
+        completeInBox,
+        condition,
+        pricePaid,
+        notes: notes || existing.notes,
+        dateAcquired: dateAcquired || existing.dateAcquired,
+        ownedCopies: 1,
+        copies: [{ edition: editionStatus, condition, pricePaid, forTrade: false }],
+      } satisfies GameRecord
+    })()
+  }
+  libraryRevision += 1
+  state.cachedCatalogStatsKey = ''
+  state.importDoneCount = toImport.filter((r) => r.game).length
+  state.importStep = 'done'
+  saveLibrary()
+  render()
+}
+
+function renderImportModal(): string {
+  if (state.importStep === 'none') return ''
+  if (state.importStep === 'done') {
+    return `
+      <div class="game-modal-backdrop" data-action="close-import-modal">
+        <section class="import-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+          <button class="modal-close" type="button" data-action="close-import-modal">Close</button>
+          <p class="kicker">Import complete</p>
+          <h2>${state.importDoneCount} game${state.importDoneCount === 1 ? '' : 's'} added to your vault</h2>
+          <p class="auth-helper">Your collection has been updated. Games you already owned were not overwritten.</p>
+          <button class="install-button" type="button" data-action="close-import-modal">Done</button>
+        </section>
+      </div>`
+  }
+  const rows = state.importRows
+  const exact = rows.filter((r) => r.confidence === 'exact').length
+  const fuzzy = rows.filter((r) => r.confidence === 'fuzzy').length
+  const unmatched = rows.filter((r) => r.confidence === 'none').length
+  const selected = rows.filter((r) => r.include && r.game).length
+  const allIncluded = rows.filter((r) => r.game).every((r) => r.include)
+  return `
+    <div class="game-modal-backdrop" data-action="close-import-modal">
+      <section class="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title" onclick="event.stopPropagation()">
+        <button class="modal-close" type="button" data-action="close-import-modal">Close</button>
+        <p class="kicker">Import collection — ${escapeHtml(state.importSourceName)}</p>
+        <h2 id="import-modal-title">Review ${rows.length} game${rows.length === 1 ? '' : 's'}</h2>
+        <div class="import-stats">
+          <span class="import-stat import-stat--exact">${exact} exact</span>
+          <span class="import-stat import-stat--fuzzy">${fuzzy} likely</span>
+          <span class="import-stat import-stat--none">${unmatched} unmatched</span>
+        </div>
+        <p class="auth-helper">Unmatched games are excluded by default. Games you already own won't be overwritten.</p>
+        <div class="import-table-wrap">
+          <table class="import-table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" data-action="import-toggle-all" ${allIncluded ? 'checked' : ''}></th>
+                <th>From your file</th>
+                <th>Matched in vault</th>
+                <th>Edition</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((row, i) => `
+                <tr class="import-row import-row--${row.confidence}${!row.include ? ' import-row--excluded' : ''}">
+                  <td><input type="checkbox" data-action="import-toggle-row" data-index="${i}" ${row.include ? 'checked' : ''}${!row.game ? ' disabled' : ''}></td>
+                  <td>
+                    <span class="import-raw-title">${escapeHtml(row.rawTitle)}</span>
+                    ${row.rawConsole ? `<span class="import-raw-console">${escapeHtml(row.rawConsole)}</span>` : ''}
+                  </td>
+                  <td>
+                    ${row.game
+                      ? `<span class="import-match-title">${escapeHtml(row.game.title)}</span><span class="import-match-console">${escapeHtml(row.game.console)}</span>${row.confidence === 'fuzzy' ? ' <span class="import-badge import-badge--fuzzy">likely</span>' : ''}`
+                      : '<span class="import-no-match">No match found</span>'}
+                  </td>
+                  <td><span class="import-edition-chip">${row.editionStatus}</span></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="import-actions">
+          <button class="install-button" type="button" data-action="execute-import"${selected === 0 ? ' disabled' : ''}>Import ${selected} game${selected === 1 ? '' : 's'}</button>
+          <button class="ghost-button" type="button" data-action="close-import-modal">Cancel</button>
+        </div>
+      </section>
+    </div>`
+}
+
 function renderFiltersSection() {
   return `
     <section class="filters">
@@ -3408,9 +3793,11 @@ function renderFiltersSection() {
       ${renderFilterChip('missing', 'Missing')}
       <button class="secondary-button mobile-only-action" data-action="open-custom-entry" type="button">Add your own game</button>
       <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
+      <button class="secondary-button" data-action="import-collection" type="button">Import collection</button>
       <button class="secondary-button" data-action="import-catalog" type="button">Import JSON catalog</button>
       <button class="secondary-button" data-action="export-catalog" type="button">Export collection</button>
       <input id="catalog-import" type="file" accept=".json,application/json" hidden />
+      <input id="collection-import-input" type="file" accept=".csv,text/csv" hidden />
     </section>
   `
 }
@@ -4833,6 +5220,7 @@ function renderNow() {
       ${renderCustomEntryModal()}
       ${renderBadgesModal()}
       ${renderAuthModal()}
+      ${renderImportModal()}
       ${renderTradePromptToast()}
       ${state.tradeView ? `
         <div class="trade-panel-backdrop" data-action="trade-close"></div>
@@ -5202,6 +5590,12 @@ async function handleFormControlChange(target: HTMLInputElement | HTMLSelectElem
 
   if (target.id === 'catalog-import' && target instanceof HTMLInputElement) {
     await importCatalogFile(target)
+  }
+
+  if (target.id === 'collection-import-input' && target instanceof HTMLInputElement) {
+    const file = target.files?.[0]
+    target.value = ''
+    if (file) await processImportFile(file)
   }
 }
 
@@ -6007,6 +6401,31 @@ async function handleAction(element: HTMLElement) {
     case 'dismiss-onboarding':
       saveOnboardingDismissed()
       render()
+      break
+    case 'import-collection':
+      document.querySelector<HTMLInputElement>('#collection-import-input')?.click()
+      break
+    case 'close-import-modal':
+      state.importStep = 'none'
+      state.importRows = []
+      render()
+      break
+    case 'import-toggle-all': {
+      const allOn = state.importRows.filter((r) => r.game).every((r) => r.include)
+      state.importRows = state.importRows.map((r) => ({ ...r, include: r.game ? !allOn : false }))
+      render()
+      break
+    }
+    case 'import-toggle-row': {
+      const idx = parseInt(element.dataset.index ?? '', 10)
+      if (!isNaN(idx) && state.importRows[idx]) {
+        state.importRows = state.importRows.map((r, i) => i === idx ? { ...r, include: !r.include } : r)
+        render()
+      }
+      break
+    }
+    case 'execute-import':
+      executeImport()
       break
     case 'import-catalog':
       document.querySelector<HTMLInputElement>('#catalog-import')?.click()
