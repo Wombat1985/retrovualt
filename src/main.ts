@@ -45,6 +45,13 @@ type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
 }
 
+type GameCopy = {
+  edition: EditionStatus
+  condition: ConditionRating
+  pricePaid: number | null
+  forTrade: boolean
+}
+
 type GameRecord = {
   status: GameStatus
   completeInBox: boolean
@@ -58,6 +65,7 @@ type GameRecord = {
   dateAcquired: string | null
   acquiredFrom: string
   forTrade?: boolean
+  copies?: GameCopy[]
 }
 
 type ExportEntry = CatalogEntry & {
@@ -374,6 +382,7 @@ const state = {
   tradeProfile: null as TradeProfile | null,
   tradeProfileLoading: false,
   tradePromptGameId: null as string | null,
+  tradePromptIsDuplicate: false,
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -439,6 +448,7 @@ function loadLibrary() {
         const dateAcquired = entry.dateAcquired
         const acquiredFrom = entry.acquiredFrom
         const forTrade = entry.forTrade
+        const rawCopies = entry.copies
 
         if (status !== 'missing' && status !== 'wanted' && status !== 'owned') {
           return []
@@ -460,6 +470,7 @@ function loadLibrary() {
               dateAcquired: typeof dateAcquired === 'string' && dateAcquired ? dateAcquired : null,
               acquiredFrom: typeof acquiredFrom === 'string' ? acquiredFrom.slice(0, 80) : '',
               forTrade: typeof forTrade === 'boolean' ? forTrade : false,
+              copies: Array.isArray(rawCopies) ? rawCopies.map(normalizeCopy).filter((c): c is GameCopy => c !== null) : undefined,
             } satisfies GameRecord,
           ],
         ]
@@ -1386,6 +1397,36 @@ function isConditionRating(value: unknown): value is ConditionRating {
   return conditionOptions.includes(value as ConditionRating)
 }
 
+function normalizeCopy(raw: unknown): GameCopy | null {
+  if (!raw || typeof raw !== 'object') return null
+  const c = raw as Record<string, unknown>
+  return {
+    edition: isEditionStatus(c.edition) ? c.edition : 'loose',
+    condition: isConditionRating(c.condition) ? c.condition : 'good',
+    pricePaid: typeof c.pricePaid === 'number' ? c.pricePaid : null,
+    forTrade: typeof c.forTrade === 'boolean' ? c.forTrade : false,
+  }
+}
+
+function getRecordCopies(record: GameRecord): GameCopy[] {
+  if (record.copies && record.copies.length > 0) return record.copies
+  if (record.status !== 'owned') return []
+  return [{
+    edition: record.editionStatus,
+    condition: record.condition,
+    pricePaid: record.pricePaid,
+    forTrade: record.forTrade ?? false,
+  }]
+}
+
+function getCopiesSummary(record: GameRecord): string {
+  const copies = getRecordCopies(record)
+  if (copies.length <= 1) return ''
+  const counts = new Map<EditionStatus, number>()
+  for (const c of copies) counts.set(c.edition, (counts.get(c.edition) ?? 0) + 1)
+  return [...counts.entries()].map(([ed, n]) => `${n}× ${getEditionLabel(ed)}`).join(', ')
+}
+
 function getCatalog() {
   const key = [
     state.generatedCatalog.length,
@@ -1664,6 +1705,7 @@ function getOwnedValueLabel(game: CatalogEntry) {
 }
 
 function getOwnedCopyCount(record: GameRecord) {
+  if (record.copies && record.copies.length > 0) return record.copies.length
   return record.status === 'owned' ? Math.max(1, Math.min(Math.round(record.ownedCopies || 1), 99)) : 1
 }
 
@@ -2714,6 +2756,8 @@ function normalizeGameRecord(value: unknown): GameRecord {
     notes: typeof record.notes === 'string' ? record.notes : '',
     dateAcquired: typeof record.dateAcquired === 'string' && record.dateAcquired ? record.dateAcquired : null,
     acquiredFrom: typeof record.acquiredFrom === 'string' ? record.acquiredFrom : '',
+    forTrade: typeof record.forTrade === 'boolean' ? record.forTrade : false,
+    copies: Array.isArray(record.copies) ? record.copies.map(normalizeCopy).filter((c): c is GameCopy => c !== null) : undefined,
   }
 }
 
@@ -2751,6 +2795,12 @@ function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: Game
 
   const safeLocalRecord = normalizeGameRecord(localRecord)
 
+  const localCopies = safeLocalRecord.copies
+  const remoteCopies = safeRemoteRecord.copies
+  const mergedCopies = localCopies && remoteCopies
+    ? localCopies.length >= remoteCopies.length ? localCopies : remoteCopies
+    : localCopies ?? remoteCopies
+
   return {
     status: safeLocalRecord.status !== 'missing' ? safeLocalRecord.status : safeRemoteRecord.status,
     completeInBox: safeLocalRecord.completeInBox || safeRemoteRecord.completeInBox,
@@ -2763,6 +2813,8 @@ function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: Game
     notes: safeLocalRecord.notes.trim() ? safeLocalRecord.notes : safeRemoteRecord.notes,
     dateAcquired: safeLocalRecord.dateAcquired ?? safeRemoteRecord.dateAcquired,
     acquiredFrom: safeLocalRecord.acquiredFrom.trim() ? safeLocalRecord.acquiredFrom : safeRemoteRecord.acquiredFrom,
+    forTrade: safeLocalRecord.forTrade || safeRemoteRecord.forTrade,
+    copies: mergedCopies,
   } satisfies GameRecord
 }
 
@@ -3097,9 +3149,21 @@ function renderSelectedGameModal() {
             ${variantSummary ? `<span class="detail-chip">${escapeHtml(variantSummary)}</span>` : ''}
             <span class="detail-chip">${escapeHtml(getOwnedEditionSummary(record))}</span>
             <span class="detail-chip">Shelf score ${getShelfScore(game)}</span>
-            <span class="detail-chip">${getEditionLabel(record.editionStatus)}</span>
+            ${getCopiesSummary(record) ? `<span class="detail-chip detail-chip--copies">${escapeHtml(getCopiesSummary(record))}</span>` : `<span class="detail-chip">${getEditionLabel(record.editionStatus)}</span>`}
             <span class="detail-chip">${getConditionLabel(record.condition)}</span>
           </div>
+          ${record.status === 'owned' && getOwnedCopyCount(record) > 1 ? `
+            <div class="copies-section">
+              <p class="modal-section-label">Copies (${getOwnedCopyCount(record)})</p>
+              <div class="copies-list">
+                ${getRecordCopies(record).map((c, i) => `
+                  <span class="copy-chip">
+                    <span>${escapeHtml(getEditionLabel(c.edition))} · ${escapeHtml(getConditionLabel(c.condition))}${c.forTrade ? ' · For trade' : ''}</span>
+                    <button class="copy-chip__remove" type="button" data-action="remove-copy" data-id="${safeGameId}" data-copy-index="${i}" aria-label="Remove this copy">×</button>
+                  </span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
           <div class="modal-primary-actions">
             <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${record.status === 'owned' ? `Owned: ${escapeHtml(getEditionLabel(record.editionStatus))}` : 'Mark owned'}</button>
             <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
@@ -3160,7 +3224,7 @@ function renderSelectedGameModal() {
             <button class="ghost-button" data-action="set-price-paid" data-id="${safeGameId}" type="button">Set paid</button>
             <button class="ghost-button" data-action="set-target-price" data-id="${safeGameId}" type="button">Set alert</button>
             <button class="ghost-button" data-action="set-edition" data-id="${safeGameId}" type="button">Edition</button>
-            <button class="ghost-button" data-action="set-copies" data-id="${safeGameId}" type="button">Copies ${getOwnedCopyCount(record)}</button>
+            ${record.status === 'owned' ? `<button class="ghost-button" data-action="add-copy" data-id="${safeGameId}" type="button">Add copy</button>` : ''}
             <button class="ghost-button" data-action="set-condition" data-id="${safeGameId}" type="button">Condition</button>
             <button class="ghost-button" data-action="edit-notes" data-id="${safeGameId}" type="button">Notes</button>
             <button class="ghost-button" data-action="set-date-acquired" data-id="${safeGameId}" type="button">Date found</button>
@@ -3494,10 +3558,11 @@ function renderTradePromptToast() {
   if (!gameId) return ''
   const game = getGameById(gameId)
   const title = game?.title ?? gameId
+  const isDuplicate = state.tradePromptIsDuplicate
   return `<div class="trade-prompt-toast">
     <div class="trade-prompt-toast-text">
-      <strong>${escapeHtml(title)}</strong> added to your collection.<br>
-      <span>Would you like to offer it for trade with other collectors?</span>
+      <strong>${escapeHtml(title)}</strong>${isDuplicate ? ' — looks like a duplicate!' : ' added to your collection.'}<br>
+      <span>${isDuplicate ? 'Offer the extra copy for trade with other collectors?' : 'Would you like to offer it for trade with other collectors?'}</span>
     </div>
     <div class="trade-prompt-toast-actions">
       <button class="toggle-button trade-prompt-yes" data-action="trade-prompt-yes" data-id="${escapeHtml(gameId)}" type="button">Yes, offer it</button>
@@ -3561,10 +3626,6 @@ function renderTradeProfile() {
     ${theirOtherForTrade.length ? `
       <h3 class="trade-section-title">Also up for trade (${theirOtherForTrade.length})</h3>
       <div class="trade-profile-game-list">${theirOtherForTrade.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
-
-    ${theirOtherOwned.length ? `
-      <h3 class="trade-section-title">Rest of their collection (${theirOtherOwned.length})</h3>
-      <div class="trade-profile-game-list">${theirOtherOwned.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
 
     ${theirOtherOwned.length ? `
       <h3 class="trade-section-title">Rest of their collection (${theirOtherOwned.length})</h3>
@@ -3810,27 +3871,50 @@ function renderOwnershipPickerModal() {
 
   const completeValue = game.priceComplete === null ? getReferencePrice(game) : game.priceComplete
   const safeGameId = escapeHtml(game.id)
+  const existingRecord = getRecord(game.id)
+  const isAddingCopy = existingRecord.status === 'owned'
+  const copiesSummary = isAddingCopy ? getCopiesSummary(existingRecord) || getEditionLabel(existingRecord.editionStatus) : ''
 
   return `
     <div class="game-modal-backdrop" data-action="close-ownership-picker">
       <section class="ownership-picker" role="dialog" aria-modal="true" aria-labelledby="ownership-picker-title" onclick="event.stopPropagation()">
         <button class="modal-close" type="button" data-action="close-ownership-picker" aria-label="Close ownership picker">Close</button>
-        <p class="kicker">Add to collection</p>
+        <p class="kicker">${isAddingCopy ? 'Add another copy' : 'Add to collection'}</p>
         <h2 id="ownership-picker-title">${escapeHtml(game.title)}</h2>
-        <p class="modal-description">Choose the version you own so Retro Vault uses the right market value for your collection.</p>
-        <div class="ownership-choice-grid">
+        ${isAddingCopy ? `<p class="modal-description">Already have: <strong>${escapeHtml(copiesSummary)}</strong>. Choose the edition of the new copy.</p>` : `<p class="modal-description">Choose the version you own so Retro Vault uses the right market value for your collection.</p>`}
+        <div class="ownership-choice-grid ownership-choice-grid--wide">
           <button class="ownership-choice" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="loose">
-            <span>Loose game</span>
+            <span>Loose</span>
             <strong>${formatPrice(game.priceLoose)}</strong>
             <em>Cart, disc, or card only</em>
           </button>
+          <button class="ownership-choice" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="boxed">
+            <span>Boxed</span>
+            <strong>${formatPrice(game.priceLoose)}</strong>
+            <em>Box + cart, no manual</em>
+          </button>
+          <button class="ownership-choice" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="manual">
+            <span>Cart + manual</span>
+            <strong>${formatPrice(game.priceLoose)}</strong>
+            <em>Cart + manual, no box</em>
+          </button>
           <button class="ownership-choice ownership-choice--premium" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="cib">
-            <span>Complete in box</span>
+            <span>Complete (CiB)</span>
             <strong>${formatPrice(completeValue)}</strong>
-            <em>Box and manual tracked</em>
+            <em>Box, cart, and manual</em>
+          </button>
+          <button class="ownership-choice ownership-choice--premium" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="sealed">
+            <span>Sealed</span>
+            <strong>${formatPrice(completeValue)}</strong>
+            <em>Factory sealed</em>
+          </button>
+          <button class="ownership-choice ownership-choice--premium" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="graded">
+            <span>Graded</span>
+            <strong>${formatPrice(completeValue)}</strong>
+            <em>Professionally graded</em>
           </button>
         </div>
-        <p class="subtle">You can refine this later to boxed, manual, sealed, graded, paid price, notes, and condition from Details.</p>
+        <p class="subtle">You can refine condition, paid price, and notes from the Details panel.</p>
       </section>
     </div>
   `
@@ -5411,6 +5495,7 @@ async function handleAction(element: HTMLElement) {
           ...record,
           status: 'missing',
           ownedCopies: 1,
+          copies: undefined,
         }))
       } else {
         state.ownershipPickerGameId = id
@@ -5625,6 +5710,34 @@ async function handleAction(element: HTMLElement) {
 
       updateOwnedCopies(id)
       break
+    case 'add-copy':
+      if (!id) return
+      state.ownershipPickerGameId = id
+      state.selectedGameId = null
+      render()
+      break
+    case 'remove-copy': {
+      if (!id) return
+      const copyIdx = parseInt(element.dataset.copyIndex ?? '', 10)
+      if (isNaN(copyIdx)) return
+      setRecord(id, (record) => {
+        const copies = getRecordCopies(record)
+        if (copies.length <= 1) return record
+        const next = copies.filter((_, i) => i !== copyIdx)
+        return {
+          ...record,
+          copies: next,
+          ownedCopies: next.length,
+          editionStatus: next[0].edition,
+          completeInBox: next[0].edition === 'cib' || next[0].edition === 'sealed' || next[0].edition === 'graded',
+          condition: next[0].condition,
+          pricePaid: next[0].pricePaid,
+          forTrade: record.forTrade || next.some((c) => c.forTrade),
+        }
+      })
+      render()
+      break
+    }
     case 'set-condition':
       if (!id) {
         return
@@ -5817,8 +5930,10 @@ async function handleAction(element: HTMLElement) {
       if (!gameId || !userId) break
       state.tradeInterestGameId = gameId
       state.tradeInterestUserId = userId
+      state.tradeProfileUserId = null
+      state.tradeProfile = null
       state.tradeSendError = ''
-      render()
+      patchTradePanel()
       break
     }
     case 'trade-interest-cancel':
@@ -6018,26 +6133,43 @@ function recordNewBadgeUnlocks(previousBadgeIds: Set<string>) {
 
 function markGameOwned(id: string, editionStatus: EditionStatus) {
   const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
+  const existing = getRecord(id)
+  const isAddingDuplicate = existing.status === 'owned'
 
   playItemGet()
   state.ownershipPickerGameId = null
   state.justOwnedGameId = id
 
-  setRecord(id, (record) => ({
-    ...record,
-    status: 'owned',
-    editionStatus,
-    completeInBox,
-    ownedCopies: Math.max(1, record.ownedCopies || 1),
-  }))
+  setRecord(id, (record) => {
+    const newCopy: GameCopy = { edition: editionStatus, condition: 'good', pricePaid: null, forTrade: false }
+    if (isAddingDuplicate) {
+      const existingCopies = getRecordCopies(record)
+      const allCopies = [...existingCopies, newCopy]
+      return { ...record, status: 'owned', copies: allCopies, ownedCopies: allCopies.length }
+    }
+    return {
+      ...record,
+      status: 'owned',
+      editionStatus,
+      completeInBox,
+      ownedCopies: 1,
+      copies: [newCopy],
+    }
+  })
 
   window.setTimeout(() => {
     if (state.justOwnedGameId === id) {
       state.justOwnedGameId = null
-      if (state.authToken && !getRecord(id).forTrade) {
-        const hasWanted = Object.values(state.library).some((r) => (r as GameRecord).status === 'wanted')
-        if (hasWanted) {
+      if (state.authToken) {
+        if (isAddingDuplicate) {
           state.tradePromptGameId = id
+          state.tradePromptIsDuplicate = true
+        } else if (!getRecord(id).forTrade) {
+          const hasWanted = Object.values(state.library).some((r) => (r as GameRecord).status === 'wanted')
+          if (hasWanted) {
+            state.tradePromptGameId = id
+            state.tradePromptIsDuplicate = false
+          }
         }
       }
       render()

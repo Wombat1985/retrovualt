@@ -2061,6 +2061,10 @@ a {
   margin: 22px 0 12px;
 }
 
+.ownership-choice-grid--wide {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .ownership-choice {
   display: grid;
   gap: 8px;
@@ -2131,6 +2135,56 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 0.78rem;
   color: var(--muted);
+}
+
+.detail-chip--copies {
+  border-color: rgba(88, 216, 170, 0.3);
+  color: var(--accent);
+}
+
+.copies-section {
+  margin: 12px 0 4px;
+}
+
+.copies-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.copy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 10px 6px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.copy-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.copy-chip__remove:hover {
+  background: rgba(220, 60, 60, 0.35);
+  color: #fff;
 }
 
 .scanner-modal {
@@ -2916,6 +2970,10 @@ a {
 
   .ownership-choice-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ownership-choice-grid--wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ownership-picker {
