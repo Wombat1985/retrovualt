@@ -1437,6 +1437,17 @@ function getRecordCopies(record: GameRecord): GameCopy[] {
   }]
 }
 
+const EDITION_RANK: Record<EditionStatus, number> = {
+  loose: 0, manual: 1, boxed: 2, cib: 3, sealed: 4, graded: 5,
+}
+
+function bestCopyEdition(copies: GameCopy[]): EditionStatus {
+  return copies.reduce<EditionStatus>(
+    (best, c) => (EDITION_RANK[c.edition] > EDITION_RANK[best] ? c.edition : best),
+    'loose',
+  )
+}
+
 function getCopiesSummary(record: GameRecord): string {
   const copies = getRecordCopies(record)
   if (copies.length <= 1) return ''
@@ -2734,13 +2745,14 @@ function getOwnedEditionSummary(record: GameRecord) {
     return getEditionLabel(record.editionStatus)
   }
 
-  const copyText = getOwnedCopyCount(record) > 1 ? ` x${getOwnedCopyCount(record)}` : ''
-
-  if (isCompleteEdition(record)) {
-    return `${getEditionLabel(record.editionStatus)} owned${copyText}`
+  const copies = getRecordCopies(record)
+  if (copies.length > 1) {
+    const counts = new Map<EditionStatus, number>()
+    for (const c of copies) counts.set(c.edition, (counts.get(c.edition) ?? 0) + 1)
+    return [...counts.entries()].map(([ed, n]) => `${n}× ${getEditionLabel(ed)}`).join(', ')
   }
 
-  return `Loose owned${copyText}`
+  return `${getEditionLabel(record.editionStatus)} owned`
 }
 
 function getConditionLabel(condition: ConditionRating) {
@@ -6127,12 +6139,13 @@ async function handleAction(element: HTMLElement) {
         const copies = getRecordCopies(record)
         if (copies.length <= 1) return record
         const next = copies.filter((_, i) => i !== copyIdx)
+        const best = bestCopyEdition(next)
         return {
           ...record,
           copies: next,
           ownedCopies: next.length,
-          editionStatus: next[0].edition,
-          completeInBox: next[0].edition === 'cib' || next[0].edition === 'sealed' || next[0].edition === 'graded',
+          editionStatus: best,
+          completeInBox: best === 'cib' || best === 'sealed' || best === 'graded',
           condition: next[0].condition,
           pricePaid: next[0].pricePaid,
           forTrade: record.forTrade || next.some((c) => c.forTrade),
@@ -6575,7 +6588,15 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
     if (isAddingDuplicate) {
       const existingCopies = getRecordCopies(record)
       const allCopies = [...existingCopies, newCopy]
-      return { ...record, status: 'owned', copies: allCopies, ownedCopies: allCopies.length }
+      const best = bestCopyEdition(allCopies)
+      return {
+        ...record,
+        status: 'owned',
+        copies: allCopies,
+        ownedCopies: allCopies.length,
+        editionStatus: best,
+        completeInBox: best === 'cib' || best === 'sealed' || best === 'graded',
+      }
     }
     return {
       ...record,
