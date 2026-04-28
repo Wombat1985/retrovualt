@@ -5892,6 +5892,7 @@ async function handleAction(element: HTMLElement) {
 
       if (getRecord(id).status === 'owned') {
         state.ownershipConfirmId = id
+        state.selectedGameId = id
         render()
       } else {
         state.ownershipPickerGameId = id
