@@ -293,6 +293,7 @@ a {
   width: clamp(132px, 26vw, 188px);
   height: auto;
   aspect-ratio: 1;
+  border-radius: 50%;
   filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
 }
 

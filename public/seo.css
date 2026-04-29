@@ -68,6 +68,7 @@ a {
   width: 56px;
   height: auto;
   aspect-ratio: 1;
+  border-radius: 50%;
   filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.26));
 }
 
