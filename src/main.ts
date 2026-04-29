@@ -335,6 +335,7 @@ const state = {
   releaseTypeFilter: 'All release types' as ReleaseTypeFilter,
   ownershipFilter: 'all' as OwnershipFilter,
   sortMode: 'title' as SortMode,
+  letterFilter: '',
   visibleGameCount: getInitialVisibleGameCount(),
   currencyCode: loadCurrencyCode(),
   authToken: loadAuthToken(),
@@ -1804,6 +1805,12 @@ function getVisibleGameIncrement() {
   return useCompactCatalogWindow() ? COMPACT_VISIBLE_GAME_INCREMENT : VISIBLE_GAME_INCREMENT
 }
 
+function getAlphaKey(title: string): string {
+  const stripped = title.replace(/^(the|a|an)\s+/i, '').trim()
+  const first = stripped[0]?.toUpperCase() ?? '#'
+  return /[A-Z]/.test(first) ? first : '#'
+}
+
 function getFilteredGames() {
   getCatalog()
   const key = [
@@ -1816,6 +1823,7 @@ function getFilteredGames() {
     state.releaseTypeFilter,
     state.ownershipFilter,
     state.sortMode,
+    state.letterFilter,
   ].join(':')
 
   if (filteredGamesCache && filteredGamesCacheKey === key) {
@@ -1861,6 +1869,10 @@ function getFilteredGames() {
       }
 
       return getRecord(game.id).status === state.ownershipFilter
+    })
+    .filter((game) => {
+      if (!state.letterFilter) return true
+      return getAlphaKey(game.title) === state.letterFilter
     })
     .sort((left, right) => {
       switch (state.sortMode) {
@@ -4097,6 +4109,16 @@ function renderTradeThread() {
     </section>`
 }
 
+const ALPHA_LETTERS = ['#', 'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
+
+function renderAlphabetBar() {
+  const active = state.letterFilter
+  return `<div class="alpha-bar" role="group" aria-label="Filter by first letter">
+    ${ALPHA_LETTERS.map((l) => `<button class="alpha-chip${active === l ? ' is-active' : ''}" data-action="set-letter-filter" data-letter="${l}" type="button" aria-pressed="${active === l}">${l}</button>`).join('')}
+    ${active ? `<button class="alpha-chip alpha-chip--clear" data-action="set-letter-filter" data-letter="" type="button">Clear</button>` : ''}
+  </div>`
+}
+
 function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: CatalogEntry[]) {
   const isShelf = state.viewMode === 'shelf'
   const emptyState = '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
@@ -4118,6 +4140,7 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
           <h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>
         </div>
       </div>
+      ${renderAlphabetBar()}
       ${
         isShelf
           ? renderShelfView(visibleGames)
@@ -6244,6 +6267,11 @@ async function handleAction(element: HTMLElement) {
       state.viewMode = 'shelf'
       renderCatalogOnly()
       break
+    case 'set-letter-filter':
+      state.letterFilter = element.dataset.letter ?? ''
+      state.visibleGameCount = getInitialVisibleGameCount()
+      renderCatalogOnly()
+      break
     case 'trade-open-inbox': {
       state.tradeView = true
       state.tradeThreadId = null
@@ -7808,6 +7836,19 @@ window.addEventListener('pagehide', stopLiveBarcodeScan)
 window.addEventListener('pagehide', stopTradeNotificationPoll)
 
 render()
+
+// Back-to-top button — lives outside #app so it survives innerHTML replacement
+const backToTopEl = document.createElement('button')
+backToTopEl.className = 'back-to-top-btn'
+backToTopEl.setAttribute('type', 'button')
+backToTopEl.setAttribute('aria-label', 'Back to top')
+backToTopEl.innerHTML = '&#8679;'
+document.body.appendChild(backToTopEl)
+backToTopEl.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
+window.addEventListener('scroll', () => {
+  backToTopEl.classList.toggle('is-visible', window.scrollY > 400)
+}, { passive: true })
+
 void loadGeneratedCatalog()   // static files — different server, start immediately
 void initMobileBannerAd()
 startTradeNotificationPoll()

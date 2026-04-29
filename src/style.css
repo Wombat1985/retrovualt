@@ -3441,6 +3441,103 @@ a {
 
 /* ── Trade prompt toast ── */
 
+/* ── Back to top ── */
+
+.back-to-top-btn {
+  position: fixed;
+  bottom: 28px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(20, 28, 42, 0.92);
+  border: 1px solid rgba(241, 201, 95, 0.45);
+  color: #f1c95f;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.22s, transform 0.22s, background 0.15s;
+  pointer-events: none;
+  z-index: 80;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+}
+
+.back-to-top-btn.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.back-to-top-btn:hover {
+  background: rgba(241, 201, 95, 0.18);
+}
+
+/* ── Alphabet bar ── */
+
+.alpha-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 0 14px;
+}
+
+.alpha-chip {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  letter-spacing: 0.04em;
+}
+
+.alpha-chip:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+}
+
+.alpha-chip.is-active {
+  background: rgba(241, 201, 95, 0.18);
+  border-color: rgba(241, 201, 95, 0.5);
+  color: #f1c95f;
+}
+
+.alpha-chip--clear {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+  margin-left: 6px;
+}
+
+.alpha-chip--clear:hover {
+  background: rgba(255, 80, 80, 0.12);
+  border-color: rgba(255, 80, 80, 0.3);
+  color: #ff8080;
+}
+
+@media (max-width: 600px) {
+  .alpha-chip {
+    min-width: 26px;
+    height: 26px;
+    font-size: 0.68rem;
+  }
+
+  .back-to-top-btn {
+    bottom: 72px; /* clear mobile ad banner */
+    right: 14px;
+  }
+}
+
 .for-trade-chip {
   display: inline-block;
   background: rgba(241, 168, 30, 0.18);
