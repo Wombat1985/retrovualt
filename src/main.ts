@@ -7600,7 +7600,9 @@ async function loadGeneratedCatalog() {
       throw new Error(`Catalog request failed: ${response.status}`)
     }
 
-    const parsed = await response.json()
+    const metaText = await response.text()
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    const parsed = JSON.parse(metaText) as unknown
 
     if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { consoles?: unknown }).consoles)) {
       throw new Error('Catalog metadata payload was invalid.')
@@ -7651,7 +7653,10 @@ async function loadGeneratedCatalog() {
           throw new Error(`Full catalog request failed: ${fullCatalogResponse?.status ?? 'unknown'}`)
         }
 
-        const parsedCatalog = await fullCatalogResponse.json()
+        const catalogText = await fullCatalogResponse.text()
+        // Yield to the main thread before the heavy JSON parse so the page stays interactive
+        await new Promise<void>((resolve) => setTimeout(resolve, 0))
+        const parsedCatalog = JSON.parse(catalogText) as unknown[]
 
         if (!Array.isArray(parsedCatalog)) {
           throw new Error('Full catalog payload was not an array.')
@@ -7803,8 +7808,14 @@ window.addEventListener('pagehide', stopLiveBarcodeScan)
 window.addEventListener('pagehide', stopTradeNotificationPoll)
 
 render()
-void trackPageView(Boolean(loadAuthToken()))
-void loadGeneratedCatalog()
-void hydrateAccount()
+void loadGeneratedCatalog()   // static files — different server, start immediately
 void initMobileBannerAd()
 startTradeNotificationPoll()
+
+// Defer backend hits so the page paints before hitting Render (which may be cold-starting)
+if ('requestIdleCallback' in window) {
+  window.requestIdleCallback(() => { void trackPageView(Boolean(loadAuthToken())) })
+} else {
+  setTimeout(() => { void trackPageView(Boolean(loadAuthToken())) }, 3000)
+}
+setTimeout(() => { void hydrateAccount() }, 1500)
