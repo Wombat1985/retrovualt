@@ -5036,22 +5036,7 @@ function renderNow() {
       <header class="hero-panel">
         <div class="hero-copy">
           <a href="/" class="site-logo" aria-label="Retro Vault Elite home">
-            <svg class="site-logo__icon" viewBox="0 0 44 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-              <rect x="3" y="9" width="38" height="27" rx="5" fill="#1e1630" stroke="#f1c95f" stroke-width="2"/>
-              <rect x="8" y="13" width="18" height="10" rx="2" fill="#080f1a"/>
-              <line x1="9" y1="18" x2="25" y2="18" stroke="#5ac8fa" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/>
-              <rect x="5" y="27" width="9" height="3.5" rx="1.5" fill="#fff1c4"/>
-              <rect x="8" y="24" width="3" height="9" rx="1.5" fill="#fff1c4"/>
-              <circle cx="31" cy="28" r="3.5" fill="#ff7a18"/>
-              <circle cx="39" cy="28" r="3.5" fill="#f1c95f"/>
-              <rect x="19" y="32" width="4.5" height="2.5" rx="1.2" fill="#8890a8" opacity="0.75"/>
-              <rect x="25.5" y="32" width="4.5" height="2.5" rx="1.2" fill="#8890a8" opacity="0.75"/>
-              <path d="M13 9 L17 4 L27 4 L31 9" fill="none" stroke="#f1c95f" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
-            </svg>
-            <div class="site-logo__words">
-              <span class="site-logo__name">Retro Vault</span>
-              <span class="site-logo__tag">Elite</span>
-            </div>
+            <img class="site-logo__image" src="/retro-vault-elite-logo.png" alt="Retro Vault Elite" width="320" height="320" decoding="async" fetchpriority="high" />
           </a>
           <h1>Keep up with the collection you have, and the games you still want to find.</h1>
           <p class="hero-text">
