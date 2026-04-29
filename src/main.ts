@@ -9,6 +9,7 @@ import {
   confirmPasswordReset,
   createTradeRequest,
   deleteAccount,
+  deleteTradeMessage,
   getCurrentAccount,
   getTradeMatches,
   getTradeMessages,
@@ -3922,7 +3923,7 @@ function renderTradeInbox() {
       ${state.tradeMatches.length > 0 ? `
         <div class="trade-matches-panel">
           <p class="kicker">Trade Matches</p>
-          <p class="subtle">Other collectors with complementary collections.</p>
+          <p class="subtle">Collectors offering games you want, or wanting games you're trading.</p>
           <div class="trade-match-list">
             ${state.tradeMatches.map((m) => `
               <div class="trade-match-card${m.isMutual ? ' trade-match-card--mutual' : ''}">
@@ -3930,9 +3931,9 @@ function renderTradeInbox() {
                   ${m.isMutual ? '<span class="trade-mutual-badge">Mutual match</span>' : ''}
                   <strong>${escapeHtml(m.displayName)}</strong>
                 </div>
-                ${m.theyHaveWhatIWant.length ? `<p class="subtle">They own ${m.theyHaveWhatIWant.length} game${m.theyHaveWhatIWant.length > 1 ? 's' : ''} you want.</p>` : ''}
-                ${m.iHaveWhatTheyWant.length ? `<p class="subtle">They want ${m.iHaveWhatTheyWant.length} game${m.iHaveWhatTheyWant.length > 1 ? 's' : ''} you own.</p>` : ''}
-                <button class="toggle-button trade-view-profile-btn" data-action="trade-view-profile" data-user-id="${escapeHtml(m.userId)}" type="button">View their collection</button>
+                ${m.theyHaveWhatIWant.length ? `<p class="subtle">Offering ${m.theyHaveWhatIWant.length} game${m.theyHaveWhatIWant.length > 1 ? 's' : ''} for trade that you want.</p>` : ''}
+                ${m.iHaveWhatTheyWant.length ? `<p class="subtle">Wants ${m.iHaveWhatTheyWant.length} game${m.iHaveWhatTheyWant.length > 1 ? 's' : ''} you have for trade.</p>` : ''}
+                <button class="toggle-button trade-view-profile-btn" data-action="trade-view-profile" data-user-id="${escapeHtml(m.userId)}" type="button">View their trade list</button>
               </div>`).join('')}
           </div>
         </div>
@@ -4029,42 +4030,30 @@ function renderTradeProfile() {
       <p class="subtle" style="margin-top:16px">Could not load profile.</p>`
   }
 
-  const myOwned = new Set(catalog.filter((g) => getRecord(g.id).status === 'owned').map((g) => g.id))
   const myForTrade = new Set(catalog.filter((g) => getRecord(g.id).forTrade).map((g) => g.id))
   const myWanted = new Set(catalog.filter((g) => getRecord(g.id).status === 'wanted').map((g) => g.id))
-  const theirForTrade = new Set(profile.forTradeGameIds ?? [])
 
   const theyHaveIWant = profile.forTradeGameIds.filter((id) => myWanted.has(id))
   const iHaveTheyWant = profile.wantedGameIds.filter((id) => myForTrade.has(id))
   const theirOtherForTrade = profile.forTradeGameIds.filter((id) => !myWanted.has(id))
-  const theirOtherOwned = profile.ownedGameIds.filter((id) => !theirForTrade.has(id) && !myWanted.has(id))
-  const theirOtherWanted = profile.wantedGameIds.filter((id) => !myOwned.has(id))
 
   return `<section class="trade-profile-view">
     <button class="trade-back-btn" data-action="trade-back-to-inbox" type="button">&#8592; Back</button>
-    <h2 class="trade-profile-name">${escapeHtml(profile.displayName)}'s Collection</h2>
+    <h2 class="trade-profile-name">${escapeHtml(profile.displayName)}'s Trade List</h2>
 
     ${theyHaveIWant.length ? `
-      <h3 class="trade-section-title trade-section-title--match">Up for trade — you want these (${theyHaveIWant.length})</h3>
+      <h3 class="trade-section-title trade-section-title--match">They're offering — you want these (${theyHaveIWant.length})</h3>
       <div class="trade-profile-game-list">${theyHaveIWant.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
 
     ${iHaveTheyWant.length ? `
-      <h3 class="trade-section-title trade-section-title--match">They want — you have these for trade (${iHaveTheyWant.length})</h3>
+      <h3 class="trade-section-title trade-section-title--match">They want — you're offering these (${iHaveTheyWant.length})</h3>
       <div class="trade-profile-game-list">${iHaveTheyWant.map((id) => gameCard(id, 'wanted')).join('')}</div>` : ''}
 
     ${theirOtherForTrade.length ? `
-      <h3 class="trade-section-title">Also up for trade (${theirOtherForTrade.length})</h3>
+      <h3 class="trade-section-title">Also available to trade (${theirOtherForTrade.length})</h3>
       <div class="trade-profile-game-list">${theirOtherForTrade.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
 
-    ${theirOtherOwned.length ? `
-      <h3 class="trade-section-title">Rest of their collection (${theirOtherOwned.length})</h3>
-      <div class="trade-profile-game-list">${theirOtherOwned.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
-
-    ${theirOtherWanted.length ? `
-      <h3 class="trade-section-title">Rest of their wishlist (${theirOtherWanted.length})</h3>
-      <div class="trade-profile-game-list">${theirOtherWanted.map((id) => gameCard(id, 'wanted')).join('')}</div>` : ''}
-
-    ${!profile.ownedGameIds.length && !profile.wantedGameIds.length ? '<p class="subtle">This collector hasn\'t marked any games yet.</p>' : ''}
+    ${!profile.forTradeGameIds.length ? '<p class="subtle">This collector hasn\'t marked any games for trade yet.</p>' : ''}
   </section>`
 }
 
@@ -4089,7 +4078,10 @@ function renderTradeThread() {
         ${messages.length === 0 ? '<p class="subtle">No messages yet. Say hello!</p>' : ''}
         ${messages.map((m) => `
           <div class="trade-msg${m.isOwn ? ' trade-msg--own' : ''}">
-            <span class="trade-msg-sender">${escapeHtml(m.senderDisplayName)}</span>
+            <div class="trade-msg-header">
+              <span class="trade-msg-sender">${escapeHtml(m.senderDisplayName)}</span>
+              ${m.isOwn ? `<button class="trade-msg-delete" data-action="trade-delete-message" data-id="${escapeHtml(tr.id)}" data-message-id="${escapeHtml(m.id)}" type="button" aria-label="Delete message" title="Delete message">×</button>` : ''}
+            </div>
             <p class="trade-msg-text">${escapeHtml(m.text)}</p>
             <span class="trade-msg-time">${new Date(m.createdAt).toLocaleString()}</span>
           </div>`).join('')}
@@ -6364,6 +6356,23 @@ async function handleAction(element: HTMLElement) {
       } catch (err) {
         state.tradeSendError = err instanceof Error ? err.message : 'Could not send message.'
         render()
+      }
+      break
+    }
+    case 'trade-delete-message': {
+      const messageId = element.dataset.messageId ?? ''
+      if (!id || !messageId || !state.authToken) break
+      try {
+        await deleteTradeMessage(state.authToken, id, messageId)
+        if (state.tradeThread) {
+          state.tradeThread = {
+            ...state.tradeThread,
+            messages: state.tradeThread.messages.filter((m) => m.id !== messageId),
+          }
+        }
+        render()
+      } catch {
+        // swallow — message stays visible if delete fails
       }
       break
     }

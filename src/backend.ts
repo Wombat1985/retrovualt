@@ -260,6 +260,14 @@ export async function sendTradeMessage(token: string, requestId: string, text: s
   )
 }
 
+export async function deleteTradeMessage(token: string, requestId: string, messageId: string) {
+  return request<{ ok: boolean }>(
+    `/trade/requests/${encodeURIComponent(requestId)}/messages/${encodeURIComponent(messageId)}`,
+    { method: 'DELETE' },
+    token,
+  )
+}
+
 export type TradeProfile = {
   userId: string
   displayName: string

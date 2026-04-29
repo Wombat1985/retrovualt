@@ -3957,10 +3957,46 @@ a {
   justify-self: end;
 }
 
+.trade-msg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .trade-msg-sender {
   font-size: 0.75rem;
   color: var(--muted);
   font-weight: 600;
+}
+
+.trade-msg-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.trade-msg:hover .trade-msg-delete {
+  opacity: 1;
+}
+
+.trade-msg-delete:hover {
+  background: rgba(220, 60, 60, 0.3);
+  color: #fff;
+  opacity: 1;
 }
 
 .trade-msg-text {
