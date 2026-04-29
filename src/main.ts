@@ -7842,7 +7842,7 @@ const backToTopEl = document.createElement('button')
 backToTopEl.className = 'back-to-top-btn'
 backToTopEl.setAttribute('type', 'button')
 backToTopEl.setAttribute('aria-label', 'Back to top')
-backToTopEl.innerHTML = '&#8679;'
+backToTopEl.innerHTML = '<span class="back-to-top-label">back to top</span>&#8679;'
 document.body.appendChild(backToTopEl)
 backToTopEl.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
 window.addEventListener('scroll', () => {
