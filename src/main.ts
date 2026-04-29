@@ -247,6 +247,63 @@ const CATALOG_CACHE_SNAPSHOT_KEY = 'all-consoles'
 const CATALOG_CACHE_VERSION = '2026-04-25-v2'
 const COVER_MATCH_MAX_SCOPE = 1500
 const MAX_ACTIVITY_EVENTS = 250
+const LEGENDS_FILTER = 'Legends'
+// Only North American first-party console releases count as Legends
+const LEGENDS_CONSOLES = new Set([
+  'NES', 'Super Nintendo', 'Nintendo 64', 'GameCube', 'Nintendo DS',
+  'Game Boy', 'Game Boy Color', 'Game Boy Advance',
+  'Sega Genesis', 'Sega Master System', 'Sega CD', 'Sega Saturn', 'Dreamcast',
+  'PlayStation', 'PlayStation 2',
+  'Atari 2600', 'Atari 7800', 'TurboGrafx-16', 'TurboGrafx CD',
+  'Neo Geo AES', '3DO',
+])
+const LEGENDS_PATTERNS: readonly string[] = [
+  // Nintendo flagships
+  'super mario', 'legend of zelda', 'metroid', 'donkey kong',
+  'mario kart', 'super smash bros', 'star fox', 'kid icarus',
+  'fire emblem', 'advance wars', 'pikmin', 'earthbound',
+  'paper mario', 'kirby',
+  // NES classics
+  'mega man', 'castlevania', 'contra', 'ninja gaiden', 'battletoads',
+  'double dragon', 'duck hunt', 'excitebike', 'punch-out',
+  'tecmo super bowl', 'galaga', 'pac-man',
+  'space invaders', 'asteroids', 'pitfall', 'breakout',
+  // 3D platformers
+  'crash bandicoot', 'banjo-kazooie', 'banjo-tooie',
+  "conker's bad fur day", 'earthworm jim', 'spyro the dragon',
+  "spyro ripto", 'spyro year of the dragon',
+  // RPGs
+  'final fantasy', 'chrono trigger', 'kingdom hearts',
+  // Sega
+  'sonic the hedgehog', 'sonic adventure', 'sonic cd',
+  'streets of rage', 'golden axe', 'altered beast',
+  'shenmue', 'crazy taxi', 'jet set radio', 'skies of arcadia',
+  // Fighting
+  'street fighter', 'mortal kombat', 'tekken', 'soulcalibur',
+  'soul blade', 'soul calibur', 'marvel vs capcom',
+  // Action / shooters
+  '007 goldeneye', 'perfect dark', 'metal gear solid',
+  "tony hawk's pro skater", 'tomb raider',
+  // Horror
+  'resident evil', 'silent hill',
+  // Racing
+  'gran turismo', 'f-zero', 'diddy kong racing',
+  // Open world
+  'grand theft auto san andreas', 'grand theft auto vice city',
+  'grand theft auto iii',
+  // Action
+  'god of war', 'devil may cry',
+  // Artistic
+  'ico', 'shadow of the colossus',
+  // Portable icons
+  'pokemon red', 'pokemon blue', 'pokemon yellow',
+  'pokemon gold', 'pokemon silver', 'pokemon crystal',
+  'pokemon ruby', 'pokemon sapphire', 'pokemon emerald',
+  'pokemon firered', 'pokemon leafgreen',
+  "link's awakening", 'metroid fusion', 'metroid ii',
+  // Key GameCube
+  "luigi's mansion", 'tetris',
+]
 const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
 const INITIAL_VISIBLE_GAME_COUNT = 96
@@ -329,7 +386,7 @@ const currencyOptions = [
 
 const state = {
   search: '',
-  consoleFilter: 'All consoles',
+  consoleFilter: LEGENDS_FILTER,
   regionFilter: 'All regions',
   yearFilter: 'All years',
   releaseTypeFilter: 'All release types' as ReleaseTypeFilter,
@@ -1141,7 +1198,7 @@ async function writeCoverHash(cacheKey: string, hash: string) {
 
 function getCoverScanScopeGames() {
   const scopeGames = getCatalog().filter((game) => {
-    if (state.consoleFilter !== 'All consoles' && game.console !== state.consoleFilter) {
+    if (state.consoleFilter !== 'All consoles' && state.consoleFilter !== LEGENDS_FILTER && game.console !== state.consoleFilter) {
       return false
     }
 
@@ -1462,7 +1519,7 @@ function getConsoles() {
     .filter((entry) => state.regionFilter === 'All regions' || entry.region === state.regionFilter)
     .map((entry) => entry.console)
 
-  return ['All consoles', ...[...new Set([...metaNames, ...customNames])]]
+  return [LEGENDS_FILTER, 'All consoles', ...[...new Set([...metaNames, ...customNames])]]
 }
 
 function getReleaseTypeOptions() {
@@ -1505,6 +1562,7 @@ function getConsoleMeta(consoleName: string) {
 }
 
 function getConsoleOptionLabel(consoleName: string) {
+  if (consoleName === LEGENDS_FILTER) return '★ Legends'
   if (consoleName === 'All consoles') {
     const total = state.catalogMeta.reduce((sum, entry) => sum + entry.count, 0)
     return total ? `All consoles (${total.toLocaleString()})` : consoleName
@@ -1584,7 +1642,7 @@ function getBarcodeSearchMatches() {
 
   const query = state.barcodeSearch.trim()
   const catalog = getCatalog().filter((game) => {
-    if (state.consoleFilter !== 'All consoles' && game.console !== state.consoleFilter) {
+    if (state.consoleFilter !== 'All consoles' && state.consoleFilter !== LEGENDS_FILTER && game.console !== state.consoleFilter) {
       return false
     }
 
@@ -1596,7 +1654,7 @@ function getBarcodeSearchMatches() {
   })
 
   if (!query) {
-    if (state.consoleFilter === 'All consoles' && state.regionFilter === 'All regions') {
+    if ((state.consoleFilter === 'All consoles' || state.consoleFilter === LEGENDS_FILTER) && state.regionFilter === 'All regions') {
       return []
     }
 
@@ -1775,6 +1833,12 @@ function getAlphaKey(title: string): string {
   return /[A-Z]/.test(first) ? first : '#'
 }
 
+function isLegendGame(game: CatalogEntry): boolean {
+  if (!LEGENDS_CONSOLES.has(game.console)) return false
+  const t = game.title.toLowerCase()
+  return LEGENDS_PATTERNS.some((p) => t.includes(p))
+}
+
 function getFilteredGames() {
   getCatalog()
   const key = [
@@ -1798,7 +1862,9 @@ function getFilteredGames() {
   const activeCatalog =
     state.consoleFilter === 'All consoles'
       ? getCatalog()
-      : getCatalog().filter((game) => game.console === state.consoleFilter)
+      : state.consoleFilter === LEGENDS_FILTER
+        ? getCatalog().filter(isLegendGame)
+        : getCatalog().filter((game) => game.console === state.consoleFilter)
 
   filteredGamesCache = activeCatalog
     .filter((game) => state.regionFilter === 'All regions' || game.region === state.regionFilter)
@@ -3357,7 +3423,7 @@ function renderOnboardingPanel() {
 function renderControlSummary(resultCount: number, visibleCount: number) {
   const activeFilters = [
     state.regionFilter !== 'All regions' ? getRegionOptionLabel(state.regionFilter) : '',
-    state.consoleFilter !== 'All consoles' ? getConsoleOptionLabel(state.consoleFilter) : '',
+    state.consoleFilter !== 'All consoles' && state.consoleFilter !== LEGENDS_FILTER ? getConsoleOptionLabel(state.consoleFilter) : '',
     state.yearFilter !== 'All years' ? `Release year ${state.yearFilter}` : '',
     state.releaseTypeFilter !== 'All release types' ? state.releaseTypeFilter : '',
     state.ownershipFilter !== 'all' ? state.ownershipFilter : '',
@@ -4095,7 +4161,7 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
       <div class="section-heading">
         <div>
           <div class="catalog-kicker-row">
-            <p class="kicker">Collection ${isShelf ? 'shelf' : 'grid'}</p>
+            <p class="kicker">${state.consoleFilter === LEGENDS_FILTER ? '★ Legends' : `Collection ${isShelf ? 'shelf' : 'grid'}`}</p>
             <div class="view-toggle-group">
               <button class="view-toggle-btn${!isShelf ? ' is-active' : ''}" data-action="view-grid" type="button" aria-label="Grid view" title="Grid view">
                 <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
@@ -4105,7 +4171,9 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
               </button>
             </div>
           </div>
-          <h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>
+          ${state.consoleFilter === LEGENDS_FILTER
+            ? `<h2>The games everyone knows</h2><p class="legends-sub">The must-haves, the grails, the ones that made you a collector. Switch to <em>All consoles</em> to see everything.</p>`
+            : `<h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>`}
         </div>
       </div>
       ${renderAlphabetBar()}
@@ -7734,7 +7802,7 @@ async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad
     return
   }
 
-  if (consoleName === 'All consoles') {
+  if (consoleName === 'All consoles' || consoleName === LEGENDS_FILTER) {
     await ensureAllConsoleCatalogsLoaded(rerenderAfterLoad)
     return
   }

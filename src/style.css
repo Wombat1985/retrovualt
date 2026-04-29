@@ -3474,6 +3474,21 @@ a {
   white-space: nowrap;
 }
 
+/* ── Legends view ── */
+
+.legends-sub {
+  margin: 4px 0 0;
+  color: #9baabf;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  max-width: 52ch;
+}
+
+.legends-sub em {
+  color: #f1c95f;
+  font-style: normal;
+}
+
 /* ── Alphabet bar ── */
 
 .alpha-bar {
