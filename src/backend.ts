@@ -251,6 +251,14 @@ export async function respondToTradeRequest(token: string, requestId: string, st
   )
 }
 
+export async function deleteTradeRequest(token: string, requestId: string) {
+  return request<{ ok: boolean }>(
+    `/trade/requests/${encodeURIComponent(requestId)}`,
+    { method: 'DELETE' },
+    token,
+  )
+}
+
 export async function getTradeMessages(token: string, requestId: string) {
   return request<{ tradeRequest: TradeRequest; otherUser: { id: string; displayName: string }; messages: TradeMessage[] }>(
     `/trade/requests/${encodeURIComponent(requestId)}/messages`,

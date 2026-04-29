@@ -1524,6 +1524,29 @@ const server = createServer(async (request, response) => {
       return
     }
 
+    if (request.method === 'DELETE' && url.pathname.match(/^\/trade\/requests\/[^/]+$/)) {
+      const user = await getSessionUser(request, db)
+      if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const requestId = url.pathname.slice('/trade/requests/'.length)
+      const tradeRequestIndex = (db.tradeRequests ?? []).findIndex(r => r.id === requestId)
+      if (tradeRequestIndex === -1) { json(request, response, 404, { error: 'Trade request not found.' }); return }
+
+      const tradeRequest = db.tradeRequests[tradeRequestIndex]
+      if (tradeRequest.fromUserId !== user.id && tradeRequest.toUserId !== user.id) {
+        json(request, response, 403, { error: 'Not part of this trade.' }); return
+      }
+
+      db.tradeRequests.splice(tradeRequestIndex, 1)
+      if (db.messages) {
+        db.messages = db.messages.filter(m => m.tradeRequestId !== requestId)
+      }
+
+      await saveDb(db, { required: true })
+      json(request, response, 200, { ok: true })
+      return
+    }
+
     // ── Trade: get messages ─────────────────────────────────
     if (request.method === 'GET' && url.pathname.match(/^\/trade\/requests\/[^/]+\/messages$/)) {
       const user = await getSessionUser(request, db)
@@ -1650,3 +1673,4 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+

@@ -9,6 +9,7 @@ import {
   confirmPasswordReset,
   createTradeRequest,
   deleteAccount,
+  deleteTradeRequest,
   deleteTradeMessage,
   getCurrentAccount,
   getTradeMatches,
@@ -3879,6 +3880,7 @@ function renderTradeInbox() {
           ${r.status === 'accepted' ? `
             <button class="toggle-button" data-action="trade-open-thread" data-id="${escapeHtml(r.id)}" type="button">${r.unreadCount ? `View messages (${r.unreadCount} new)` : 'View messages'}</button>
           ` : ''}
+          <button class="ghost-button trade-delete-request-btn" data-action="trade-delete-request" data-id="${escapeHtml(r.id)}" type="button">Delete</button>
         </div>
       </div>`
   }
@@ -6359,6 +6361,26 @@ async function handleAction(element: HTMLElement) {
         render()
       } catch (err) {
         state.tradeSendError = err instanceof Error ? err.message : 'Could not delete message.'
+        render()
+      }
+      break
+    }
+    case 'trade-delete-request': {
+      if (!id || !state.authToken) break
+      const confirmed = window.confirm('Delete this trade request and its messages?')
+      if (!confirmed) break
+      try {
+        await deleteTradeRequest(state.authToken, id)
+        state.tradeRequests = state.tradeRequests.filter((request) => request.id !== id)
+        state.tradeUnread = state.tradeRequests.reduce((total, request) => total + (request.unreadCount ?? 0), 0)
+        state.tradePending = state.tradeRequests.filter((request) => request.isIncoming && request.status === 'pending').length
+        if (state.tradeThreadId === id) {
+          state.tradeThreadId = null
+          state.tradeThread = null
+        }
+        render()
+      } catch (err) {
+        state.tradeSendError = err instanceof Error ? err.message : 'Could not delete trade request.'
         render()
       }
       break

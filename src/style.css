@@ -3994,6 +3994,10 @@ a {
   flex-wrap: wrap;
 }
 
+.trade-delete-request-btn {
+  margin-left: auto;
+}
+
 .trade-compose {
   background: rgba(11, 20, 31, 0.8);
   border: 1px solid rgba(241, 201, 95, 0.2);
