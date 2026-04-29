@@ -7669,10 +7669,26 @@ async function ensureRegionCatalogsLoaded(regionName: string) {
   await ensureConsoleBatchLoaded(consoles, true)
 }
 
+const POPULAR_CONSOLE_ORDER = [
+  'NES', 'Super Nintendo', 'Game Boy', 'Sega Genesis',
+  'Game Boy Advance', 'Nintendo 64', 'PlayStation', 'PlayStation 2',
+  'Game Boy Color', 'Dreamcast', 'Nintendo DS', 'Sega Saturn',
+  'Atari 2600', 'Sega Master System', 'PSP', 'GameCube',
+]
+
 async function ensureAllConsoleCatalogsLoaded(rerenderAfterBatch: boolean) {
   const remaining = state.catalogMeta
     .map((entry) => entry.console)
     .filter((consoleName) => !state.loadedConsoles.includes(consoleName))
+
+  remaining.sort((a, b) => {
+    const ai = POPULAR_CONSOLE_ORDER.indexOf(a)
+    const bi = POPULAR_CONSOLE_ORDER.indexOf(b)
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return 0
+  })
 
   await ensureConsoleBatchLoaded(remaining, rerenderAfterBatch)
 }
