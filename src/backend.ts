@@ -45,10 +45,13 @@ export type AuthPayload = {
 
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   let response: Response
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const timeout = controller ? window.setTimeout(() => controller.abort(), 12000) : 0
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
+      signal: init.signal ?? controller?.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -57,6 +60,10 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
     })
   } catch {
     throw new Error('Could not reach Retro Vault sync. Please check your connection and try again.')
+  } finally {
+    if (timeout) {
+      window.clearTimeout(timeout)
+    }
   }
 
   const parsed = (await response.json().catch(() => ({}))) as { error?: string }

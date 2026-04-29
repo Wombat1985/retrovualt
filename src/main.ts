@@ -6225,23 +6225,29 @@ async function handleAction(element: HTMLElement) {
       state.tradeThreadId = null
       state.tradeThread = null
       state.tradeSendError = ''
+      state.tradeMatches = []
       render()
       if (state.authToken) {
         state.tradeInboxLoading = true
         patchTradePanel()
         try {
-          const [inboxResult, matchResult] = await Promise.all([
-            getTradeRequests(state.authToken),
-            getTradeMatches(state.authToken),
-          ])
+          const inboxResult = await getTradeRequests(state.authToken)
           state.tradeRequests = inboxResult.requests
           state.tradeUnread = inboxResult.unreadCount
           state.tradePending = inboxResult.pendingCount ?? 0
-          state.tradeMatches = matchResult.matches
         } catch {
           // show empty state
         } finally {
           state.tradeInboxLoading = false
+          patchTradePanel()
+        }
+
+        try {
+          const matchResult = await getTradeMatches(state.authToken)
+          state.tradeMatches = matchResult.matches
+        } catch {
+          state.tradeMatches = []
+        } finally {
           patchTradePanel()
         }
       }
