@@ -60,11 +60,15 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: var(--accent-2);
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
   text-decoration: none;
+}
+
+.brand__logo {
+  display: block;
+  width: 56px;
+  height: auto;
+  aspect-ratio: 1;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.26));
 }
 
 .nav-links {

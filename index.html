@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="canonical" href="https://www.retrovaultelite.com/" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -49,17 +50,29 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "name": "Retro Vault Elite",
+            "url": "https://www.retrovaultelite.com/",
+            "logo": "https://www.retrovaultelite.com/icon-512.png",
+            "image": "https://www.retrovaultelite.com/icon-512.png"
+          },
+          {
         "@type": "SoftwareApplication",
         "name": "Retro Vault Elite",
         "applicationCategory": "LifestyleApplication",
         "operatingSystem": "Web, iOS, Android, Windows, macOS",
         "url": "https://www.retrovaultelite.com/",
         "description": "Retro Vault Elite is a retro game collection tracker for keeping up with what you own, what you still want, what you paid, and how your shelves are growing.",
+        "image": "https://www.retrovaultelite.com/icon-512.png",
         "offers": {
           "@type": "Offer",
           "price": "0",
           "priceCurrency": "USD"
         }
+          }
+        ]
       }
     </script>
     <script

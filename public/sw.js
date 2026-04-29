@@ -1,5 +1,5 @@
-const CACHE_NAME = 'retro-vault-elite-v3'
-const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/retro-vault-icon.svg']
+const CACHE_NAME = 'retro-vault-elite-v4'
+const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/retro-vault-elite-logo.png', '/favicon-32.png', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)))
