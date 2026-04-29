@@ -3998,6 +3998,42 @@ a {
   margin-left: auto;
 }
 
+.trade-thread-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.trade-thread-meta .subtle {
+  margin: 0;
+  flex: 1;
+}
+
+.trade-delete-full-btn {
+  color: var(--danger);
+  border-color: rgba(255, 143, 143, 0.3);
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  flex-shrink: 0;
+}
+
+.trade-delete-full-btn:hover {
+  background: rgba(255, 143, 143, 0.1);
+  border-color: rgba(255, 143, 143, 0.5);
+}
+
+.trade-status-inline {
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+}
+
+.trade-status-inline--pending { color: #ffd66e; }
+.trade-status-inline--accepted { color: var(--good); }
+.trade-status-inline--declined { color: var(--danger); }
+
 .trade-compose {
   background: rgba(11, 20, 31, 0.8);
   border: 1px solid rgba(241, 201, 95, 0.2);

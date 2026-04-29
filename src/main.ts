@@ -3870,7 +3870,7 @@ function renderTradeInbox() {
           <span class="trade-req-dir">${dir}</span>
           ${r.unreadCount ? `<span class="trade-unread-badge">${r.unreadCount} new</span>` : ''}
         </div>
-        <p class="trade-req-game">Game: <code>${escapeHtml(r.gameId)}</code></p>
+        <p class="trade-req-game">${escapeHtml(getGameById(r.gameId)?.title ?? r.gameId)}</p>
         ${r.note ? `<p class="trade-req-note">${escapeHtml(r.note)}</p>` : ''}
         <div class="trade-req-actions">
           ${r.status === 'pending' && r.isIncoming ? `
@@ -4048,7 +4048,10 @@ function renderTradeThread() {
         </div>
         <button class="ghost-button" data-action="trade-back-to-inbox" type="button">← Back to inbox</button>
       </div>
-      <p class="subtle">Game: <code>${escapeHtml(tr.gameId)}</code> &middot; Status: ${tr.status}</p>
+      <div class="trade-thread-meta">
+        <p class="subtle">${escapeHtml(getGameById(tr.gameId)?.title ?? tr.gameId)} &middot; <span class="trade-status-inline trade-status-inline--${tr.status}">${tr.status}</span></p>
+        <button class="trade-delete-full-btn ghost-button" data-action="trade-delete-request" data-id="${escapeHtml(tr.id)}" type="button">Delete trade</button>
+      </div>
       <p class="subtle trade-privacy-note">Never share your email, phone, or address here. Arrange trades safely.</p>
 
       <div class="trade-messages">
