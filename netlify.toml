@@ -1,3 +1,15 @@
 [build]
   command = "npm install && npm run build"
   publish = "dist"
+
+# Meta file: short cache so clients notice catalog updates within an hour
+[[headers]]
+  for = "/catalogs/retro-catalog-meta.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+# Individual console catalogs: cache for a week (IndexedDB handles freshness)
+[[headers]]
+  for = "/catalogs/catalog-*.json"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"

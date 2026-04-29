@@ -244,7 +244,6 @@ const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
 const CATALOG_CACHE_SNAPSHOT_KEY = 'all-consoles'
 const CATALOG_CACHE_VERSION = '2026-04-25-v2'
-const LITE_CATALOG_PATH = '/catalogs/retro-catalog-lite.json'
 const COVER_MATCH_MAX_SCOPE = 1500
 const MAX_ACTIVITY_EVENTS = 250
 const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
@@ -882,42 +881,6 @@ function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
     releaseType: normalizeReleaseType(entry.releaseType),
     variantLabel: typeof entry.variantLabel === 'string' && entry.variantLabel.trim() ? entry.variantLabel.trim() : undefined,
   } satisfies CatalogEntry
-}
-
-function normalizeLiteCatalogEntry(value: unknown): CatalogEntry | null {
-  if (!Array.isArray(value) || value.length < 12) {
-    return null
-  }
-
-  const [
-    id,
-    title,
-    consoleName,
-    year,
-    region,
-    coverUrl,
-    priceLoose,
-    priceComplete,
-    priceSourceUrl,
-    coverSourceUrl,
-    trendDelta,
-    rarity,
-  ] = value
-
-  return normalizeCatalogEntry({
-    id,
-    title,
-    console: consoleName,
-    year,
-    region,
-    coverUrl,
-    priceLoose,
-    priceComplete,
-    priceSourceUrl,
-    coverSourceUrl,
-    trendDelta,
-    rarity,
-  })
 }
 
 function normalizeExternalUrl(value: string) {
@@ -7619,10 +7582,7 @@ async function loadGeneratedCatalog() {
   }
 
   try {
-    const metaResponsePromise = fetch('/catalogs/retro-catalog-meta.json')
-    const fullCatalogResponsePromise =
-      state.consoleFilter === 'All consoles' ? fetch(LITE_CATALOG_PATH).catch(() => null) : null
-    const response = await metaResponsePromise
+    const response = await fetch('/catalogs/retro-catalog-meta.json')
 
     if (!response.ok) {
       throw new Error(`Catalog request failed: ${response.status}`)
@@ -7673,33 +7633,7 @@ async function loadGeneratedCatalog() {
 
     state.catalogMeta = parsedMeta
 
-    if (state.consoleFilter === 'All consoles' && !hasCompleteWarmCatalog) {
-      try {
-        const fullCatalogResponse = await fullCatalogResponsePromise
-
-        if (!fullCatalogResponse?.ok) {
-          throw new Error(`Full catalog request failed: ${fullCatalogResponse?.status ?? 'unknown'}`)
-        }
-
-        const catalogText = await fullCatalogResponse.text()
-        // Yield to the main thread before the heavy JSON parse so the page stays interactive
-        await new Promise<void>((resolve) => setTimeout(resolve, 0))
-        const parsedCatalog = JSON.parse(catalogText) as unknown[]
-
-        if (!Array.isArray(parsedCatalog)) {
-          throw new Error('Full catalog payload was not an array.')
-        }
-
-        state.generatedCatalog = parsedCatalog.map(normalizeLiteCatalogEntry).filter(isCatalogEntry)
-        state.loadedConsoles = parsedMeta.map((entry) => entry.console)
-        invalidateCatalogCache()
-      } catch {
-        state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
-        state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
-        invalidateCatalogCache()
-        await ensureConsoleCatalogLoaded(state.consoleFilter)
-      }
-    } else if (!hasCompleteWarmCatalog) {
+    if (!hasCompleteWarmCatalog) {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
       invalidateCatalogCache()

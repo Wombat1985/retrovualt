@@ -1,0 +1,1282 @@
+[
+  {
+    "id": "famicom-1943",
+    "title": "1943"
+  },
+  {
+    "id": "famicom-1999-hore",
+    "title": "1999: Hore"
+  },
+  {
+    "id": "famicom-2010-street-fighter",
+    "title": "2010 Street Fighter"
+  },
+  {
+    "id": "famicom-8bit-music-power",
+    "title": "8bit Music Power"
+  },
+  {
+    "id": "famicom-abadox",
+    "title": "Abadox"
+  },
+  {
+    "id": "famicom-advanced-dungeons-&amp;-dragons-dragons-of-flame",
+    "title": "Advanced Dungeons & Dragons: Dragons of Flame"
+  },
+  {
+    "id": "famicom-advanced-dungeons-&amp;-dragons-heroes-of-the-lance",
+    "title": "Advanced Dungeons & Dragons Heroes of the Lance"
+  },
+  {
+    "id": "famicom-advanced-dungeons-&amp;-dragons-hillsfar",
+    "title": "Advanced Dungeons & Dragons: Hillsfar"
+  },
+  {
+    "id": "famicom-advanced-dungeons-&amp;-dragons-pool-of-radiance",
+    "title": "Advanced Dungeons & Dragons: Pool of Radiance"
+  },
+  {
+    "id": "famicom-aerobics-studio",
+    "title": "Aerobics Studio"
+  },
+  {
+    "id": "famicom-aighina-no-yogen",
+    "title": "Aighina no Yogen"
+  },
+  {
+    "id": "famicom-akuma-kun",
+    "title": "Akuma Kun"
+  },
+  {
+    "id": "famicom-akumajou-special",
+    "title": "Akumajou Special"
+  },
+  {
+    "id": "famicom-altered-beast",
+    "title": "Altered Beast"
+  },
+  {
+    "id": "famicom-america-oudan-ultra-quiz",
+    "title": "America Oudan Ultra Quiz"
+  },
+  {
+    "id": "famicom-american-football",
+    "title": "American Football"
+  },
+  {
+    "id": "famicom-antarctic-adventure",
+    "title": "Antarctic Adventure"
+  },
+  {
+    "id": "famicom-aoki-ohkami-to-shiroki-mejika",
+    "title": "Aoki Ohkami to Shiroki Mejika"
+  },
+  {
+    "id": "famicom-arctic",
+    "title": "Arctic"
+  },
+  {
+    "id": "famicom-argos-no-senshi",
+    "title": "Argos no Senshi"
+  },
+  {
+    "id": "famicom-astro-fang",
+    "title": "Astro Fang"
+  },
+  {
+    "id": "famicom-astro-ninja-man-dx",
+    "title": "Astro Ninja Man DX"
+  },
+  {
+    "id": "famicom-athletic-world",
+    "title": "Athletic World"
+  },
+  {
+    "id": "famicom-av-pachi-slot-big-chance",
+    "title": "AV Pachi Slot: Big Chance"
+  },
+  {
+    "id": "famicom-av-poker",
+    "title": "AV Poker"
+  },
+  {
+    "id": "famicom-baken-hisshou-gaku",
+    "title": "Baken Hisshou Gaku"
+  },
+  {
+    "id": "famicom-bard%27s-tale",
+    "title": "Bard's Tale"
+  },
+  {
+    "id": "famicom-bard%27s-tale-ii",
+    "title": "Bard's Tale II"
+  },
+  {
+    "id": "famicom-baseball-star",
+    "title": "Baseball Star"
+  },
+  {
+    "id": "famicom-batsu-&amp;-terii",
+    "title": "Batsu & Terii"
+  },
+  {
+    "id": "famicom-battle-stadium",
+    "title": "Battle Stadium"
+  },
+  {
+    "id": "famicom-be-bop-high-school",
+    "title": "Be-Bop High School"
+  },
+  {
+    "id": "famicom-best-play-baseball-%2790",
+    "title": "Best Play Baseball '90"
+  },
+  {
+    "id": "famicom-best-play-baseball-special",
+    "title": "Best Play Baseball Special"
+  },
+  {
+    "id": "famicom-best-play-pro-baseball-yakyuu",
+    "title": "Best Play Pro Baseball Yakyuu"
+  },
+  {
+    "id": "famicom-best-play-pro-baseball-yakyuu-ii",
+    "title": "Best Play Pro Baseball Yakyuu II"
+  },
+  {
+    "id": "famicom-bikkuri-nekketsu-shinkiroku",
+    "title": "Bikkuri Nekketsu Shinkiroku"
+  },
+  {
+    "id": "famicom-bikkuriman-world",
+    "title": "Bikkuriman World"
+  },
+  {
+    "id": "famicom-bio-senshi-dan",
+    "title": "Bio Senshi Dan"
+  },
+  {
+    "id": "famicom-black-bass",
+    "title": "Black Bass"
+  },
+  {
+    "id": "famicom-bloody-warriors",
+    "title": "Bloody Warriors"
+  },
+  {
+    "id": "famicom-blue-train-murder-case",
+    "title": "Blue Train Murder Case"
+  },
+  {
+    "id": "famicom-captain-tsubasa-ii",
+    "title": "Captain Tsubasa II"
+  },
+  {
+    "id": "famicom-chester-field",
+    "title": "Chester Field"
+  },
+  {
+    "id": "famicom-chibi-maruko-chan",
+    "title": "Chibi Maruko-chan"
+  },
+  {
+    "id": "famicom-chiisana-obake",
+    "title": "Chiisana Obake"
+  },
+  {
+    "id": "famicom-chiki-chiki-machine",
+    "title": "Chiki Chiki Machine"
+  },
+  {
+    "id": "famicom-chip-and-dale-rescue-rangers",
+    "title": "Chip and Dale Rescue Rangers"
+  },
+  {
+    "id": "famicom-chip-and-dale-rescue-rangers-2",
+    "title": "Chip and Dale Rescue Rangers 2"
+  },
+  {
+    "id": "famicom-chou-jinrou-senki",
+    "title": "Chou Jinrou Senki"
+  },
+  {
+    "id": "famicom-city-adventure-touch",
+    "title": "City Adventure Touch"
+  },
+  {
+    "id": "famicom-columbus",
+    "title": "Columbus"
+  },
+  {
+    "id": "famicom-crayon-shin-chan",
+    "title": "Crayon Shin-chan"
+  },
+  {
+    "id": "famicom-cycle-race-roadman",
+    "title": "Cycle Race Roadman"
+  },
+  {
+    "id": "famicom-dai-kaijuu",
+    "title": "Dai Kaijuu"
+  },
+  {
+    "id": "famicom-dai-meiro",
+    "title": "Dai Meiro"
+  },
+  {
+    "id": "famicom-daiku-no-gen-san-2",
+    "title": "Daiku no Gen-san 2"
+  },
+  {
+    "id": "famicom-daiva",
+    "title": "Daiva"
+  },
+  {
+    "id": "famicom-deep-dungeon-iii",
+    "title": "Deep Dungeon III"
+  },
+  {
+    "id": "famicom-deep-dungeon-iv",
+    "title": "Deep Dungeon IV"
+  },
+  {
+    "id": "famicom-deja-vu",
+    "title": "Deja Vu"
+  },
+  {
+    "id": "famicom-densetsu-no-kishi",
+    "title": "Densetsu no Kishi"
+  },
+  {
+    "id": "famicom-derby-stallion",
+    "title": "Derby Stallion"
+  },
+  {
+    "id": "famicom-dezaemon",
+    "title": "Dezaemon"
+  },
+  {
+    "id": "famicom-doki-doki-yuuenchi",
+    "title": "Doki Doki Yuuenchi"
+  },
+  {
+    "id": "famicom-donkey-kong-jr-&amp;-jr-math-lesson",
+    "title": "Donkey Kong Jr & Jr Math Lesson"
+  },
+  {
+    "id": "famicom-dora-dora-dora",
+    "title": "Dora Dora Dora"
+  },
+  {
+    "id": "famicom-doraemon-giga-zombie",
+    "title": "Doraemon: Giga Zombie"
+  },
+  {
+    "id": "famicom-double-dragon-ii",
+    "title": "Double Dragon II"
+  },
+  {
+    "id": "famicom-double-dragon-iii",
+    "title": "Double Dragon III"
+  },
+  {
+    "id": "famicom-downtown-nekketsu-koushinkyoku",
+    "title": "Downtown Nekketsu Koushinkyoku"
+  },
+  {
+    "id": "famicom-downtown-special",
+    "title": "Downtown Special"
+  },
+  {
+    "id": "famicom-dr-jekyll-and-mr-hyde",
+    "title": "Dr. Jekyll and Mr. Hyde"
+  },
+  {
+    "id": "famicom-dragon-ball-z-gaiden",
+    "title": "Dragon Ball Z Gaiden"
+  },
+  {
+    "id": "famicom-dragon-ball-z-gekitou-tenkaichi-budoukai",
+    "title": "Dragon Ball Z: Gekitou Tenkaichi Budoukai"
+  },
+  {
+    "id": "famicom-dragon-ball-z-ii",
+    "title": "Dragon Ball Z II"
+  },
+  {
+    "id": "famicom-dragon-ball-z-iii",
+    "title": "Dragon Ball Z III"
+  },
+  {
+    "id": "famicom-dragon-buster-ii",
+    "title": "Dragon Buster II"
+  },
+  {
+    "id": "famicom-dragon-quest-ii",
+    "title": "Dragon Quest II"
+  },
+  {
+    "id": "famicom-dragon-quest-iii",
+    "title": "Dragon Quest III"
+  },
+  {
+    "id": "famicom-dragon-quest-iv",
+    "title": "Dragon Quest IV"
+  },
+  {
+    "id": "famicom-dragon-slayer-iv",
+    "title": "Dragon Slayer IV"
+  },
+  {
+    "id": "famicom-dragon-spirit",
+    "title": "Dragon Spirit"
+  },
+  {
+    "id": "famicom-duck-tales",
+    "title": "Duck Tales"
+  },
+  {
+    "id": "famicom-dungeon-&amp;-magic",
+    "title": "Dungeon & Magic"
+  },
+  {
+    "id": "famicom-eggerland",
+    "title": "Eggerland"
+  },
+  {
+    "id": "famicom-esper-dream-2",
+    "title": "Esper Dream 2"
+  },
+  {
+    "id": "famicom-famicom-jump",
+    "title": "Famicom Jump"
+  },
+  {
+    "id": "famicom-famicom-jump-ii",
+    "title": "Famicom Jump II"
+  },
+  {
+    "id": "famicom-family-mahjong-ii",
+    "title": "Family Mahjong II"
+  },
+  {
+    "id": "famicom-family-quiz",
+    "title": "Family Quiz"
+  },
+  {
+    "id": "famicom-famista-%2789",
+    "title": "Famista '89"
+  },
+  {
+    "id": "famicom-fantasy-zone-ii",
+    "title": "Fantasy Zone II"
+  },
+  {
+    "id": "famicom-faria",
+    "title": "Faria"
+  },
+  {
+    "id": "famicom-fc-genjin",
+    "title": "FC Genjin"
+  },
+  {
+    "id": "famicom-flipull",
+    "title": "Flipull"
+  },
+  {
+    "id": "famicom-ganbare-goemon-gaiden",
+    "title": "Ganbare Goemon Gaiden"
+  },
+  {
+    "id": "famicom-ganbare-goemon-gaiden-2",
+    "title": "Ganbare Goemon Gaiden 2"
+  },
+  {
+    "id": "famicom-gegege-no-kitarou",
+    "title": "GeGeGe no Kitarou"
+  },
+  {
+    "id": "famicom-gegege-no-kitarou-2",
+    "title": "GeGeGe no Kitarou 2"
+  },
+  {
+    "id": "famicom-genpei-touma-den",
+    "title": "Genpei Touma Den"
+  },
+  {
+    "id": "famicom-gimme-a-break-shijou-saikyou-no-quiz-ou-ketteisen",
+    "title": "Gimme a Break: Shijou Saikyou no Quiz Ou Ketteisen"
+  },
+  {
+    "id": "famicom-gimme-a-break-shijou-saikyou-no-quiz-ou-ketteisen-2",
+    "title": "Gimme a Break: Shijou Saikyou no Quiz Ou Ketteisen 2"
+  },
+  {
+    "id": "famicom-god-slayer",
+    "title": "God Slayer"
+  },
+  {
+    "id": "famicom-golf-%2792",
+    "title": "Golf '92"
+  },
+  {
+    "id": "famicom-golgo-13-dai-1-shou",
+    "title": "Golgo 13: Dai 1 Shou"
+  },
+  {
+    "id": "famicom-golgo-13-dai-2-shou",
+    "title": "Golgo 13: Dai 2 Shou"
+  },
+  {
+    "id": "famicom-goonies",
+    "title": "Goonies"
+  },
+  {
+    "id": "famicom-goonies-2",
+    "title": "Goonies 2"
+  },
+  {
+    "id": "famicom-gozonji",
+    "title": "Gozonji"
+  },
+  {
+    "id": "famicom-gremlins-2",
+    "title": "Gremlins 2"
+  },
+  {
+    "id": "famicom-gun-hed",
+    "title": "Gun Hed"
+  },
+  {
+    "id": "famicom-gyro",
+    "title": "Gyro"
+  },
+  {
+    "id": "famicom-gyuwanburaa-jikochuushinha-2",
+    "title": "Gyuwanburaa Jikochuushinha 2"
+  },
+  {
+    "id": "famicom-herakles-no-eikou",
+    "title": "Herakles no Eikou"
+  },
+  {
+    "id": "famicom-herakles-no-eikou-ii",
+    "title": "Herakles no Eikou II"
+  },
+  {
+    "id": "famicom-higemaru-makaijima",
+    "title": "Higemaru Makaijima"
+  },
+  {
+    "id": "famicom-hino-tori",
+    "title": "Hino Tori"
+  },
+  {
+    "id": "famicom-hiryuu-no-ken-ii",
+    "title": "Hiryuu no Ken II"
+  },
+  {
+    "id": "famicom-hiryuu-no-ken-iii",
+    "title": "Hiryuu no Ken III"
+  },
+  {
+    "id": "famicom-hitler-no-fukkatsu",
+    "title": "Hitler no Fukkatsu"
+  },
+  {
+    "id": "famicom-hokkaidou-rensa-satsujin",
+    "title": "Hokkaidou Rensa Satsujin"
+  },
+  {
+    "id": "famicom-hokuto-no-ken-2",
+    "title": "Hokuto no Ken 2"
+  },
+  {
+    "id": "famicom-hokuto-no-ken-3",
+    "title": "Hokuto no Ken 3"
+  },
+  {
+    "id": "famicom-hokuto-no-ken-4",
+    "title": "Hokuto no Ken 4"
+  },
+  {
+    "id": "famicom-home-run-nighter-%2790",
+    "title": "Home Run Nighter '90"
+  },
+  {
+    "id": "famicom-hon-shougi",
+    "title": "Hon Shougi"
+  },
+  {
+    "id": "famicom-hono-no-tokyuji-dodge-danpei",
+    "title": "Hono no Tokyuji: Dodge Danpei"
+  },
+  {
+    "id": "famicom-hono-no-tokyuji-dodge-danpei-2",
+    "title": "Hono no Tokyuji: Dodge Danpei 2"
+  },
+  {
+    "id": "famicom-hoshi-no-kirby",
+    "title": "Hoshi no Kirby"
+  },
+  {
+    "id": "famicom-hottaman-no-chitei-tanken",
+    "title": "Hottaman no Chitei Tanken"
+  },
+  {
+    "id": "famicom-hotter-man-no-chitei-tanken",
+    "title": "Hotter Man no Chitei Tanken"
+  },
+  {
+    "id": "famicom-hydlide-3",
+    "title": "Hydlide 3"
+  },
+  {
+    "id": "famicom-hyokkori-hyoutanjima",
+    "title": "Hyokkori Hyoutanjima"
+  },
+  {
+    "id": "famicom-idol-shisen-mahjong",
+    "title": "Idol Shisen Mahjong"
+  },
+  {
+    "id": "famicom-ikari-ii",
+    "title": "Ikari II"
+  },
+  {
+    "id": "famicom-ikari-iii",
+    "title": "Ikari III"
+  },
+  {
+    "id": "famicom-ike-ike-nekketsu-hockey-bu",
+    "title": "Ike Ike Nekketsu Hockey-bu"
+  },
+  {
+    "id": "famicom-itadaki-street",
+    "title": "Itadaki Street"
+  },
+  {
+    "id": "famicom-j-league-fighting-soccer",
+    "title": "J League Fighting Soccer"
+  },
+  {
+    "id": "famicom-jajamaru-gekimaden",
+    "title": "Jajamaru Gekimaden"
+  },
+  {
+    "id": "famicom-jarinko-chie",
+    "title": "Jarinko Chie"
+  },
+  {
+    "id": "famicom-jesus",
+    "title": "Jesus"
+  },
+  {
+    "id": "famicom-jikuu-yuuden",
+    "title": "Jikuu Yuuden"
+  },
+  {
+    "id": "famicom-jj",
+    "title": "JJ"
+  },
+  {
+    "id": "famicom-jogging-race",
+    "title": "Jogging Race"
+  },
+  {
+    "id": "famicom-jra-pat",
+    "title": "JRA-PAT"
+  },
+  {
+    "id": "famicom-jumbo-ozaki-hole-in-one-professional-golf",
+    "title": "Jumbo Ozaki Hole in One Professional Golf"
+  },
+  {
+    "id": "famicom-jumpin%27-kid",
+    "title": "Jumpin' Kid"
+  },
+  {
+    "id": "famicom-kabushiki-doujou",
+    "title": "Kabushiki Doujou"
+  },
+  {
+    "id": "famicom-kaettekita-gunjin-shougi",
+    "title": "Kaettekita Gunjin Shougi"
+  },
+  {
+    "id": "famicom-kage",
+    "title": "Kage"
+  },
+  {
+    "id": "famicom-kaiketsu-yanchamaru-2",
+    "title": "Kaiketsu Yanchamaru 2"
+  },
+  {
+    "id": "famicom-kaiketsu-yanchamaru-3",
+    "title": "Kaiketsu Yanchamaru 3"
+  },
+  {
+    "id": "famicom-kakefu-kun-no-jump-tengoku",
+    "title": "Kakefu-kun no Jump Tengoku"
+  },
+  {
+    "id": "famicom-kame-no-ongaeshi",
+    "title": "Kame no Ongaeshi"
+  },
+  {
+    "id": "famicom-kamen-rider-club",
+    "title": "Kamen Rider Club"
+  },
+  {
+    "id": "famicom-kamen-rider-sd",
+    "title": "Kamen Rider SD"
+  },
+  {
+    "id": "famicom-karakuri-kengouden",
+    "title": "Karakuri Kengouden"
+  },
+  {
+    "id": "famicom-karaoke-studio",
+    "title": "Karaoke Studio"
+  },
+  {
+    "id": "famicom-katte-ni-shirokuma",
+    "title": "Katte ni Shirokuma"
+  },
+  {
+    "id": "famicom-keiba-simulation",
+    "title": "Keiba Simulation"
+  },
+  {
+    "id": "famicom-keisan-game-sansuu-1-nen",
+    "title": "Keisan Game: Sansuu 1 Nen"
+  },
+  {
+    "id": "famicom-keisan-game-sansuu-2-nen",
+    "title": "Keisan Game: Sansuu 2 Nen"
+  },
+  {
+    "id": "famicom-keisan-game-sansuu-3-nen",
+    "title": "Keisan Game: Sansuu 3 Nen"
+  },
+  {
+    "id": "famicom-keisan-game-sansuu-4-nen",
+    "title": "Keisan Game: Sansuu 4 Nen"
+  },
+  {
+    "id": "famicom-keisan-game-sansuu-5-6-nen",
+    "title": "Keisan Game: Sansuu 5-6 Nen"
+  },
+  {
+    "id": "famicom-kero-kero-keroppi-no-daibouken-2",
+    "title": "Kero Kero Keroppi no Daibouken 2"
+  },
+  {
+    "id": "famicom-kick-challenger-air-foot",
+    "title": "Kick Challenger: Air Foot"
+  },
+  {
+    "id": "famicom-kidou-senshi-z-gundam",
+    "title": "Kidou Senshi Z Gundam"
+  },
+  {
+    "id": "famicom-king-kong-2",
+    "title": "King Kong 2"
+  },
+  {
+    "id": "famicom-kinnikuman",
+    "title": "Kinnikuman"
+  },
+  {
+    "id": "famicom-kira-kira-star-night-dx",
+    "title": "Kira Kira Star Night DX"
+  },
+  {
+    "id": "famicom-knightmare-2-the-maze-of-galious",
+    "title": "Knightmare 2 The Maze of Galious"
+  },
+  {
+    "id": "famicom-kouryu-densetsu-villgust-gaiden",
+    "title": "Kouryu Densetsu Villgust Gaiden"
+  },
+  {
+    "id": "famicom-kyukyoku-harikiri-stadium-%2788",
+    "title": "Kyukyoku Harikiri Stadium '88"
+  },
+  {
+    "id": "famicom-little-mermaid",
+    "title": "Little Mermaid"
+  },
+  {
+    "id": "famicom-lupin-the-3rd-pandora-no-isan",
+    "title": "Lupin the 3rd: Pandora no Isan"
+  },
+  {
+    "id": "famicom-magical-taruruuto-kun",
+    "title": "Magical Taruruuto-kun"
+  },
+  {
+    "id": "famicom-magical-taruruuto-kun-2",
+    "title": "Magical Taruruuto-kun 2"
+  },
+  {
+    "id": "famicom-magnum-kiki-ippatsu",
+    "title": "Magnum Kiki Ippatsu"
+  },
+  {
+    "id": "famicom-mahjong-club",
+    "title": "Mahjong Club"
+  },
+  {
+    "id": "famicom-mahou-no-princess-minky-momo",
+    "title": "Mahou no Princess Minky Momo"
+  },
+  {
+    "id": "famicom-majou-densetsu-ii",
+    "title": "Majou Densetsu II"
+  },
+  {
+    "id": "famicom-manhattan-police",
+    "title": "Manhattan Police"
+  },
+  {
+    "id": "famicom-masuzoe-youichi",
+    "title": "Masuzoe Youichi"
+  },
+  {
+    "id": "famicom-matsumoto-toru-no-kabushiki-hissyougaku",
+    "title": "Matsumoto Toru no Kabushiki Hissyougaku"
+  },
+  {
+    "id": "famicom-matsumoto-toru-no-kabushiki-hissyougaku-2",
+    "title": "Matsumoto Toru no Kabushiki Hissyougaku 2"
+  },
+  {
+    "id": "famicom-max-warrior",
+    "title": "Max Warrior"
+  },
+  {
+    "id": "famicom-megami-tensei",
+    "title": "Megami Tensei"
+  },
+  {
+    "id": "famicom-megami-tensei-ii",
+    "title": "Megami Tensei II"
+  },
+  {
+    "id": "famicom-meijin-sen",
+    "title": "Meijin Sen"
+  },
+  {
+    "id": "famicom-meikyuu-kumikyoku",
+    "title": "Meikyuu Kumikyoku"
+  },
+  {
+    "id": "famicom-meimon-takonishi-ouendan",
+    "title": "Meimon Takonishi Ouendan"
+  },
+  {
+    "id": "famicom-meiro-daisakusen",
+    "title": "Meiro Daisakusen"
+  },
+  {
+    "id": "famicom-meta-fight",
+    "title": "Meta Fight"
+  },
+  {
+    "id": "famicom-metal-storm",
+    "title": "Metal Storm"
+  },
+  {
+    "id": "famicom-mezase-pachi",
+    "title": "Mezase Pachi"
+  },
+  {
+    "id": "famicom-mezase-top-pro",
+    "title": "Mezase Top Pro"
+  },
+  {
+    "id": "famicom-mickey-mouse-iii",
+    "title": "Mickey Mouse III"
+  },
+  {
+    "id": "famicom-might-and-magic",
+    "title": "Might and Magic"
+  },
+  {
+    "id": "famicom-million-dollar-kid",
+    "title": "Million Dollar Kid"
+  },
+  {
+    "id": "famicom-minelvaton-saga",
+    "title": "Minelvaton Saga"
+  },
+  {
+    "id": "famicom-mito-koumon-ii",
+    "title": "Mito Koumon II"
+  },
+  {
+    "id": "famicom-moe-pro-%2790",
+    "title": "Moe Pro '90"
+  },
+  {
+    "id": "famicom-moero-junior-basketball",
+    "title": "Moero Junior Basketball"
+  },
+  {
+    "id": "famicom-moero-pro-yakyuu-%2788",
+    "title": "Moero Pro Yakyuu '88"
+  },
+  {
+    "id": "famicom-moero-twinbee",
+    "title": "Moero Twinbee"
+  },
+  {
+    "id": "famicom-money-game",
+    "title": "Money Game"
+  },
+  {
+    "id": "famicom-monster-maker",
+    "title": "Monster Maker"
+  },
+  {
+    "id": "famicom-moulin-rouge-senki",
+    "title": "Moulin Rouge Senki"
+  },
+  {
+    "id": "famicom-murder-on-the-mississippi",
+    "title": "Murder on the Mississippi"
+  },
+  {
+    "id": "famicom-musashi-no-ken",
+    "title": "Musashi no Ken"
+  },
+  {
+    "id": "famicom-my-life-my-love",
+    "title": "My Life My Love"
+  },
+  {
+    "id": "famicom-nagagutsu-o-haita-neko",
+    "title": "Nagagutsu o Haita Neko"
+  },
+  {
+    "id": "famicom-nakajima-satoru-f-1-hero-2",
+    "title": "Nakajima Satoru F-1 Hero 2"
+  },
+  {
+    "id": "famicom-namcot-mahjong-iii",
+    "title": "Namcot Mahjong III"
+  },
+  {
+    "id": "famicom-nekketsu-koukou-dodgeball-bu-kunio-kun-soccer",
+    "title": "Nekketsu Koukou Dodgeball Bu Kunio Kun Soccer"
+  },
+  {
+    "id": "famicom-nekketsu-street-basket",
+    "title": "Nekketsu Street Basket"
+  },
+  {
+    "id": "famicom-nichibutsu-mahjong-iii",
+    "title": "Nichibutsu Mahjong III"
+  },
+  {
+    "id": "famicom-niji-no-silk-road",
+    "title": "Niji no Silk Road"
+  },
+  {
+    "id": "famicom-ninja-hattori-kun",
+    "title": "Ninja Hattori-kun"
+  },
+  {
+    "id": "famicom-ninja-ryukenden-ii",
+    "title": "Ninja Ryukenden II"
+  },
+  {
+    "id": "famicom-ninja-ryukenden-iii",
+    "title": "Ninja Ryukenden III"
+  },
+  {
+    "id": "famicom-obake-no-q-tarou",
+    "title": "Obake no Q Tarou"
+  },
+  {
+    "id": "famicom-oeka-kids-anpanman-no-hiragana-daisuki",
+    "title": "Oeka Kids: Anpanman no Hiragana Daisuki"
+  },
+  {
+    "id": "famicom-olympus-no-tatakai",
+    "title": "Olympus no Tatakai"
+  },
+  {
+    "id": "famicom-otaku-no-seiza",
+    "title": "Otaku no Seiza"
+  },
+  {
+    "id": "famicom-pachi-slot-adventure-2",
+    "title": "Pachi Slot Adventure 2"
+  },
+  {
+    "id": "famicom-pachi-slot-adventure-3",
+    "title": "Pachi Slot Adventure 3"
+  },
+  {
+    "id": "famicom-palamedes-ii",
+    "title": "Palamedes II"
+  },
+  {
+    "id": "famicom-parman",
+    "title": "Parman"
+  },
+  {
+    "id": "famicom-parman-part-2",
+    "title": "Parman Part 2"
+  },
+  {
+    "id": "famicom-photon",
+    "title": "Photon"
+  },
+  {
+    "id": "famicom-pico-pico-grand-adventure",
+    "title": "Pico Pico Grand Adventure"
+  },
+  {
+    "id": "famicom-pocket-zaurus",
+    "title": "Pocket Zaurus"
+  },
+  {
+    "id": "famicom-punch-out-gold",
+    "title": "Punch-Out Gold"
+  },
+  {
+    "id": "famicom-quest-of-ki",
+    "title": "Quest of Ki"
+  },
+  {
+    "id": "famicom-racer-mini-yonku",
+    "title": "Racer Mini Yonku"
+  },
+  {
+    "id": "famicom-radia-senki",
+    "title": "Radia Senki"
+  },
+  {
+    "id": "famicom-rainbow-islands",
+    "title": "Rainbow Islands"
+  },
+  {
+    "id": "famicom-renju-gomoku-narabe",
+    "title": "Renju Gomoku Narabe"
+  },
+  {
+    "id": "famicom-robot-block",
+    "title": "Robot Block"
+  },
+  {
+    "id": "famicom-rock-board",
+    "title": "Rock Board"
+  },
+  {
+    "id": "famicom-rockman-2",
+    "title": "RockMan 2"
+  },
+  {
+    "id": "famicom-rockman-3",
+    "title": "RockMan 3"
+  },
+  {
+    "id": "famicom-rockman-4",
+    "title": "RockMan 4"
+  },
+  {
+    "id": "famicom-rockman-5",
+    "title": "RockMan 5"
+  },
+  {
+    "id": "famicom-rockman-6",
+    "title": "RockMan 6"
+  },
+  {
+    "id": "famicom-rod-land",
+    "title": "Rod-Land"
+  },
+  {
+    "id": "famicom-rpg-jinsei-game",
+    "title": "RPG Jinsei Game"
+  },
+  {
+    "id": "famicom-running-stadium",
+    "title": "Running Stadium"
+  },
+  {
+    "id": "famicom-rush-up",
+    "title": "Rush Up"
+  },
+  {
+    "id": "famicom-saiyuuki-world-2",
+    "title": "Saiyuuki World 2"
+  },
+  {
+    "id": "famicom-sakigake-otoko-juku",
+    "title": "Sakigake Otoko Juku"
+  },
+  {
+    "id": "famicom-samurai-pizza-cats",
+    "title": "Samurai Pizza Cats"
+  },
+  {
+    "id": "famicom-sansara-naga",
+    "title": "Sansara Naga"
+  },
+  {
+    "id": "famicom-satoru-nakajima",
+    "title": "Satoru Nakajima"
+  },
+  {
+    "id": "famicom-satsui-no-kaisou",
+    "title": "Satsui no Kaisou"
+  },
+  {
+    "id": "famicom-sd-battle-oozumou",
+    "title": "SD Battle Oozumou"
+  },
+  {
+    "id": "famicom-sd-gundam-gachapon-senshi-2",
+    "title": "SD Gundam Gachapon Senshi 2"
+  },
+  {
+    "id": "famicom-sd-gundam-gachapon-senshi-3",
+    "title": "SD Gundam Gachapon Senshi 3"
+  },
+  {
+    "id": "famicom-sd-gundam-gachapon-senshi-4",
+    "title": "SD Gundam Gachapon Senshi 4"
+  },
+  {
+    "id": "famicom-sd-gundam-gachapon-senshi-5",
+    "title": "SD Gundam Gachapon Senshi 5"
+  },
+  {
+    "id": "famicom-sd-gundam-gaiden-knight-gundam-monogatari-3",
+    "title": "SD Gundam Gaiden: Knight Gundam Monogatari 3"
+  },
+  {
+    "id": "famicom-sd-gundam-gundam-wars",
+    "title": "SD Gundam: Gundam Wars"
+  },
+  {
+    "id": "famicom-seiryaku-simulation",
+    "title": "Seiryaku Simulation"
+  },
+  {
+    "id": "famicom-sherlock-holmes",
+    "title": "Sherlock Holmes"
+  },
+  {
+    "id": "famicom-sherlock-holmes-kiri-no-london",
+    "title": "Sherlock Holmes Kiri No London"
+  },
+  {
+    "id": "famicom-shikinjyo",
+    "title": "Shikinjyo"
+  },
+  {
+    "id": "famicom-shin-4-nin-uchi-mahjong",
+    "title": "Shin 4 Nin Uchi Mahjong"
+  },
+  {
+    "id": "famicom-shin-satomi-hakkenden",
+    "title": "Shin Satomi Hakkenden"
+  },
+  {
+    "id": "famicom-shounen-ashibe",
+    "title": "Shounen Ashibe"
+  },
+  {
+    "id": "famicom-soap-panic",
+    "title": "Soap Panic"
+  },
+  {
+    "id": "famicom-solomon-no-kagi-2",
+    "title": "Solomon no Kagi 2"
+  },
+  {
+    "id": "famicom-soreike-anpanman",
+    "title": "Soreike Anpanman"
+  },
+  {
+    "id": "famicom-space-shadow",
+    "title": "Space Shadow"
+  },
+  {
+    "id": "famicom-spelunker-ii",
+    "title": "Spelunker II"
+  },
+  {
+    "id": "famicom-splatterhouse",
+    "title": "Splatterhouse"
+  },
+  {
+    "id": "famicom-stick-hunter",
+    "title": "Stick Hunter"
+  },
+  {
+    "id": "famicom-sugoro-quest",
+    "title": "Sugoro Quest"
+  },
+  {
+    "id": "famicom-suikoden",
+    "title": "Suikoden"
+  },
+  {
+    "id": "famicom-super-chinese-2",
+    "title": "Super Chinese 2"
+  },
+  {
+    "id": "famicom-super-contra",
+    "title": "Super Contra"
+  },
+  {
+    "id": "famicom-super-express-satsujin-jiken",
+    "title": "Super Express Satsujin Jiken"
+  },
+  {
+    "id": "famicom-super-xevious",
+    "title": "Super Xevious"
+  },
+  {
+    "id": "famicom-taito-grand-prix",
+    "title": "Taito Grand Prix"
+  },
+  {
+    "id": "famicom-taiyou-no-shinden",
+    "title": "Taiyou no Shinden"
+  },
+  {
+    "id": "famicom-tatakae-ramen-man",
+    "title": "Tatakae Ramen Man"
+  },
+  {
+    "id": "famicom-tenchi-wo-kurau",
+    "title": "Tenchi wo Kurau"
+  },
+  {
+    "id": "famicom-tenchi-wo-kurau-ii",
+    "title": "Tenchi wo Kurau II"
+  },
+  {
+    "id": "famicom-tiny-toon-adventures-2",
+    "title": "Tiny Toon Adventures 2"
+  },
+  {
+    "id": "famicom-tom-sawyer",
+    "title": "Tom Sawyer"
+  },
+  {
+    "id": "famicom-totsugeki-fuun-takeshijou-2",
+    "title": "Totsugeki Fuun Takeshijou 2"
+  },
+  {
+    "id": "famicom-transformers-convoy-no-nazo",
+    "title": "Transformers: Convoy no Nazo"
+  },
+  {
+    "id": "famicom-triathron",
+    "title": "Triathron"
+  },
+  {
+    "id": "famicom-tsurikichi-sanpei",
+    "title": "Tsurikichi Sanpei"
+  },
+  {
+    "id": "famicom-tsuru-pika-hagemaru",
+    "title": "Tsuru Pika Hagemaru"
+  },
+  {
+    "id": "famicom-twin-cobra-kyukyoku",
+    "title": "Twin Cobra Kyukyoku"
+  },
+  {
+    "id": "famicom-twinbee-3",
+    "title": "TwinBee 3"
+  },
+  {
+    "id": "famicom-ultraman-club-2",
+    "title": "Ultraman Club 2"
+  },
+  {
+    "id": "famicom-ultraman-club-3",
+    "title": "Ultraman Club 3"
+  },
+  {
+    "id": "famicom-ultraman-club-spokon-fight",
+    "title": "Ultraman Club: Spokon Fight"
+  },
+  {
+    "id": "famicom-urusei-yatsura",
+    "title": "Urusei Yatsura"
+  },
+  {
+    "id": "famicom-usa-ice-hockey",
+    "title": "USA Ice Hockey"
+  },
+  {
+    "id": "famicom-v%27ball-us-championship",
+    "title": "V'Ball US Championship"
+  },
+  {
+    "id": "famicom-valis",
+    "title": "Valis"
+  },
+  {
+    "id": "famicom-valkyrie-no-bouken",
+    "title": "Valkyrie no Bouken"
+  },
+  {
+    "id": "famicom-vegas-connection",
+    "title": "Vegas Connection"
+  },
+  {
+    "id": "famicom-wai-wai-world-2",
+    "title": "Wai Wai World 2"
+  },
+  {
+    "id": "famicom-white-lion-densetsu",
+    "title": "White Lion Densetsu"
+  },
+  {
+    "id": "famicom-wild-gunman-set",
+    "title": "Wild Gunman Set"
+  },
+  {
+    "id": "famicom-wizardry",
+    "title": "Wizardry"
+  },
+  {
+    "id": "famicom-wizardry-knights-of-diamonds",
+    "title": "Wizardry: Knights of Diamonds"
+  },
+  {
+    "id": "famicom-wizardry-legacy-of-the-llylgamyn",
+    "title": "Wizardry: Legacy of the Llylgamyn"
+  },
+  {
+    "id": "famicom-ys-ii",
+    "title": "Ys II"
+  },
+  {
+    "id": "famicom-ys-iii",
+    "title": "Ys III"
+  },
+  {
+    "id": "famicom-yu-yu-hakusho",
+    "title": "Yu Yu Hakusho"
+  },
+  {
+    "id": "famicom-yume-kojo-doki-doki-panic",
+    "title": "Yume Kojo: Doki Doki Panic"
+  },
+  {
+    "id": "famicom-zelda-no-densetsu-1",
+    "title": "Zelda no Densetsu 1"
+  }
+]
