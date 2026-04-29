@@ -1833,10 +1833,40 @@ function getAlphaKey(title: string): string {
   return /[A-Z]/.test(first) ? first : '#'
 }
 
+// Lower number = higher cultural priority for picking the "definitive" release
+const LEGEND_CONSOLE_RANK: Record<string, number> = {
+  'NES': 1, 'Atari 2600': 2, 'Sega Master System': 3, 'TurboGrafx-16': 4,
+  'Sega Genesis': 5, 'Super Nintendo': 6, 'Game Boy': 7, 'Sega CD': 8,
+  'Nintendo 64': 9, 'PlayStation': 10, 'Sega Saturn': 11, 'Atari 7800': 12,
+  'Dreamcast': 13, 'Game Boy Color': 14, 'PlayStation 2': 15, 'GameCube': 16,
+  'Game Boy Advance': 17, 'Nintendo DS': 18, 'Neo Geo AES': 19,
+  '3DO': 20, 'TurboGrafx CD': 21,
+}
+
 function isLegendGame(game: CatalogEntry): boolean {
   if (!LEGENDS_CONSOLES.has(game.console)) return false
   const t = game.title.toLowerCase()
   return LEGENDS_PATTERNS.some((p) => t.includes(p))
+}
+
+function deduplicateLegends(games: CatalogEntry[]): CatalogEntry[] {
+  const best = new Map<string, CatalogEntry>()
+  for (const game of games) {
+    const key = game.title.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const existing = best.get(key)
+    if (!existing) {
+      best.set(key, game)
+      continue
+    }
+    const gameYear = game.year ?? 9999
+    const existYear = existing.year ?? 9999
+    const gameRank = LEGEND_CONSOLE_RANK[game.console] ?? 99
+    const existRank = LEGEND_CONSOLE_RANK[existing.console] ?? 99
+    if (gameYear < existYear || (gameYear === existYear && gameRank < existRank)) {
+      best.set(key, game)
+    }
+  }
+  return [...best.values()]
 }
 
 function getFilteredGames() {
@@ -1863,7 +1893,7 @@ function getFilteredGames() {
     state.consoleFilter === 'All consoles'
       ? getCatalog()
       : state.consoleFilter === LEGENDS_FILTER
-        ? getCatalog().filter(isLegendGame)
+        ? deduplicateLegends(getCatalog().filter(isLegendGame))
         : getCatalog().filter((game) => game.console === state.consoleFilter)
 
   filteredGamesCache = activeCatalog
