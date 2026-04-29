@@ -1614,6 +1614,33 @@ const server = createServer(async (request, response) => {
       return
     }
 
+    // ── Trade: delete message ───────────────────────────────
+    if (request.method === 'DELETE' && url.pathname.match(/^\/trade\/requests\/[^/]+\/messages\/[^/]+$/)) {
+      const user = await getSessionUser(request, db)
+      if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const requestId = url.pathname.split('/')[3]
+      const messageId = url.pathname.split('/')[5]
+      const tradeRequest = (db.tradeRequests ?? []).find(r => r.id === requestId)
+      if (!tradeRequest) { json(request, response, 404, { error: 'Trade request not found.' }); return }
+      if (tradeRequest.fromUserId !== user.id && tradeRequest.toUserId !== user.id) {
+        json(request, response, 403, { error: 'Not part of this trade.' }); return
+      }
+
+      const messageIndex = (db.messages ?? []).findIndex(m => m.tradeRequestId === requestId && m.id === messageId)
+      if (messageIndex === -1) { json(request, response, 404, { error: 'Message not found.' }); return }
+
+      const message = db.messages[messageIndex]
+      if (message.senderUserId !== user.id) {
+        json(request, response, 403, { error: 'You can only delete your own messages.' }); return
+      }
+
+      db.messages.splice(messageIndex, 1)
+      await saveDb(db, { required: true })
+      json(request, response, 200, { ok: true })
+      return
+    }
+
     json(request, response, 404, { error: 'Not found.' })
   } catch (error) {
     json(request, response, 500, { error: error instanceof Error ? error.message : 'Unknown server error.' })

@@ -4055,7 +4055,7 @@ function renderTradeThread() {
           <div class="trade-msg${m.isOwn ? ' trade-msg--own' : ''}">
             <div class="trade-msg-header">
               <span class="trade-msg-sender">${escapeHtml(m.senderDisplayName)}</span>
-              ${m.isOwn ? `<button class="trade-msg-delete" data-action="trade-delete-message" data-id="${escapeHtml(tr.id)}" data-message-id="${escapeHtml(m.id)}" type="button" aria-label="Delete message" title="Delete message">×</button>` : ''}
+              ${m.isOwn ? `<button class="trade-msg-delete" data-action="trade-delete-message" data-id="${escapeHtml(tr.id)}" data-message-id="${escapeHtml(m.id)}" type="button" aria-label="Delete message" title="Delete message">Delete</button>` : ''}
             </div>
             <p class="trade-msg-text">${escapeHtml(m.text)}</p>
             <span class="trade-msg-time">${new Date(m.createdAt).toLocaleString()}</span>
@@ -6308,6 +6308,10 @@ async function handleAction(element: HTMLElement) {
       try {
         const result = await getTradeMessages(state.authToken, id)
         state.tradeThread = result
+        state.tradeRequests = state.tradeRequests.map((request) =>
+          request.id === id ? { ...request, unreadCount: result.tradeRequest.unreadCount } : request,
+        )
+        state.tradeUnread = state.tradeRequests.reduce((total, request) => total + (request.unreadCount ?? 0), 0)
       } catch {
         state.tradeSendError = 'Could not load messages.'
       } finally {
@@ -6347,8 +6351,9 @@ async function handleAction(element: HTMLElement) {
           }
         }
         render()
-      } catch {
-        // swallow — message stays visible if delete fails
+      } catch (err) {
+        state.tradeSendError = err instanceof Error ? err.message : 'Could not delete message.'
+        render()
       }
       break
     }
@@ -7795,3 +7800,5 @@ if ('requestIdleCallback' in window) {
   setTimeout(() => { void trackPageView(Boolean(loadAuthToken())) }, 3000)
 }
 setTimeout(() => { void hydrateAccount() }, 1500)
+
+
