@@ -331,6 +331,7 @@ a {
   font-size: clamp(2.1rem, 4.6vw, 3.85rem);
   letter-spacing: 0;
   line-height: 0.96;
+  text-wrap: balance;
   text-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
 }
 
