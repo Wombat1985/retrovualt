@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$snapshotDate = '2026-04-11'
+$snapshotDate = '2026-04-30'
 $consoles = @(
   @{ slug = 'nes'; name = 'NES' },
   @{ slug = 'famicom'; name = 'Famicom'; region = 'Japan' },

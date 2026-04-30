@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$snapshotDate = '2026-04-11'
+$snapshotDate = '2026-04-30'
 $manifestPath = Join-Path $PSScriptRoot 'retro-console-manifest.json'
 $consoles = Get-Content $manifestPath -Raw | ConvertFrom-Json
 
@@ -98,6 +98,27 @@ function Get-ConsoleCatalog {
   return $consoleEntries
 }
 
+function ConvertTo-EntryArray {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Value
+  )
+
+  if ($null -eq $Value) {
+    return @()
+  }
+
+  if ($Value -is [System.Array]) {
+    return @($Value)
+  }
+
+  if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string]) -and -not ($Value -is [pscustomobject])) {
+    return @($Value)
+  }
+
+  return @($Value)
+}
+
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $outputDir = Join-Path $projectRoot 'public\catalogs'
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
@@ -120,10 +141,10 @@ foreach ($slug in $requestedConsoleSlugs) {
 
   $console = $consoleLookup[$slug]
   Write-Output "Generating $($console.name)..."
-  $entries = Get-ConsoleCatalog -Console $console
+  $entries = @(Get-ConsoleCatalog -Console $console)
   $catalogFileName = "catalog-$($console.slug).json"
   ConvertTo-Json -InputObject @($entries) -Depth 5 -Compress | Set-Content (Join-Path $outputDir $catalogFileName)
-  Write-Output "Generated $($entries.Count) entries for $($console.name)."
+  Write-Output "Generated $(@($entries).Count) entries for $($console.name)."
 }
 
 $allEntries = New-Object System.Collections.Generic.List[object]
@@ -135,7 +156,7 @@ foreach ($file in (Get-ChildItem -Path $outputDir -Filter 'catalog-*.json' | Sor
     continue
   }
 
-  $entries = @(Get-Content $file.FullName -Raw | ConvertFrom-Json)
+  $entries = ConvertTo-EntryArray (Get-Content $file.FullName -Raw | ConvertFrom-Json)
   foreach ($entry in $entries) {
     $allEntries.Add($entry)
   }
@@ -145,7 +166,7 @@ foreach ($file in (Get-ChildItem -Path $outputDir -Filter 'catalog-*.json' | Sor
     slug = $slug
     region = $consoleLookup[$slug].region
     market = $consoleLookup[$slug].market
-    count = $entries.Count
+    count = @($entries).Count
     file = "/catalogs/$($file.Name)"
   })
 }

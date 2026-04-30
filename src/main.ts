@@ -5145,7 +5145,7 @@ function renderNow() {
           <p class="hero-text">
             Keep track of what you own, what you still want, what you paid, and all the oddball pieces that make your collection yours, without wrestling with a giant spreadsheet.
           </p>
-          <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 10 April 2026.</p>
+          <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 30 April 2026.</p>
           ${
             state.authToken
               ? `<p class="account-status-pill"><span>Signed in</span><strong>${escapeHtml(accountIdentity)}</strong></p>`
@@ -7929,4 +7929,3 @@ if ('requestIdleCallback' in window) {
   setTimeout(() => { void trackPageView(Boolean(loadAuthToken())) }, 3000)
 }
 setTimeout(() => { void hydrateAccount() }, 1500)
-

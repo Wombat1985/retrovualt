@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 
-const snapshotDate = '2026-04-11'
+const snapshotDate = '2026-04-30'
 const consoles = [
   ['nes', 'NES'],
   ['famicom', 'Famicom', 'Japan'],

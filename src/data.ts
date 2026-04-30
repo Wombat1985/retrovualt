@@ -18,7 +18,7 @@ export type CatalogEntry = {
   variantLabel?: string
 }
 
-export const priceSnapshotDate = 'April 11, 2026'
+export const priceSnapshotDate = 'April 30, 2026'
 
 export const sampleCatalog: CatalogEntry[] = [
   {

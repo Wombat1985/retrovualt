@@ -1,7 +1,7 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-const snapshotDate = '2026-04-11'
+const snapshotDate = '2026-04-30'
 const catalogsDir = path.join(process.cwd(), 'public', 'catalogs')
 const manifestPath = path.join(process.cwd(), 'scripts', 'retro-console-manifest.json')
 
