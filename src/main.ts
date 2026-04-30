@@ -5141,7 +5141,7 @@ function renderNow() {
           <a href="/" class="site-logo" aria-label="Retro Vault Elite home">
             <img class="site-logo__image" src="/retro-vault-elite-logo.png" alt="Retro Vault Elite" width="320" height="320" decoding="async" fetchpriority="high" />
           </a>
-          <h1>Keep up with the collection you have, and the games you still want to find.</h1>
+          <h1>Keep up with the video games you want and the collection you have.</h1>
           <p class="hero-text">
             Keep track of what you own, what you still want, what you paid, and all the oddball pieces that make your collection yours, without wrestling with a giant spreadsheet.
           </p>
@@ -7929,5 +7929,4 @@ if ('requestIdleCallback' in window) {
   setTimeout(() => { void trackPageView(Boolean(loadAuthToken())) }, 3000)
 }
 setTimeout(() => { void hydrateAccount() }, 1500)
-
 
