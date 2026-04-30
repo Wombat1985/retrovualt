@@ -328,7 +328,7 @@ a {
 .hero-copy h1 {
   max-width: 11ch;
   font-family: 'Russo One', var(--display);
-  font-size: clamp(2.3rem, 5vw, 4.2rem);
+  font-size: clamp(2.1rem, 4.6vw, 3.85rem);
   letter-spacing: 0;
   line-height: 0.96;
   text-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
@@ -2930,7 +2930,7 @@ a {
 
   .hero-copy h1 {
     max-width: none;
-    font-size: clamp(1.8rem, 8.1vw, 2.6rem);
+    font-size: clamp(1.65rem, 7.4vw, 2.35rem);
     line-height: 0.98;
   }
 
