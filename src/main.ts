@@ -3285,6 +3285,7 @@ function renderCard(game: CatalogEntry) {
             <dd>${isOwned ? formatPrice(getOwnedMarketPrice(game)) : completeText}</dd>
           </div>
         </dl>
+        ${isOwned && record.notes.trim() ? `<div class="card-note-preview"><p class="card-note-text">${escapeHtml(record.notes)}</p></div>` : ''}
         <div class="card-actions">
           <button class="toggle-button ${isOwned ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${escapeHtml(getOwnedButtonLabel(record))}</button>
           <button class="ghost-button ${isWanted ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${isWanted ? 'Remove wanted' : 'Want it'}</button>
