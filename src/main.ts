@@ -61,11 +61,6 @@ type ImportRow = {
   dateAcquired: string | null
   include: boolean
 }
-type InstallPromptEvent = Event & {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
-}
-
 type GameCopy = {
   edition: EditionStatus
   condition: ConditionRating
@@ -356,7 +351,6 @@ if (!appElement) {
 }
 
 const app = appElement
-let deferredInstallPrompt: InstallPromptEvent | null = null
 const pendingConsoleLoads = new Map<string, Promise<void>>()
 let syncTimeout: number | null = null
 let catalogSnapshotDbPromise: Promise<IDBDatabase> | null = null
@@ -478,18 +472,7 @@ const state = {
   ownershipConfirmId: null as string | null,
 }
 
-window.addEventListener('beforeinstallprompt', (event) => {
-  event.preventDefault()
-  deferredInstallPrompt = event as InstallPromptEvent
-  updateInstallButton()
-})
-
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null
-  updateInstallButton()
-})
-
-registerServiceWorker()
+unregisterServiceWorker()
 
 function defaultRecord(): GameRecord {
   return {
@@ -3166,13 +3149,6 @@ function renderFilterChip(filter: OwnershipFilter, label: string) {
   return `<button class="chip ${active}" data-action="ownership-filter" data-filter="${filter}" type="button">${label}</button>`
 }
 
-function renderInstallButton() {
-  if (!deferredInstallPrompt) {
-    return ''
-  }
-
-  return '<button class="install-button" type="button" data-action="install-app">Install app</button>'
-}
 
 function getTradeAvailabilityCount(gameId: string) {
   return state.tradeAvailabilityByGameId[gameId] ?? 0
@@ -5370,7 +5346,6 @@ function renderNow() {
             <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
             <button class="secondary-button" type="button" data-action="open-scanner">Scan barcode</button>
             ${state.authToken ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button>` : ''}
-            ${renderInstallButton()}
           </div>
         </div>
         <div class="hero-stats">
@@ -5563,21 +5538,6 @@ function renderNow() {
   restoreFocusSnapshot(focusSnapshot)
   void syncLiveBarcodeScan()
   scheduleTradeAvailabilityRefresh(visibleGames)
-}
-
-function updateInstallButton() {
-  const heroActions = app?.querySelector('.hero-actions')
-  if (!heroActions) {
-    render()
-    return
-  }
-  const existing = heroActions.querySelector('[data-action="install-app"]')
-  const markup = renderInstallButton()
-  if (markup && !existing) {
-    heroActions.insertAdjacentHTML('beforeend', markup)
-  } else if (!markup && existing) {
-    existing.remove()
-  }
 }
 
 function render() {
@@ -6919,9 +6879,6 @@ async function handleAction(element: HTMLElement) {
     case 'share-challenge':
       await shareCollectorChallenge()
       break
-    case 'install-app':
-      await promptInstall()
-      break
     default:
       break
   }
@@ -7905,17 +7862,6 @@ async function shareCollectorChallenge() {
   window.alert(clipboardText)
 }
 
-async function promptInstall() {
-  if (!deferredInstallPrompt) {
-    return
-  }
-
-  await deferredInstallPrompt.prompt()
-  await deferredInstallPrompt.userChoice
-  deferredInstallPrompt = null
-  render()
-}
-
 function exportCatalog() {
   const payload: ExportEntry[] = getCatalog().map((game) => {
     const record = getRecord(game.id)
@@ -7948,22 +7894,10 @@ function exportCatalog() {
   URL.revokeObjectURL(url)
 }
 
-function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) {
-    return
-  }
-
-  window.addEventListener('load', () => {
-    if (import.meta.env.DEV) {
-      void navigator.serviceWorker.getRegistrations().then((registrations) => {
-        registrations.forEach((registration) => {
-          void registration.unregister()
-        })
-      })
-      return
-    }
-
-    void navigator.serviceWorker.register('/sw.js')
+function unregisterServiceWorker() {
+  if (!('serviceWorker' in navigator)) return
+  void navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((r) => void r.unregister())
   })
 }
 
