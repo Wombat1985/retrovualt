@@ -231,6 +231,36 @@ export async function getTradeMatches(token: string) {
   return request<{ matches: TradeMatch[] }>('/trade/matches', { method: 'GET' }, token)
 }
 
+export type TradeAvailability = {
+  gameId: string
+  count: number
+}
+
+export type TradeAvailabilityOwner = {
+  userId: string
+  displayName: string
+  hasPendingRequest: boolean
+}
+
+export async function getTradeAvailability(gameIds: string[], token?: string) {
+  return request<{ availability: TradeAvailability[] }>(
+    '/trade/availability',
+    {
+      method: 'POST',
+      body: JSON.stringify({ gameIds }),
+    },
+    token,
+  )
+}
+
+export async function getTradeAvailabilityOwners(token: string, gameId: string) {
+  return request<{ gameId: string; owners: TradeAvailabilityOwner[] }>(
+    `/trade/availability/${encodeURIComponent(gameId)}/owners`,
+    { method: 'GET' },
+    token,
+  )
+}
+
 export async function createTradeRequest(token: string, toUserId: string, gameId: string, note = '') {
   return request<{ tradeRequest: TradeRequest }>(
     '/trade/requests',
