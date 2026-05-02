@@ -3419,7 +3419,10 @@ function renderSelectedGameModal() {
             <p><strong>Found at:</strong> ${record.acquiredFrom ? escapeHtml(record.acquiredFrom) : 'Not recorded.'}</p>
             <p><strong>Art source:</strong> ${getCoverSourceLabel(game)}</p>
             <p><strong>Market note:</strong> ${appConfig.marketDisclaimer}</p>
-            <p><strong>Collector notes:</strong> ${record.notes ? escapeHtml(record.notes) : 'No collector notes yet.'}</p>
+          </div>
+          <div class="modal-collector-notes${record.notes ? ' has-notes' : ''}">
+            <span class="modal-collector-notes-label">Collector notes</span>
+            <p class="modal-collector-notes-text">${record.notes ? escapeHtml(record.notes) : 'No notes yet — tap the Notes button below to add one.'}</p>
           </div>
           <div class="card-actions">
             <button class="ghost-button" data-action="set-price-paid" data-id="${safeGameId}" type="button">Set paid</button>

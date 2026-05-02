@@ -2766,6 +2766,46 @@ a {
   color: var(--text);
 }
 
+.modal-collector-notes {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(255, 198, 90, 0.06);
+  border: 1px solid rgba(255, 198, 90, 0.18);
+}
+
+.modal-collector-notes.has-notes {
+  background: rgba(255, 198, 90, 0.1);
+  border-color: rgba(255, 198, 90, 0.38);
+  box-shadow: 0 0 0 1px rgba(255, 198, 90, 0.08) inset;
+}
+
+.modal-collector-notes-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f1c95f;
+}
+
+.modal-collector-notes-text {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #d4bc7a;
+  white-space: pre-wrap;
+}
+
+.modal-collector-notes:not(.has-notes) .modal-collector-notes-label {
+  color: var(--muted);
+}
+
+.modal-collector-notes:not(.has-notes) .modal-collector-notes-text {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .roadmap-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
