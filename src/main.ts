@@ -8,6 +8,8 @@ import {
   changePassword,
   confirmPasswordReset,
   createTradeRequest,
+  getTradeAvailability,
+  getTradeAvailabilityOwners,
   deleteAccount,
   deleteTradeRequest,
   deleteTradeMessage,
@@ -29,6 +31,7 @@ import {
   trackPageView,
   updateAccountProfile,
   type TradeMatch,
+  type TradeAvailabilityOwner,
   type TradeMessage,
   type TradeProfile,
   type TradeRequest,
@@ -332,6 +335,8 @@ let pendingLibrarySave = 0
 let pendingSyncStatusRender = 0
 let pendingSearchRender = 0
 let pendingBarcodeSearchRender = 0
+let pendingTradeAvailabilityRefresh = 0
+let tradeAvailabilityFetchSequence = 0
 let libraryRevision = 0
 let appEventsBound = false
 let lastInputFocusSnapshot: FocusSnapshot | null = null
@@ -444,7 +449,12 @@ const state = {
   tradeRequests: [] as TradeRequest[],
   tradeUnread: 0,
   tradePending: 0,
+  tradeAvailabilityByGameId: {} as Record<string, number>,
+  tradeAvailabilityOwnersGameId: null as string | null,
+  tradeAvailabilityOwners: [] as TradeAvailabilityOwner[],
+  tradeAvailabilityOwnersLoading: false,
   tradeInboxLoading: false,
+  tradeInboxError: '',
   tradeThread: null as { messages: TradeMessage[]; tradeRequest: TradeRequest; otherUser: { id: string; displayName: string } } | null,
   tradeThreadLoading: false,
   tradeSendError: '',
@@ -3159,6 +3169,90 @@ function renderInstallButton() {
   return '<button class="install-button" type="button" data-action="install-app">Install app</button>'
 }
 
+function getTradeAvailabilityCount(gameId: string) {
+  return state.tradeAvailabilityByGameId[gameId] ?? 0
+}
+
+async function fetchTradeAvailabilityForGames(gameIds: string[]) {
+  const uniqueIds = [...new Set(gameIds.map((gameId) => gameId.trim()).filter(Boolean))]
+  const missingIds = uniqueIds.filter((gameId) => state.tradeAvailabilityByGameId[gameId] === undefined)
+
+  if (!missingIds.length) {
+    return
+  }
+
+  const fetchSequence = ++tradeAvailabilityFetchSequence
+
+  try {
+    const result = await getTradeAvailability(missingIds, state.authToken ?? undefined)
+
+    if (fetchSequence !== tradeAvailabilityFetchSequence) {
+      return
+    }
+
+    const nextCounts = { ...state.tradeAvailabilityByGameId }
+
+    for (const gameId of missingIds) {
+      nextCounts[gameId] = 0
+    }
+
+    for (const entry of result.availability) {
+      if (!entry || typeof entry.gameId !== 'string') {
+        continue
+      }
+
+      nextCounts[entry.gameId] = typeof entry.count === 'number' ? entry.count : 0
+    }
+
+    state.tradeAvailabilityByGameId = nextCounts
+    renderCatalogOnly()
+  } catch {
+    // Trade hints should never interrupt browsing.
+  }
+}
+
+function scheduleTradeAvailabilityRefresh(games: CatalogEntry[]) {
+  if (pendingTradeAvailabilityRefresh) {
+    window.clearTimeout(pendingTradeAvailabilityRefresh)
+  }
+
+  const gameIds = games.map((game) => game.id)
+
+  pendingTradeAvailabilityRefresh = window.setTimeout(() => {
+    pendingTradeAvailabilityRefresh = 0
+    void fetchTradeAvailabilityForGames(gameIds)
+  }, 120)
+}
+
+async function openTradeRequestFlow(gameId: string) {
+  if (!state.authToken) {
+    state.authView = 'login'
+    render()
+    return
+  }
+
+  state.tradeAvailabilityOwnersGameId = gameId
+  state.tradeAvailabilityOwners = []
+  state.tradeAvailabilityOwnersLoading = true
+  state.tradeInterestGameId = gameId
+  state.tradeInterestUserId = null
+  state.tradeSendError = ''
+  render()
+
+  try {
+    const result = await getTradeAvailabilityOwners(state.authToken, gameId)
+    state.tradeAvailabilityOwners = result.owners
+    const firstReadyOwner = result.owners.find((owner) => !owner.hasPendingRequest)
+    state.tradeInterestUserId = result.owners.length === 1 ? (firstReadyOwner?.userId ?? null) : null
+  } catch (error) {
+    state.tradeAvailabilityOwners = []
+    state.tradeSendError = error instanceof Error ? error.message : 'Could not load collectors offering this game.'
+  } finally {
+    state.tradeAvailabilityOwnersLoading = false
+    render()
+  }
+}
+
 function renderCard(game: CatalogEntry) {
   const record = getRecord(game.id)
   const isWanted = record.status === 'wanted'
@@ -3169,6 +3263,8 @@ function renderCard(game: CatalogEntry) {
   const variantSummary = getVariantSummary(game)
   const ownedPulseClass = state.justOwnedGameId === game.id ? 'just-owned' : ''
   const safeGameId = escapeHtml(game.id)
+  const tradeAvailabilityCount = getTradeAvailabilityCount(game.id)
+  const showTradeAvailability = tradeAvailabilityCount > 0 && record.status !== 'owned'
 
   return `
     <article class="game-card ${isOwned ? 'is-owned' : ''} ${ownedPulseClass}" data-game-card="true" data-id="${safeGameId}" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(game.title)}">
@@ -3186,6 +3282,7 @@ function renderCard(game: CatalogEntry) {
           <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status, record)}</span>
           <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
           ${isOwned && record.forTrade ? `<span class="for-trade-chip">For Trade</span>` : ''}
+          ${showTradeAvailability ? `<span class="trade-available-chip">${tradeAvailabilityCount === 1 ? 'Available for trade' : `${tradeAvailabilityCount} traders`}</span>` : ''}
         </div>
         ${isOwned ? `<div class="owned-stamp"><strong>Owned</strong><span>${escapeHtml(ownedEditionText)}</span></div>` : ''}
       </div>
@@ -3234,6 +3331,7 @@ function renderSelectedGameModal() {
   const safePriceSourceUrl = escapeHtml(game.priceSourceUrl)
   const variantSummary = getVariantSummary(game)
   const identifierRows = getGameIdentifierRows(game)
+  const tradeAvailabilityCount = getTradeAvailabilityCount(game.id)
   const valueGap =
     record.pricePaid === null ? null : getOwnedMarketPrice(game) - record.pricePaid
 
@@ -3284,6 +3382,13 @@ function renderSelectedGameModal() {
             <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
             ${record.status === 'owned' && state.authToken ? `<button class="ghost-button for-trade-btn ${record.forTrade ? 'is-active' : ''}" data-action="toggle-for-trade" data-id="${safeGameId}" type="button">${record.forTrade ? 'For trade ✓' : 'Offer for trade'}</button>` : ''}
           </div>
+          ${tradeAvailabilityCount > 0 && record.status !== 'owned' ? `
+            <div class="trade-availability-panel">
+              <strong>${tradeAvailabilityCount === 1 ? '1 collector has this marked for trade right now.' : `${tradeAvailabilityCount} collectors have this marked for trade right now.`}</strong>
+              <span>${state.authToken ? 'Mark it wanted and send a trade request while you are here.' : 'Sign in to message a collector who is offering this game.'}</span>
+              <button class="ghost-button trade-availability-panel__button" data-action="open-trade-request" data-id="${safeGameId}" type="button">${state.authToken ? 'Request trade' : 'Sign in to request trade'}</button>
+            </div>
+          ` : ''}
           <p class="modal-description">
             This collector view keeps the market snapshot, ownership state, and source art together in one place so the title feels like a real piece of your collection.
           </p>
@@ -3993,6 +4098,7 @@ function renderTradeInbox() {
 
       ${state.tradeInboxLoading ? '<p class="subtle">Loading…</p>' : ''}
 
+      ${!state.tradeInboxLoading && state.tradeInboxError ? `<p class="error-note">${escapeHtml(state.tradeInboxError)}</p>` : ''}
       ${state.tradeMatches.length > 0 ? `
         <div class="trade-matches-panel">
           <p class="kicker">Trade Matches</p>
@@ -4072,6 +4178,68 @@ function renderTradePromptToast() {
       <button class="ghost-button trade-prompt-no" data-action="trade-prompt-no" type="button">No thanks</button>
     </div>
   </div>`
+}
+
+function renderTradeRequestModal() {
+  const gameId = state.tradeAvailabilityOwnersGameId
+
+  if (!gameId) {
+    return ''
+  }
+
+  const game = getGameById(gameId)
+  const gameTitle = game?.title ?? gameId
+  const selectedOwner = state.tradeAvailabilityOwners.find((owner) => owner.userId === state.tradeInterestUserId) ?? null
+
+  return `
+    <div class="trade-request-backdrop" data-action="trade-request-close">
+      <section class="trade-request-modal" role="dialog" aria-modal="true" aria-labelledby="trade-request-title">
+        <button class="modal-close" type="button" data-action="trade-request-close" aria-label="Close trade request">Close</button>
+        <p class="kicker">Trade opportunity</p>
+        <h2 id="trade-request-title">${escapeHtml(gameTitle)}</h2>
+        <p class="modal-description">Collectors offering this game can be contacted from here without leaving the vault.</p>
+        ${state.tradeAvailabilityOwnersLoading ? `
+          <p class="subtle">Loading collectors offering this game...</p>
+        ` : ''}
+        ${!state.tradeAvailabilityOwnersLoading && !state.tradeAvailabilityOwners.length ? `
+          <div class="empty-state">
+            <h3>No current offers</h3>
+            <p>No one has this marked for trade right now. Keep it on your wanted list and check back.</p>
+          </div>
+        ` : ''}
+        ${!state.tradeAvailabilityOwnersLoading && state.tradeAvailabilityOwners.length > 0 && !selectedOwner ? `
+          <div class="trade-owner-list">
+            ${state.tradeAvailabilityOwners.map((owner) => `
+              <article class="trade-owner-card">
+                <div>
+                  <strong>${escapeHtml(owner.displayName)}</strong>
+                  <span>${owner.hasPendingRequest ? 'Pending request already open' : 'Available for trade right now'}</span>
+                </div>
+                <button
+                  class="ghost-button"
+                  data-action="${owner.hasPendingRequest ? 'trade-open-inbox' : 'trade-interest-select'}"
+                  data-game-id="${escapeHtml(gameId)}"
+                  data-user-id="${escapeHtml(owner.userId)}"
+                  type="button"
+                >${owner.hasPendingRequest ? 'Open inbox' : 'Request trade'}</button>
+              </article>
+            `).join('')}
+          </div>
+        ` : ''}
+        ${selectedOwner ? `
+          <div class="trade-request-compose">
+            <p class="modal-section-label">Requesting from ${escapeHtml(selectedOwner.displayName)}</p>
+            <textarea id="trade-note-input" class="trade-note-input" maxlength="500" rows="4"></textarea>
+            <div class="trade-compose-actions">
+              <button class="toggle-button" data-action="trade-send-request" type="button">Send trade request</button>
+              <button class="ghost-button" data-action="trade-interest-cancel" type="button">Choose another collector</button>
+            </div>
+          </div>
+        ` : ''}
+        ${state.tradeSendError ? `<p class="auth-error">${escapeHtml(state.tradeSendError)}</p>` : ''}
+      </section>
+    </div>
+  `
 }
 
 function renderTradeProfile() {
@@ -5330,6 +5498,7 @@ function renderNow() {
       ${renderAuthModal()}
       ${renderImportModal()}
       ${renderTradePromptToast()}
+      ${renderTradeRequestModal()}
       ${state.tradeView ? `
         <div class="trade-panel-backdrop" data-action="trade-close"></div>
         <aside class="trade-panel">
@@ -5347,6 +5516,7 @@ function renderNow() {
   bindEvents()
   restoreFocusSnapshot(focusSnapshot)
   void syncLiveBarcodeScan()
+  scheduleTradeAvailabilityRefresh(visibleGames)
 }
 
 function updateInstallButton() {
@@ -5392,6 +5562,15 @@ function patchTradePanel() {
     badge.textContent = total ? String(total) : ''
     badge.style.display = total ? '' : 'none'
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string) {
+  return Promise.race<T>([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    }),
+  ])
 }
 
 function renderCatalogOnlyNow() {
@@ -5453,6 +5632,8 @@ function renderCatalogOnlyNow() {
     window.scrollTo({ top: pendingCatalogScrollRestore, behavior: 'auto' })
     pendingCatalogScrollRestore = null
   }
+
+  scheduleTradeAvailabilityRefresh(visibleGames)
 }
 
 function renderCatalogOnly() {
@@ -6028,7 +6209,9 @@ async function handleAction(element: HTMLElement) {
         return
       }
 
-      if (getRecord(id).status === 'wanted') {
+      const wasWanted = getRecord(id).status === 'wanted'
+
+      if (wasWanted) {
         playUnmark()
       } else {
         playWanted()
@@ -6039,6 +6222,10 @@ async function handleAction(element: HTMLElement) {
         status: record.status === 'wanted' ? 'missing' : 'wanted',
         completeInBox: record.status === 'wanted' ? record.completeInBox : false,
       }))
+
+      if (!wasWanted && getTradeAvailabilityCount(id) > 0) {
+        void openTradeRequestFlow(id)
+      }
       break
     case 'toggle-favorite':
       if (!id) {
@@ -6281,6 +6468,7 @@ async function handleAction(element: HTMLElement) {
       state.selectedGameId = id
       state.ownershipConfirmId = null
       render()
+      void fetchTradeAvailabilityForGames([id])
       break
     case 'close-details':
       state.selectedGameId = null
@@ -6324,29 +6512,44 @@ async function handleAction(element: HTMLElement) {
       renderCatalogOnly()
       break
     case 'trade-open-inbox': {
+      state.tradeAvailabilityOwnersGameId = null
+      state.tradeAvailabilityOwners = []
+      state.tradeAvailabilityOwnersLoading = false
       state.tradeView = true
       state.tradeThreadId = null
       state.tradeThread = null
       state.tradeSendError = ''
+      state.tradeInboxError = ''
       state.tradeMatches = []
       render()
       if (state.authToken) {
         state.tradeInboxLoading = true
         patchTradePanel()
         try {
-          const inboxResult = await getTradeRequests(state.authToken)
+          const inboxResult = await withTimeout(
+            getTradeRequests(state.authToken),
+            8000,
+            'Trade Inbox took too long to load. Please try again.',
+          )
           state.tradeRequests = inboxResult.requests
           state.tradeUnread = inboxResult.unreadCount
           state.tradePending = inboxResult.pendingCount ?? 0
-        } catch {
-          // show empty state
+        } catch (error) {
+          state.tradeRequests = []
+          state.tradeUnread = 0
+          state.tradePending = 0
+          state.tradeInboxError = error instanceof Error ? error.message : 'Trade Inbox could not load.'
         } finally {
           state.tradeInboxLoading = false
           patchTradePanel()
         }
 
         try {
-          const matchResult = await getTradeMatches(state.authToken)
+          const matchResult = await withTimeout(
+            getTradeMatches(state.authToken),
+            8000,
+            'Trade matches took too long to load.',
+          )
           state.tradeMatches = matchResult.matches
         } catch {
           state.tradeMatches = []
@@ -6360,6 +6563,9 @@ async function handleAction(element: HTMLElement) {
       state.tradeView = false
       state.tradeThreadId = null
       state.tradeThread = null
+      state.tradeAvailabilityOwnersGameId = null
+      state.tradeAvailabilityOwners = []
+      state.tradeAvailabilityOwnersLoading = false
       state.tradeInterestGameId = null
       state.tradeInterestUserId = null
       state.tradeProfileUserId = null
@@ -6499,6 +6705,22 @@ async function handleAction(element: HTMLElement) {
       break
     }
     case 'trade-interest-cancel':
+      state.tradeInterestGameId = state.tradeAvailabilityOwnersGameId
+      state.tradeInterestUserId = null
+      state.tradeSendError = ''
+      render()
+      break
+    case 'open-trade-request':
+      if (!id) {
+        return
+      }
+
+      void openTradeRequestFlow(id)
+      break
+    case 'trade-request-close':
+      state.tradeAvailabilityOwnersGameId = null
+      state.tradeAvailabilityOwners = []
+      state.tradeAvailabilityOwnersLoading = false
       state.tradeInterestGameId = null
       state.tradeInterestUserId = null
       state.tradeSendError = ''
@@ -6553,6 +6775,9 @@ async function handleAction(element: HTMLElement) {
       try {
         const result = await createTradeRequest(state.authToken, state.tradeInterestUserId, state.tradeInterestGameId, note)
         state.tradeRequests = [result.tradeRequest, ...state.tradeRequests]
+        state.tradeAvailabilityOwnersGameId = null
+        state.tradeAvailabilityOwners = []
+        state.tradeAvailabilityOwnersLoading = false
         state.tradeInterestGameId = null
         state.tradeInterestUserId = null
         render()
