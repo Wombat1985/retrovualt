@@ -18,7 +18,7 @@ services:
       - key: RESEND_API_KEY
         sync: false
       - key: RESET_FROM_EMAIL
-        sync: false
+        value: Retro Vault Elite <retrovaultelite@gmail.com>
       - key: ADMIN_KEY
         sync: false
 

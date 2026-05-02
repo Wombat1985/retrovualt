@@ -52,6 +52,7 @@ For the current live site, use:
 
 ```bash
 CORS_ORIGIN=https://www.retrovaultelite.com,https://retrovaultelite.com,https://retro-vault-web.onrender.com
+RESET_FROM_EMAIL=Retro Vault Elite <retrovaultelite@gmail.com>
 ```
 
 ## Example Render setup

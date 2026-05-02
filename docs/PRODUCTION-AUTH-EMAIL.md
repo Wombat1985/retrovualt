@@ -35,7 +35,7 @@ Add these on the `retro-vault-backend` service:
 
 ```text
 RESEND_API_KEY=re_your_key_here
-RESET_FROM_EMAIL=Retro Vault Elite <support@retrovaultelite.com>
+RESET_FROM_EMAIL=Retro Vault Elite <retrovaultelite@gmail.com>
 SESSION_TTL_DAYS=30
 PASSWORD_RESET_TTL_MINUTES=30
 ```
@@ -56,7 +56,7 @@ In Resend:
 2. Resend will show DNS records.
 3. Add those DNS records in Namecheap Advanced DNS.
 4. Wait for Resend to verify the domain.
-5. Use `support@retrovaultelite.com` as the sender after verification.
+5. Use `retrovaultelite@gmail.com` as the sender after verification.
 
 ## If email is not configured yet
 
