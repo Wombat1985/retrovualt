@@ -242,6 +242,20 @@ export type TradeAvailabilityOwner = {
   hasPendingRequest: boolean
 }
 
+export type TradeInboxOpportunity = {
+  gameId: string
+  ownerCount: number
+  requestableOwnerCount: number
+  owners: TradeAvailabilityOwner[]
+}
+
+export type TradeDiscoveryCollector = {
+  userId: string
+  displayName: string
+  matchingGameIds: string[]
+  featuredGameId: string
+}
+
 export async function getTradeAvailability(gameIds: string[], token?: string) {
   return request<{ availability: TradeAvailability[] }>(
     '/trade/availability',
@@ -256,6 +270,14 @@ export async function getTradeAvailability(gameIds: string[], token?: string) {
 export async function getTradeAvailabilityOwners(token: string, gameId: string) {
   return request<{ gameId: string; owners: TradeAvailabilityOwner[] }>(
     `/trade/availability/${encodeURIComponent(gameId)}/owners`,
+    { method: 'GET' },
+    token,
+  )
+}
+
+export async function getTradeInboxDiscovery(token: string) {
+  return request<{ opportunities: TradeInboxOpportunity[]; collectors: TradeDiscoveryCollector[] }>(
+    '/trade/discovery',
     { method: 'GET' },
     token,
   )

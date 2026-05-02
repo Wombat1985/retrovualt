@@ -779,7 +779,7 @@ async function sendTradeNotificationEmail(email, subject) {
       body: JSON.stringify({
         from,
         to: email,
-        subject: `Retro Vault Elite — ${subject}`,
+        subject: `Retro Vault Elite � ${subject}`,
         html: `<p>${subject}</p><p><a href="${appUrl}">Log in to view your trade inbox.</a></p><p>Do not reply. Never share personal details over this system.</p>`,
       }),
     })
@@ -1345,7 +1345,149 @@ const server = createServer(async (request, response) => {
       }
     }
 
-    // ── Trade: compute matches ──────────────────────────────
+    function getOwnedTradeGameIds(user) {
+      const library = user.syncState?.library ?? {}
+      return Object.entries(library)
+        .filter(([, record]) => record?.status === 'owned' && record?.forTrade === true)
+        .map(([gameId]) => gameId)
+    }
+
+    function getOwnedGameIds(user) {
+      const library = user.syncState?.library ?? {}
+      return Object.entries(library)
+        .filter(([, record]) => record?.status === 'owned')
+        .map(([gameId]) => gameId)
+    }
+
+    function getWantedGameIds(user) {
+      const library = user.syncState?.library ?? {}
+      return Object.entries(library)
+        .filter(([, record]) => record?.status === 'wanted')
+        .map(([gameId]) => gameId)
+    }
+
+    function hasPendingTradeForGame(db, viewerUserId, otherUserId, gameId) {
+      return (db.tradeRequests ?? []).some((request) =>
+        request.status === 'pending' &&
+        request.gameId === gameId &&
+        ((request.fromUserId === viewerUserId && request.toUserId === otherUserId) ||
+          (request.fromUserId === otherUserId && request.toUserId === viewerUserId))
+      )
+    }
+
+    function shuffleArray(values) {
+      const clone = [...values]
+      for (let index = clone.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1))
+        ;[clone[index], clone[swapIndex]] = [clone[swapIndex], clone[index]]
+      }
+      return clone
+    }
+
+    if (request.method === 'POST' && url.pathname === '/trade/availability') {
+      const viewer = await getSessionUser(request, db)
+      const body = await readBody(request)
+      const gameIds = Array.isArray(body.gameIds) ? body.gameIds.map((value) => String(value ?? '').trim()).filter(Boolean) : []
+      const viewerId = viewer?.id ?? null
+      const availability = gameIds.map((gameId) => {
+        const count = db.users.reduce((total, user) => {
+          if (viewerId && user.id === viewerId) return total
+          return total + (getOwnedTradeGameIds(user).includes(gameId) ? 1 : 0)
+        }, 0)
+        return { gameId, count }
+      })
+      json(request, response, 200, { availability })
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname.startsWith('/trade/availability/') && url.pathname.endsWith('/owners')) {
+      const viewer = await getSessionUser(request, db)
+      if (!viewer) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const parts = url.pathname.split('/')
+      const gameId = decodeURIComponent(parts[3] ?? '').trim()
+      if (!gameId) { json(request, response, 400, { error: 'Game id is required.' }); return }
+
+      const owners = db.users
+        .filter((user) => user.id !== viewer.id && getOwnedTradeGameIds(user).includes(gameId))
+        .map((user) => ({
+          userId: user.id,
+          displayName: user.displayName ?? 'Unknown Collector',
+          hasPendingRequest: hasPendingTradeForGame(db, viewer.id, user.id, gameId),
+        }))
+
+      json(request, response, 200, { gameId, owners })
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/trade/discovery') {
+      const viewer = await getSessionUser(request, db)
+      if (!viewer) { json(request, response, 401, { error: 'Not signed in.' }); return }
+
+      const myWanted = getWantedGameIds(viewer)
+      const myWantedSet = new Set(myWanted)
+      const opportunitiesByGameId = new Map()
+      const discoveryCandidates = []
+
+      for (const other of db.users) {
+        if (other.id === viewer.id) continue
+
+        const otherTradeIds = getOwnedTradeGameIds(other).filter((gameId) => myWantedSet.has(gameId))
+        const otherOwnedIds = getOwnedGameIds(other).filter((gameId) => myWantedSet.has(gameId))
+
+        for (const gameId of otherTradeIds) {
+          if (!opportunitiesByGameId.has(gameId)) {
+            opportunitiesByGameId.set(gameId, {
+              gameId,
+              ownerCount: 0,
+              requestableOwnerCount: 0,
+              owners: [],
+            })
+          }
+          const entry = opportunitiesByGameId.get(gameId)
+          entry.ownerCount += 1
+          const pending = hasPendingTradeForGame(db, viewer.id, other.id, gameId)
+          if (!pending) {
+            entry.requestableOwnerCount += 1
+          }
+          entry.owners.push({
+            userId: other.id,
+            displayName: other.displayName ?? 'Unknown Collector',
+            hasPendingRequest: pending,
+          })
+        }
+
+        if (otherOwnedIds.length > 0) {
+          discoveryCandidates.push({
+            userId: other.id,
+            displayName: other.displayName ?? 'Unknown Collector',
+            matchingGameIds: otherOwnedIds,
+            featuredGameId: otherOwnedIds[0],
+          })
+        }
+      }
+
+      const opportunities = Array.from(opportunitiesByGameId.values())
+        .map((entry) => ({
+          ...entry,
+          owners: entry.owners.sort((left, right) => Number(left.hasPendingRequest) - Number(right.hasPendingRequest)).slice(0, 6),
+        }))
+        .sort((left, right) => {
+          if (right.requestableOwnerCount !== left.requestableOwnerCount) {
+            return right.requestableOwnerCount - left.requestableOwnerCount
+          }
+          return right.ownerCount - left.ownerCount
+        })
+
+      const opportunityOwnerIds = new Set(opportunities.flatMap((entry) => entry.owners.map((owner) => owner.userId)))
+      const collectors = shuffleArray(discoveryCandidates)
+        .filter((collector) => !opportunityOwnerIds.has(collector.userId))
+        .slice(0, 10)
+
+      json(request, response, 200, { opportunities, collectors })
+      return
+    }
+    // -- Trade: compute matches ------------------------------
     if (request.method === 'GET' && url.pathname === '/trade/matches') {
       const user = await getSessionUser(request, db)
       if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
@@ -1380,7 +1522,7 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    // ── Trade: public profile ───────────────────────────────
+    // -- Trade: public profile -------------------------------
     if (request.method === 'GET' && url.pathname.startsWith('/trade/profile/')) {
       const viewer = await getSessionUser(request, db)
       if (!viewer) { json(request, response, 401, { error: 'Not signed in.' }); return }
@@ -1404,7 +1546,7 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    // ── Trade: create request ───────────────────────────────
+    // -- Trade: create request -------------------------------
     if (request.method === 'POST' && url.pathname === '/trade/requests') {
       if (!rateLimit(request, 'trade-create', 20, 60 * 60 * 1000)) {
         json(request, response, 429, { error: 'Too many trade requests. Try again later.' }); return
@@ -1466,14 +1608,14 @@ const server = createServer(async (request, response) => {
 
       await saveDb(db, { required: true })
 
-      // Email notification — no personal details
+      // Email notification � no personal details
       await sendTradeNotificationEmail(toUser.email, 'You have a new trade request. Log in to view it.').catch(() => {})
 
       json(request, response, 201, { tradeRequest: sanitizeTradeRequest(tradeRequest, user.id, db) })
       return
     }
 
-    // ── Trade: inbox ────────────────────────────────────────
+    // -- Trade: inbox ----------------------------------------
     if (request.method === 'GET' && url.pathname === '/trade/requests') {
       const user = await getSessionUser(request, db)
       if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
@@ -1495,7 +1637,7 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    // ── Trade: accept / decline ─────────────────────────────
+    // -- Trade: accept / decline -----------------------------
     if (request.method === 'PATCH' && url.pathname.startsWith('/trade/requests/')) {
       const user = await getSessionUser(request, db)
       if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
@@ -1547,7 +1689,7 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    // ── Trade: get messages ─────────────────────────────────
+    // -- Trade: get messages ---------------------------------
     if (request.method === 'GET' && url.pathname.match(/^\/trade\/requests\/[^/]+\/messages$/)) {
       const user = await getSessionUser(request, db)
       if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
@@ -1590,10 +1732,10 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    // ── Trade: send message ─────────────────────────────────
+    // -- Trade: send message ---------------------------------
     if (request.method === 'POST' && url.pathname.match(/^\/trade\/requests\/[^/]+\/messages$/)) {
       if (!rateLimit(request, 'trade-msg', 60, 60 * 1000)) {
-        json(request, response, 429, { error: 'Slow down — too many messages.' }); return
+        json(request, response, 429, { error: 'Slow down � too many messages.' }); return
       }
 
       const user = await getSessionUser(request, db)
@@ -1637,7 +1779,7 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    // ── Trade: delete message ───────────────────────────────
+    // -- Trade: delete message -------------------------------
     if (request.method === 'DELETE' && url.pathname.match(/^\/trade\/requests\/[^/]+\/messages\/[^/]+$/)) {
       const user = await getSessionUser(request, db)
       if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
@@ -1673,4 +1815,5 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
 

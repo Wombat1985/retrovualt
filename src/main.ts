@@ -10,6 +10,7 @@ import {
   createTradeRequest,
   getTradeAvailability,
   getTradeAvailabilityOwners,
+  getTradeInboxDiscovery,
   deleteAccount,
   deleteTradeRequest,
   deleteTradeMessage,
@@ -32,6 +33,8 @@ import {
   updateAccountProfile,
   type TradeMatch,
   type TradeAvailabilityOwner,
+  type TradeInboxOpportunity,
+  type TradeDiscoveryCollector,
   type TradeMessage,
   type TradeProfile,
   type TradeRequest,
@@ -449,6 +452,8 @@ const state = {
   tradeRequests: [] as TradeRequest[],
   tradeUnread: 0,
   tradePending: 0,
+  tradeInboxOpportunities: [] as TradeInboxOpportunity[],
+  tradeInboxCollectors: [] as TradeDiscoveryCollector[],
   tradeAvailabilityByGameId: {} as Record<string, number>,
   tradeAvailabilityOwnersGameId: null as string | null,
   tradeAvailabilityOwners: [] as TradeAvailabilityOwner[],
@@ -4059,6 +4064,12 @@ function renderTradeInbox() {
   const pending = reqs.filter((r) => r.status === 'pending')
   const accepted = reqs.filter((r) => r.status === 'accepted')
   const declined = reqs.filter((r) => r.status === 'declined')
+  const opportunities = state.tradeInboxOpportunities
+  const collectors = state.tradeInboxCollectors
+
+  function gameTitle(gameId: string) {
+    return getGameById(gameId)?.title ?? gameId
+  }
 
   function renderReqCard(r: TradeRequest) {
     const statusLabel = r.status === 'pending' ? 'Pending' : r.status === 'accepted' ? 'Accepted' : 'Declined'
@@ -4093,15 +4104,33 @@ function renderTradeInbox() {
           <p class="kicker">Trade Inbox</p>
           <h2>Your trade requests</h2>
         </div>
-        <button class="ghost-button" data-action="trade-close" type="button">← Back to collection</button>
+        <button class="ghost-button" data-action="trade-close" type="button">&#8592; Back to collection</button>
       </div>
 
-      ${state.tradeInboxLoading ? '<p class="subtle">Loading…</p>' : ''}
+      ${state.tradeInboxLoading ? '<p class="subtle">Loading...</p>' : ''}
 
       ${!state.tradeInboxLoading && state.tradeInboxError ? `<p class="error-note">${escapeHtml(state.tradeInboxError)}</p>` : ''}
+      ${opportunities.length > 0 ? `
+        <div class="trade-matches-panel">
+          <p class="kicker">Trading games you want</p>
+          <p class="subtle">Collectors who already marked your wanted games as available for trade.</p>
+          <div class="trade-match-list">
+            ${opportunities.map((opportunity) => `
+              <div class="trade-match-card trade-match-card--mutual">
+                <div class="trade-match-name">
+                  <strong>${escapeHtml(gameTitle(opportunity.gameId))}</strong>
+                </div>
+                <p class="subtle">${opportunity.requestableOwnerCount} collector${opportunity.requestableOwnerCount === 1 ? '' : 's'} ready to hear from you now.</p>
+                ${opportunity.ownerCount > opportunity.requestableOwnerCount ? `<p class="subtle">${opportunity.ownerCount} total collector${opportunity.ownerCount === 1 ? '' : 's'} have this in their trade list.</p>` : ''}
+                <button class="toggle-button trade-view-profile-btn" data-action="open-trade-request" data-id="${escapeHtml(opportunity.gameId)}" type="button">Request this game</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
       ${state.tradeMatches.length > 0 ? `
         <div class="trade-matches-panel">
-          <p class="kicker">Trade Matches</p>
+          <p class="kicker">Best matches</p>
           <p class="subtle">Collectors offering games you want, or wanting games you're trading.</p>
           <div class="trade-match-list">
             ${state.tradeMatches.map((m) => `
@@ -4114,6 +4143,23 @@ function renderTradeInbox() {
                 ${m.iHaveWhatTheyWant.length ? `<p class="subtle">Wants ${m.iHaveWhatTheyWant.length} game${m.iHaveWhatTheyWant.length > 1 ? 's' : ''} you have for trade.</p>` : ''}
                 <button class="toggle-button trade-view-profile-btn" data-action="trade-view-profile" data-user-id="${escapeHtml(m.userId)}" type="button">View their trade list</button>
               </div>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+      ${collectors.length > 0 ? `
+        <div class="trade-matches-panel">
+          <p class="kicker">More collectors to browse</p>
+          <p class="subtle">A rotating mix of collectors who own games from your wanted list. Browse first, then request trades only where someone has opted in.</p>
+          <div class="trade-match-list">
+            ${collectors.map((collector) => `
+              <div class="trade-match-card">
+                <div class="trade-match-name">
+                  <strong>${escapeHtml(collector.displayName)}</strong>
+                </div>
+                <p class="subtle">Owns ${collector.matchingGameIds.length} wanted game${collector.matchingGameIds.length === 1 ? '' : 's'} of yours, including ${escapeHtml(gameTitle(collector.featuredGameId))}.</p>
+                <button class="ghost-button trade-view-profile-btn" data-action="trade-view-profile" data-user-id="${escapeHtml(collector.userId)}" type="button">View collector</button>
+              </div>
+            `).join('')}
           </div>
         </div>
       ` : ''}
@@ -4131,7 +4177,7 @@ function renderTradeInbox() {
         </div>
       ` : ''}
 
-      ${!state.tradeInboxLoading && reqs.length === 0 && state.tradeMatches.length === 0 ? `
+      ${!state.tradeInboxLoading && reqs.length === 0 && state.tradeMatches.length === 0 && opportunities.length === 0 && collectors.length === 0 ? `
         <div class="empty-state">
           <h3>No trades yet</h3>
           <p>Trade matches appear when another collector owns games you want, or wants games you own. Make sure your collection is synced.</p>
@@ -4199,7 +4245,7 @@ function renderTradeRequestModal() {
         <h2 id="trade-request-title">${escapeHtml(gameTitle)}</h2>
         <p class="modal-description">Collectors offering this game can be contacted from here without leaving the vault.</p>
         ${state.tradeAvailabilityOwnersLoading ? `
-          <p class="subtle">Loading collectors offering this game...</p>
+          <p class="subtle">Loading...</p>
         ` : ''}
         ${!state.tradeAvailabilityOwnersLoading && !state.tradeAvailabilityOwners.length ? `
           <div class="empty-state">
@@ -4300,7 +4346,7 @@ function renderTradeProfile() {
 
 function renderTradeThread() {
   const thread = state.tradeThread
-  if (!thread) return '<p class="subtle">Loading thread…</p>'
+  if (!thread) return '<p class="subtle">Loading...</p>'
   const { messages, tradeRequest: tr, otherUser } = thread
 
   return `
@@ -6521,6 +6567,8 @@ async function handleAction(element: HTMLElement) {
       state.tradeSendError = ''
       state.tradeInboxError = ''
       state.tradeMatches = []
+      state.tradeInboxOpportunities = []
+      state.tradeInboxCollectors = []
       render()
       if (state.authToken) {
         state.tradeInboxLoading = true
@@ -6544,18 +6592,25 @@ async function handleAction(element: HTMLElement) {
           patchTradePanel()
         }
 
-        try {
-          const matchResult = await withTimeout(
+        const [matchResult, discoveryResult] = await Promise.allSettled([
+          withTimeout(
             getTradeMatches(state.authToken),
             8000,
             'Trade matches took too long to load.',
-          )
-          state.tradeMatches = matchResult.matches
-        } catch {
-          state.tradeMatches = []
-        } finally {
-          patchTradePanel()
-        }
+          ),
+          withTimeout(
+            getTradeInboxDiscovery(state.authToken),
+            8000,
+            'Trade opportunities took too long to load.',
+          ),
+        ])
+
+        state.tradeMatches = matchResult.status === 'fulfilled' ? matchResult.value.matches : []
+        state.tradeInboxOpportunities =
+          discoveryResult.status === 'fulfilled' ? discoveryResult.value.opportunities : []
+        state.tradeInboxCollectors =
+          discoveryResult.status === 'fulfilled' ? discoveryResult.value.collectors : []
+        patchTradePanel()
       }
       break
     }
@@ -8154,3 +8209,5 @@ if ('requestIdleCallback' in window) {
   setTimeout(() => { void trackPageView(Boolean(loadAuthToken())) }, 3000)
 }
 setTimeout(() => { void hydrateAccount() }, 1500)
+
+
