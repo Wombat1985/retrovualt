@@ -246,6 +246,7 @@ const ONBOARDING_STORAGE_KEY = 'retro-game-collector-onboarding-dismissed'
 const STREAK_STORAGE_KEY = 'retro-game-collector-visit-streak'
 const ACTIVITY_STORAGE_KEY = 'retro-game-collector-activity-events'
 const TRADE_OPPORTUNITY_SEEN_KEY = 'retro-game-collector-trade-opportunities-seen'
+const TRADE_HIDE_ARCHIVED_KEY = 'retro-game-collector-trade-hide-archived'
 const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
@@ -420,6 +421,7 @@ const state = {
   customCatalog: loadCustomCatalog(),
   barcodeMappings: loadBarcodeMappings(),
   onboardingDismissed: loadOnboardingDismissed(),
+  hideArchivedTrades: loadHideArchivedTrades(),
   visitStreak: recordDailyVisit(),
   activityEvents: loadActivityEvents(),
   cachedOwnedGames: [] as CatalogEntry[],
@@ -689,6 +691,15 @@ function loadOnboardingDismissed() {
 function saveOnboardingDismissed() {
   state.onboardingDismissed = true
   localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true')
+}
+
+function loadHideArchivedTrades() {
+  return localStorage.getItem(TRADE_HIDE_ARCHIVED_KEY) === 'true'
+}
+
+function saveHideArchivedTrades(value: boolean) {
+  state.hideArchivedTrades = value
+  localStorage.setItem(TRADE_HIDE_ARCHIVED_KEY, value ? 'true' : 'false')
 }
 
 function isActivityType(value: unknown): value is ActivityType {
@@ -4294,6 +4305,7 @@ function renderTradeInbox() {
   const pending = reqs.filter((r) => r.status === 'pending')
   const accepted = reqs.filter((r) => r.status === 'accepted')
   const declined = reqs.filter((r) => r.status === 'declined')
+  const visibleDeclined = state.hideArchivedTrades ? [] : declined
   const opportunities = state.tradeInboxOpportunities
   const collectors = state.tradeInboxCollectors
   const freshOpportunityIds = state.tradeInboxFreshOpportunityIds
@@ -4344,6 +4356,13 @@ function renderTradeInbox() {
         </div>
         <button class="ghost-button" data-action="trade-close" type="button">&#8592; Back to collection</button>
       </div>
+
+      ${declined.length ? `
+        <label class="trade-archive-toggle">
+          <input type="checkbox" data-action="toggle-hide-archived-trades" ${state.hideArchivedTrades ? 'checked' : ''} />
+          <span>Hide archived</span>
+        </label>
+      ` : ''}
 
       ${state.tradeInboxLoading ? '<p class="subtle">Loading...</p>' : ''}
 
@@ -4448,7 +4467,7 @@ function renderTradeInbox() {
 
       ${pending.length ? `<h3 class="trade-section-title">Pending (${pending.length})</h3>${pending.map(renderReqCard).join('')}` : ''}
       ${accepted.length ? `<h3 class="trade-section-title">Active Trades (${accepted.length})</h3>${accepted.map(renderReqCard).join('')}` : ''}
-      ${declined.length ? `<h3 class="trade-section-title">Declined (${declined.length})</h3>${declined.map(renderReqCard).join('')}` : ''}
+      ${visibleDeclined.length ? `<h3 class="trade-section-title">Declined (${declined.length})</h3>${visibleDeclined.map(renderReqCard).join('')}` : ''}
     </section>`
 }
 
@@ -7060,6 +7079,12 @@ async function handleAction(element: HTMLElement) {
       state.tradeSendError = ''
       render()
       break
+    case 'toggle-hide-archived-trades': {
+      const input = element as HTMLInputElement
+      saveHideArchivedTrades(input.checked)
+      patchTradePanel()
+      break
+    }
     case 'open-trade-request':
       if (!id) {
         return

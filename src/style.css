@@ -4014,6 +4014,21 @@ a {
   color: var(--good);
 }
 
+.trade-archive-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  color: var(--muted);
+  font-size: 0.84rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.trade-archive-toggle input {
+  accent-color: #f1c95f;
+}
+
 .trade-back-btn {
   background: transparent;
   border: none;
