@@ -3971,6 +3971,13 @@ a {
   text-transform: uppercase;
 }
 
+.trade-match-reason {
+  margin: 0;
+  color: var(--accent-2);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .trade-match-games {
   display: flex;
   flex-direction: column;
@@ -4117,6 +4124,23 @@ a {
   white-space: nowrap;
 }
 
+.trade-profile-actions {
+  display: grid;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.trade-profile-wanted-btn {
+  font-size: 0.72rem;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.trade-profile-pending,
+.trade-profile-pending-note {
+  color: var(--accent-2);
+}
+
 .trade-view-profile-btn {
   font-size: 0.78rem;
   padding: 6px 12px;
@@ -4151,6 +4175,7 @@ a {
   }
 
   .trade-owner-card .ghost-button,
+  .trade-profile-wanted-btn,
   .trade-profile-request-btn,
   .trade-view-profile-btn {
     width: 100%;

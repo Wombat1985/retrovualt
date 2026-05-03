@@ -218,6 +218,7 @@ export type TradeRequest = {
   fromDisplayName: string
   toDisplayName: string
   partnerDisplayName: string
+  partnerUserId: string
   unreadCount: number
   tradeEdition?: string
   tradeCondition?: string

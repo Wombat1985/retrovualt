@@ -2943,6 +2943,35 @@ function formatRelativeTime(value: string | null | undefined) {
   return `${years} year${years === 1 ? '' : 's'} ago`
 }
 
+function formatTitleList(gameIds: string[], limit = 2) {
+  const titles = gameIds
+    .map((gameId) => getGameById(gameId)?.title ?? gameId)
+    .filter(Boolean)
+  const picked = titles.slice(0, limit)
+  if (!picked.length) return ''
+  if (titles.length <= limit) return picked.join(', ')
+  return `${picked.join(', ')} +${titles.length - limit} more`
+}
+
+function getTradeMatchReason(match: TradeMatch) {
+  if (!match.isMutual) return ''
+  const theyHave = formatTitleList(match.theyHaveWhatIWant, 2)
+  const theyWant = formatTitleList(match.iHaveWhatTheyWant, 2)
+  if (theyHave && theyWant) {
+    return `Why this match works: they have ${theyHave}, and they want ${theyWant}.`
+  }
+  return ''
+}
+
+function hasPendingTradeWithCollector(userId: string, gameId?: string) {
+  return state.tradeRequests.some((request) => {
+    if (request.status !== 'pending') return false
+    if (request.partnerUserId !== userId) return false
+    if (gameId && request.gameId !== gameId) return false
+    return true
+  })
+}
+
 function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, tradeCondition?: string | null) {
   const game = getGameById(gameId)
 
@@ -4350,6 +4379,7 @@ function renderTradeInbox() {
                   ${m.isMutual ? '<span class="trade-mutual-badge">Mutual match</span>' : ''}
                   <strong>${escapeHtml(m.displayName)}</strong>
                 </div>
+                ${m.isMutual && getTradeMatchReason(m) ? `<p class="trade-match-reason">${escapeHtml(getTradeMatchReason(m))}</p>` : ''}
                 ${m.theyHaveWhatIWant.length ? `<p class="subtle">Offering ${m.theyHaveWhatIWant.length} game${m.theyHaveWhatIWant.length > 1 ? 's' : ''} for trade that you want.</p>` : ''}
                 ${m.iHaveWhatTheyWant.length ? `<p class="subtle">Wants ${m.iHaveWhatTheyWant.length} game${m.iHaveWhatTheyWant.length > 1 ? 's' : ''} you have for trade.</p>` : ''}
                 <button class="toggle-button trade-view-profile-btn" data-action="trade-view-profile" data-user-id="${escapeHtml(m.userId)}" type="button">View their trade list</button>
@@ -4535,6 +4565,9 @@ function renderTradeProfile() {
     const tradeEdition = tradeOffer?.editionStatus ?? null
     const tradeCondition = tradeOffer?.condition ?? null
     const tradeValue = game ? formatPrice(getTradeMarketValue(game, tradeEdition)) : ''
+    const localRecord = getRecord(gameId)
+    const canQuickWant = badge === 'owned' && localRecord.status === 'missing'
+    const pendingWithCollector = hasPendingTradeWithCollector(state.tradeProfileUserId ?? '', gameId)
     return `<div class="trade-profile-game">
       ${cover ? `<img class="trade-profile-cover" src="${cover}" alt="" loading="lazy" />` : '<div class="trade-profile-cover trade-profile-cover--blank"></div>'}
       <div class="trade-profile-game-info">
@@ -4542,8 +4575,12 @@ function renderTradeProfile() {
         ${consoleName ? `<span class="trade-profile-game-console">${consoleName}</span>` : ''}
         <span class="trade-profile-badge trade-profile-badge--${badge}">${badge === 'owned' ? 'Has it' : 'Wants it'}</span>
         ${badge === 'owned' && tradeOffer ? `<span class="trade-profile-game-console">${escapeHtml(getEditionLabel(getTradeEditionStatus(tradeEdition)))} / ${escapeHtml(getConditionLabel(getTradeConditionRating(tradeCondition)))} / ${escapeHtml(tradeValue)}</span>` : ''}
+        ${pendingWithCollector ? '<span class="trade-profile-game-console trade-profile-pending">Pending with this collector</span>' : ''}
       </div>
-      <button class="toggle-button trade-profile-request-btn" data-action="trade-interest-select" data-game-id="${escapeHtml(gameId)}" data-user-id="${escapeHtml(state.tradeProfileUserId ?? '')}" type="button">Trade</button>
+      <div class="trade-profile-actions">
+        ${canQuickWant ? `<button class="ghost-button trade-profile-wanted-btn" data-action="toggle-wanted" data-id="${escapeHtml(gameId)}" type="button">Want it</button>` : ''}
+        <button class="toggle-button trade-profile-request-btn" data-action="${pendingWithCollector ? 'trade-open-inbox' : 'trade-interest-select'}" data-game-id="${escapeHtml(gameId)}" data-user-id="${escapeHtml(state.tradeProfileUserId ?? '')}" type="button">${pendingWithCollector ? 'Open inbox' : 'Trade'}</button>
+      </div>
     </div>`
   }
 
@@ -4562,10 +4599,12 @@ function renderTradeProfile() {
   const theyHaveIWant = profile.forTradeGameIds.filter((id) => myWanted.has(id))
   const iHaveTheyWant = profile.wantedGameIds.filter((id) => myForTrade.has(id))
   const theirOtherForTrade = profile.forTradeGameIds.filter((id) => !myWanted.has(id))
+  const hasPendingWithCollector = hasPendingTradeWithCollector(profile.userId)
 
   return `<section class="trade-profile-view">
     <button class="trade-back-btn" data-action="trade-back-to-inbox" type="button">&#8592; Back</button>
     <h2 class="trade-profile-name">${escapeHtml(profile.displayName)}'s Trade List</h2>
+    ${hasPendingWithCollector ? '<p class="subtle trade-profile-pending-note">You already have a pending request with this collector. Opening inbox will show the current thread.</p>' : ''}
 
     ${theyHaveIWant.length ? `
       <h3 class="trade-section-title trade-section-title--match">They're offering - you want these (${theyHaveIWant.length})</h3>

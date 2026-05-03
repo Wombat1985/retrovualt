@@ -1352,6 +1352,7 @@ const server = createServer(async (request, response) => {
         fromDisplayName: fromUser?.displayName ?? 'Unknown Collector',
         toDisplayName: toUser?.displayName ?? 'Unknown Collector',
         partnerDisplayName: isIncoming ? (fromUser?.displayName ?? 'Unknown Collector') : (toUser?.displayName ?? 'Unknown Collector'),
+        partnerUserId: isIncoming ? (fromUser?.id ?? '') : (toUser?.id ?? ''),
         unreadCount: unread,
         tradeEdition: tradeOffer?.editionStatus ?? null,
         tradeCondition: tradeOffer?.condition ?? null,
@@ -1904,6 +1905,7 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
 
 
 
