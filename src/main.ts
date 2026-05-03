@@ -2831,6 +2831,55 @@ function getConditionLabel(condition: ConditionRating) {
   return condition.charAt(0).toUpperCase() + condition.slice(1)
 }
 
+function isTradeEditionStatus(value: string | undefined | null): value is EditionStatus {
+  return !!value && editionOptions.includes(value as EditionStatus)
+}
+
+function isTradeConditionRating(value: string | undefined | null): value is ConditionRating {
+  return !!value && conditionOptions.includes(value as ConditionRating)
+}
+
+function getTradeEditionStatus(value: string | undefined | null) {
+  return isTradeEditionStatus(value) ? value : 'loose'
+}
+
+function getTradeConditionRating(value: string | undefined | null) {
+  return isTradeConditionRating(value) ? value : 'good'
+}
+
+function isCompleteTradeEdition(editionStatus: EditionStatus) {
+  return editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
+}
+
+function getTradeMarketValue(game: CatalogEntry, editionStatus: string | undefined | null) {
+  const safeEdition = getTradeEditionStatus(editionStatus)
+  return isCompleteTradeEdition(safeEdition) ? getReferencePrice(game) : game.priceLoose
+}
+
+function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, tradeCondition?: string | null) {
+  const game = getGameById(gameId)
+
+  if (!game) {
+    return ''
+  }
+
+  const safeEdition = getTradeEditionStatus(tradeEdition)
+  const safeCondition = getTradeConditionRating(tradeCondition)
+  const cover = game.coverUrl ? `<img class="trade-game-cover" src="${escapeHtml(game.coverUrl)}" alt="" loading="lazy" decoding="async" />` : '<div class="trade-game-cover trade-game-cover--blank"></div>'
+
+  return `
+    <div class="trade-game-snapshot">
+      ${cover}
+      <div class="trade-game-snapshot-copy">
+        <strong>${escapeHtml(game.title)}</strong>
+        <span>${escapeHtml(game.console)}</span>
+        <span>${escapeHtml(getEditionLabel(safeEdition))} / ${escapeHtml(getConditionLabel(safeCondition))}</span>
+        <span>${escapeHtml(formatPrice(getTradeMarketValue(game, safeEdition)))} current market value</span>
+      </div>
+    </div>
+  `
+}
+
 function getSyncPayload() {
   return {
     library: state.library,
@@ -4062,7 +4111,7 @@ function renderTradeInbox() {
           <span class="trade-req-dir">${dir}</span>
           ${r.unreadCount ? `<span class="trade-unread-badge">${r.unreadCount} new</span>` : ''}
         </div>
-        <p class="trade-req-game">${escapeHtml(getGameById(r.gameId)?.title ?? r.gameId)}</p>
+        ${renderTradeGameSnapshot(r.gameId, r.tradeEdition, r.tradeCondition) || `<p class="trade-req-game">${escapeHtml(getGameById(r.gameId)?.title ?? r.gameId)}</p>`}
         ${r.note ? `<p class="trade-req-note">${escapeHtml(r.note)}</p>` : ''}
         <div class="trade-req-actions">
           ${r.status === 'pending' && r.isIncoming ? `
@@ -4100,6 +4149,7 @@ function renderTradeInbox() {
                 <div class="trade-match-name">
                   <strong>${escapeHtml(gameTitle(opportunity.gameId))}</strong>
                 </div>
+                ${renderTradeGameSnapshot(opportunity.gameId)}
                 <p class="subtle">${opportunity.requestableOwnerCount} collector${opportunity.requestableOwnerCount === 1 ? '' : 's'} ready to hear from you now.</p>
                 ${opportunity.ownerCount > opportunity.requestableOwnerCount ? `<p class="subtle">${opportunity.ownerCount} total collector${opportunity.ownerCount === 1 ? '' : 's'} have this in their trade list.</p>` : ''}
                 <button class="toggle-button trade-view-profile-btn" data-action="open-trade-request" data-id="${escapeHtml(opportunity.gameId)}" type="button">Request this game</button>
@@ -4136,6 +4186,7 @@ function renderTradeInbox() {
                 <div class="trade-match-name">
                   <strong>${escapeHtml(collector.displayName)}</strong>
                 </div>
+                ${renderTradeGameSnapshot(collector.featuredGameId)}
                 <p class="subtle">Owns ${collector.matchingGameIds.length} wanted game${collector.matchingGameIds.length === 1 ? '' : 's'} of yours, including ${escapeHtml(gameTitle(collector.featuredGameId))}.</p>
                 <button class="ghost-button trade-view-profile-btn" data-action="trade-view-profile" data-user-id="${escapeHtml(collector.userId)}" type="button">View collector</button>
               </div>
@@ -4147,7 +4198,8 @@ function renderTradeInbox() {
       ${state.tradeInterestGameId && state.tradeInterestUserId ? `
         <div class="trade-compose">
           <p class="kicker">New trade request</p>
-          <p>Requesting <code>${escapeHtml(state.tradeInterestGameId)}</code> from <strong>${escapeHtml(state.tradeMatches.find((m) => m.userId === state.tradeInterestUserId)?.displayName ?? '')}</strong></p>
+          <p>Requesting from <strong>${escapeHtml(state.tradeMatches.find((m) => m.userId === state.tradeInterestUserId)?.displayName ?? '')}</strong></p>
+          ${renderTradeGameSnapshot(state.tradeInterestGameId)}
           <textarea id="trade-note-input" class="trade-note-input" placeholder="Add a note (optional, max 500 chars)" maxlength="500" rows="3"></textarea>
           <div class="trade-compose-actions">
             <button class="toggle-button" data-action="trade-send-request" type="button">Send trade request</button>
@@ -4240,6 +4292,7 @@ function renderTradeRequestModal() {
                 <div>
                   <strong>${escapeHtml(owner.displayName)}</strong>
                   <span>${owner.hasPendingRequest ? 'Pending request already open' : 'Available for trade right now'}</span>
+                  <span>${escapeHtml(getEditionLabel(getTradeEditionStatus(owner.tradeEdition)))} / ${escapeHtml(getConditionLabel(getTradeConditionRating(owner.tradeCondition)))}${game ? ` / ${escapeHtml(formatPrice(getTradeMarketValue(game, owner.tradeEdition)))}` : ''}</span>
                 </div>
                 <button
                   class="ghost-button"
@@ -4255,6 +4308,7 @@ function renderTradeRequestModal() {
         ${selectedOwner ? `
           <div class="trade-request-compose">
             <p class="modal-section-label">Requesting from ${escapeHtml(selectedOwner.displayName)}</p>
+            ${renderTradeGameSnapshot(gameId, selectedOwner.tradeEdition, selectedOwner.tradeCondition)}
             <textarea id="trade-note-input" class="trade-note-input" maxlength="500" rows="4"></textarea>
             <div class="trade-compose-actions">
               <button class="toggle-button" data-action="trade-send-request" type="button">Send trade request</button>
@@ -4277,12 +4331,17 @@ function renderTradeProfile() {
     const title = game?.title ?? gameId
     const cover = game?.coverUrl ? escapeHtml(game.coverUrl) : ''
     const consoleName = game ? escapeHtml(game.console) : ''
+    const tradeOffer = profile?.tradeOffersByGameId?.[gameId]
+    const tradeEdition = tradeOffer?.editionStatus ?? null
+    const tradeCondition = tradeOffer?.condition ?? null
+    const tradeValue = game ? formatPrice(getTradeMarketValue(game, tradeEdition)) : ''
     return `<div class="trade-profile-game">
       ${cover ? `<img class="trade-profile-cover" src="${cover}" alt="" loading="lazy" />` : '<div class="trade-profile-cover trade-profile-cover--blank"></div>'}
       <div class="trade-profile-game-info">
         <span class="trade-profile-game-title">${escapeHtml(title)}</span>
         ${consoleName ? `<span class="trade-profile-game-console">${consoleName}</span>` : ''}
         <span class="trade-profile-badge trade-profile-badge--${badge}">${badge === 'owned' ? 'Has it' : 'Wants it'}</span>
+        ${badge === 'owned' && tradeOffer ? `<span class="trade-profile-game-console">${escapeHtml(getEditionLabel(getTradeEditionStatus(tradeEdition)))} / ${escapeHtml(getConditionLabel(getTradeConditionRating(tradeCondition)))} / ${escapeHtml(tradeValue)}</span>` : ''}
       </div>
       <button class="toggle-button trade-profile-request-btn" data-action="trade-interest-select" data-game-id="${escapeHtml(gameId)}" data-user-id="${escapeHtml(state.tradeProfileUserId ?? '')}" type="button">Trade</button>
     </div>`
@@ -4290,7 +4349,7 @@ function renderTradeProfile() {
 
   if (state.tradeProfileLoading) {
     return `<button class="trade-back-btn" data-action="trade-back-to-inbox" type="button">&#8592; Back</button>
-      <p class="subtle" style="margin-top:16px">Loading collection…</p>`
+      <p class="subtle" style="margin-top:16px">Loading collection...</p>`
   }
   if (!profile) {
     return `<button class="trade-back-btn" data-action="trade-back-to-inbox" type="button">&#8592; Back</button>
@@ -4309,11 +4368,11 @@ function renderTradeProfile() {
     <h2 class="trade-profile-name">${escapeHtml(profile.displayName)}'s Trade List</h2>
 
     ${theyHaveIWant.length ? `
-      <h3 class="trade-section-title trade-section-title--match">They're offering — you want these (${theyHaveIWant.length})</h3>
+      <h3 class="trade-section-title trade-section-title--match">They're offering - you want these (${theyHaveIWant.length})</h3>
       <div class="trade-profile-game-list">${theyHaveIWant.map((id) => gameCard(id, 'owned')).join('')}</div>` : ''}
 
     ${iHaveTheyWant.length ? `
-      <h3 class="trade-section-title trade-section-title--match">They want — you're offering these (${iHaveTheyWant.length})</h3>
+      <h3 class="trade-section-title trade-section-title--match">They want - you're offering these (${iHaveTheyWant.length})</h3>
       <div class="trade-profile-game-list">${iHaveTheyWant.map((id) => gameCard(id, 'wanted')).join('')}</div>` : ''}
 
     ${theirOtherForTrade.length ? `
@@ -4336,12 +4395,13 @@ function renderTradeThread() {
           <p class="kicker">Trade conversation</p>
           <h2>With ${escapeHtml(otherUser.displayName)}</h2>
         </div>
-        <button class="ghost-button" data-action="trade-back-to-inbox" type="button">← Back to inbox</button>
+        <button class="ghost-button" data-action="trade-back-to-inbox" type="button">&#8592; Back to inbox</button>
       </div>
       <div class="trade-thread-meta">
         <p class="subtle">${escapeHtml(getGameById(tr.gameId)?.title ?? tr.gameId)} &middot; <span class="trade-status-inline trade-status-inline--${tr.status}">${tr.status}</span></p>
         <button class="trade-delete-full-btn ghost-button" data-action="trade-delete-request" data-id="${escapeHtml(tr.id)}" type="button">Delete trade</button>
       </div>
+      ${renderTradeGameSnapshot(tr.gameId, tr.tradeEdition, tr.tradeCondition)}
       <p class="subtle trade-privacy-note">Never share your email, phone, or address here. Arrange trades safely.</p>
 
       <div class="trade-messages">
@@ -4358,7 +4418,7 @@ function renderTradeThread() {
       </div>
 
       <div class="trade-compose">
-        <textarea id="trade-msg-input" class="trade-note-input" placeholder="Type your message… (max 2000 chars)" maxlength="2000" rows="3"></textarea>
+        <textarea id="trade-msg-input" class="trade-note-input" maxlength="2000" rows="3"></textarea>
         <div class="trade-compose-actions">
           <button class="toggle-button" data-action="trade-send-message" data-id="${escapeHtml(tr.id)}" type="button">Send</button>
         </div>
@@ -8147,5 +8207,4 @@ if ('requestIdleCallback' in window) {
   setTimeout(() => { void trackPageView(Boolean(loadAuthToken())) }, 3000)
 }
 setTimeout(() => { void hydrateAccount() }, 1500)
-
 

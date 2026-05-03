@@ -762,7 +762,7 @@ function normalizeMessage(raw) {
   }
 }
 
-async function sendTradeNotificationEmail(email, subject) {
+async function sendTradeNotificationEmail(email, subject, intro, ctaLabel = 'Open Trade Inbox') {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
   const appUrl = defaultAllowedOrigins[0] ?? 'https://www.retrovaultelite.com'
@@ -780,7 +780,7 @@ async function sendTradeNotificationEmail(email, subject) {
         from,
         to: email,
         subject: `Retro Vault Elite — ${subject}`,
-        html: `<p>${subject}</p><p><a href="${appUrl}">Log in to view your trade inbox.</a></p><p>Do not reply. Never share personal details over this system.</p>`,
+        html: `<p>${intro}</p><p><a href="${appUrl}">${ctaLabel}</a></p><p>Do not reply. Never share personal details over this system.</p>`,
       }),
     })
     if (!res.ok) console.error('Trade notification email failed:', res.status)
@@ -1330,6 +1330,8 @@ const server = createServer(async (request, response) => {
       const toUser = db.users.find(u => u.id === tr.toUserId)
       const isIncoming = tr.toUserId === viewingUserId
       const unread = (db.messages ?? []).filter(m => m.tradeRequestId === tr.id && m.senderUserId !== viewingUserId && !m.readAt).length
+      const tradeOwner = toUser?.syncState?.library?.[tr.gameId] ?? null
+      const tradeOffer = getTradeOfferDetails(tradeOwner)
       return {
         id: tr.id,
         gameId: tr.gameId,
@@ -1342,6 +1344,8 @@ const server = createServer(async (request, response) => {
         toDisplayName: toUser?.displayName ?? 'Unknown Collector',
         partnerDisplayName: isIncoming ? (fromUser?.displayName ?? 'Unknown Collector') : (toUser?.displayName ?? 'Unknown Collector'),
         unreadCount: unread,
+        tradeEdition: tradeOffer?.editionStatus ?? null,
+        tradeCondition: tradeOffer?.condition ?? null,
       }
     }
 
@@ -1364,6 +1368,14 @@ const server = createServer(async (request, response) => {
       return Object.entries(library)
         .filter(([, record]) => record?.status === 'wanted')
         .map(([gameId]) => gameId)
+    }
+
+    function getTradeOfferDetails(record) {
+      if (!record || record.status !== 'owned') return null
+      const tradeCopy = Array.isArray(record.copies) ? record.copies.find((copy) => copy?.forTrade) : null
+      const editionStatus = String(tradeCopy?.edition ?? record.editionStatus ?? 'loose')
+      const condition = String(tradeCopy?.condition ?? record.condition ?? 'good')
+      return { editionStatus, condition }
     }
 
     function hasPendingTradeForGame(db, viewerUserId, otherUserId, gameId) {
@@ -1535,6 +1547,9 @@ const server = createServer(async (request, response) => {
       const ownedGameIds = Object.entries(lib).filter(([,r]) => r?.status === 'owned').map(([id]) => id)
       const wantedGameIds = Object.entries(lib).filter(([,r]) => r?.status === 'wanted').map(([id]) => id)
       const forTradeGameIds = Object.entries(lib).filter(([,r]) => r?.status === 'owned' && r?.forTrade === true).map(([id]) => id)
+      const tradeOffersByGameId = Object.fromEntries(
+        forTradeGameIds.map((gameId) => [gameId, getTradeOfferDetails(lib[gameId]) ?? { editionStatus: 'loose', condition: 'good' }]),
+      )
 
       json(request, response, 200, {
         userId: target.id,
@@ -1542,6 +1557,7 @@ const server = createServer(async (request, response) => {
         ownedGameIds,
         wantedGameIds,
         forTradeGameIds,
+        tradeOffersByGameId,
       })
       return
     }
@@ -1609,7 +1625,7 @@ const server = createServer(async (request, response) => {
       await saveDb(db, { required: true })
 
       // Email notification — no personal details
-      await sendTradeNotificationEmail(toUser.email, 'You have a new trade request. Log in to view it.').catch(() => {})
+      await sendTradeNotificationEmail(toUser.email, 'New trade request waiting in Retro Vault Elite', 'Another collector sent you a trade request. Please check your Trade Inbox to respond.').catch(() => {})
 
       json(request, response, 201, { tradeRequest: sanitizeTradeRequest(tradeRequest, user.id, db) })
       return
@@ -1657,9 +1673,12 @@ const server = createServer(async (request, response) => {
       const fromUser = db.users.find(u => u.id === tradeRequest.fromUserId)
       if (fromUser) {
         const subj = newStatus === 'accepted'
-          ? 'Your trade request was accepted. You can now exchange messages.'
-          : 'Your trade request was declined.'
-        await sendTradeNotificationEmail(fromUser.email, subj).catch(() => {})
+          ? 'Your Retro Vault trade request was accepted'
+          : 'Your Retro Vault trade request was declined'
+        const intro = newStatus === 'accepted'
+          ? 'Good news - your trade request was accepted. Please check the vault to continue the trade conversation.'
+          : 'Your trade request was declined. Please check the vault for the latest status.'
+        await sendTradeNotificationEmail(fromUser.email, subj, intro).catch(() => {})
       }
 
       json(request, response, 200, { tradeRequest: sanitizeTradeRequest(tradeRequest, user.id, db) })
@@ -1770,7 +1789,7 @@ const server = createServer(async (request, response) => {
       const otherUserId = tradeRequest.fromUserId === user.id ? tradeRequest.toUserId : tradeRequest.fromUserId
       const otherUser = db.users.find(u => u.id === otherUserId)
       if (otherUser) {
-        await sendTradeNotificationEmail(otherUser.email, 'You have a new trade message. Log in to view it.').catch(() => {})
+        await sendTradeNotificationEmail(otherUser.email, 'New trade message in Retro Vault Elite', 'You have a new trade message waiting. Please check the vault to reply.').catch(() => {})
       }
 
       json(request, response, 201, {
@@ -1815,5 +1834,6 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
 
 

@@ -215,6 +215,8 @@ export type TradeRequest = {
   toDisplayName: string
   partnerDisplayName: string
   unreadCount: number
+  tradeEdition?: string
+  tradeCondition?: string
 }
 
 export type TradeMessage = {
@@ -240,6 +242,13 @@ export type TradeAvailabilityOwner = {
   userId: string
   displayName: string
   hasPendingRequest: boolean
+  tradeEdition?: string
+  tradeCondition?: string
+}
+
+export type TradeOfferDetails = {
+  editionStatus: string
+  condition: string
 }
 
 export type TradeInboxOpportunity = {
@@ -341,6 +350,7 @@ export type TradeProfile = {
   ownedGameIds: string[]
   wantedGameIds: string[]
   forTradeGameIds: string[]
+  tradeOffersByGameId: Record<string, TradeOfferDetails>
 }
 
 export async function getTradeProfile(token: string, userId: string) {
