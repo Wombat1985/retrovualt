@@ -11,6 +11,7 @@ import {
   getTradeAvailability,
   getTradeAvailabilityOwners,
   getTradeInboxDiscovery,
+  getTradeWantedDemand,
   deleteAccount,
   deleteTradeRequest,
   deleteTradeMessage,
@@ -449,6 +450,7 @@ const state = {
   tradeInboxOpportunities: [] as TradeInboxOpportunity[],
   tradeInboxCollectors: [] as TradeDiscoveryCollector[],
   tradeAvailabilityByGameId: {} as Record<string, number>,
+  tradeWantedByGameId: {} as Record<string, number>,
   tradeAvailabilityOwnersGameId: null as string | null,
   tradeAvailabilityOwners: [] as TradeAvailabilityOwner[],
   tradeAvailabilityOwnersLoading: false,
@@ -2856,6 +2858,10 @@ function getTradeMarketValue(game: CatalogEntry, editionStatus: string | undefin
   return isCompleteTradeEdition(safeEdition) ? getReferencePrice(game) : game.priceLoose
 }
 
+function getTradeWantedCount(gameId: string) {
+  return state.tradeWantedByGameId[gameId] ?? 0
+}
+
 function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, tradeCondition?: string | null) {
   const game = getGameById(gameId)
 
@@ -2874,7 +2880,8 @@ function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, t
         <strong>${escapeHtml(game.title)}</strong>
         <span>${escapeHtml(game.console)}</span>
         <span>${escapeHtml(getEditionLabel(safeEdition))} / ${escapeHtml(getConditionLabel(safeCondition))}</span>
-        <span>${escapeHtml(formatPrice(getTradeMarketValue(game, safeEdition)))} current market value</span>
+        <span>Trade value ${escapeHtml(formatPrice(getTradeMarketValue(game, safeEdition)))}</span>
+        ${getTradeWantedCount(gameId) > 0 ? `<span>Wanted by ${getTradeWantedCount(gameId)} collector${getTradeWantedCount(gameId) === 1 ? '' : 's'}</span>` : ''}
       </div>
     </div>
   `
@@ -3241,6 +3248,39 @@ async function fetchTradeAvailabilityForGames(gameIds: string[]) {
   }
 }
 
+async function fetchTradeWantedDemandForGames(gameIds: string[]) {
+  const uniqueIds = [...new Set(gameIds.filter(Boolean))]
+
+  if (!uniqueIds.length) {
+    return
+  }
+
+  const missingIds = uniqueIds.filter((gameId) => state.tradeWantedByGameId[gameId] === undefined)
+
+  if (!missingIds.length) {
+    return
+  }
+
+  try {
+    const result = await getTradeWantedDemand(missingIds, state.authToken ?? undefined)
+    const nextCounts = { ...state.tradeWantedByGameId }
+    for (const item of result.demand) {
+      nextCounts[item.gameId] = item.count
+    }
+    for (const gameId of missingIds) {
+      if (nextCounts[gameId] === undefined) {
+        nextCounts[gameId] = 0
+      }
+    }
+    state.tradeWantedByGameId = nextCounts
+    if (state.selectedGameId && missingIds.includes(state.selectedGameId)) {
+      render()
+    }
+  } catch {
+    // Leave demand quiet if lookup fails.
+  }
+}
+
 function scheduleTradeAvailabilityRefresh(games: CatalogEntry[]) {
   if (pendingTradeAvailabilityRefresh) {
     window.clearTimeout(pendingTradeAvailabilityRefresh)
@@ -3413,6 +3453,12 @@ function renderSelectedGameModal() {
             <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
             ${record.status === 'owned' && state.authToken ? `<button class="ghost-button for-trade-btn ${record.forTrade ? 'is-active' : ''}" data-action="toggle-for-trade" data-id="${safeGameId}" type="button">${record.forTrade ? 'For trade ✓' : 'Offer for trade'}</button>` : ''}
           </div>
+          ${record.status === 'owned' && getTradeWantedCount(game.id) > 0 ? `
+            <div class="trade-availability-panel">
+              <strong>${getTradeWantedCount(game.id) === 1 ? '1 collector currently wants this game.' : `${getTradeWantedCount(game.id)} collectors currently want this game.`}</strong>
+              <span>${record.forTrade ? 'Your trade listing is in a good spot right now.' : 'Mark it for trade if you want to surface it to active collectors.'}</span>
+            </div>
+          ` : ''}
           ${tradeAvailabilityCount > 0 && record.status !== 'owned' ? `
             <div class="trade-availability-panel">
               <strong>${tradeAvailabilityCount === 1 ? '1 collector has this marked for trade right now.' : `${tradeAvailabilityCount} collectors have this marked for trade right now.`}</strong>
@@ -6539,6 +6585,7 @@ async function handleAction(element: HTMLElement) {
       state.ownershipConfirmId = null
       render()
       void fetchTradeAvailabilityForGames([id])
+      void fetchTradeWantedDemandForGames([id])
       break
     case 'close-details':
       state.selectedGameId = null
@@ -6634,6 +6681,11 @@ async function handleAction(element: HTMLElement) {
           discoveryResult.status === 'fulfilled' ? discoveryResult.value.opportunities : []
         state.tradeInboxCollectors =
           discoveryResult.status === 'fulfilled' ? discoveryResult.value.collectors : []
+        void fetchTradeWantedDemandForGames([
+          ...state.tradeRequests.map((request) => request.gameId),
+          ...state.tradeInboxOpportunities.map((opportunity) => opportunity.gameId),
+          ...state.tradeInboxCollectors.map((collector) => collector.featuredGameId),
+        ])
         patchTradePanel()
       }
       break
@@ -6670,6 +6722,7 @@ async function handleAction(element: HTMLElement) {
       try {
         const profile = await getTradeProfile(state.authToken, userId)
         state.tradeProfile = profile
+        void fetchTradeWantedDemandForGames(profile.forTradeGameIds)
       } catch {
         state.tradeProfile = null
       } finally {
@@ -6702,6 +6755,7 @@ async function handleAction(element: HTMLElement) {
       try {
         const result = await getTradeMessages(state.authToken, id)
         state.tradeThread = result
+        void fetchTradeWantedDemandForGames([result.tradeRequest.gameId])
         state.tradeRequests = state.tradeRequests.map((request) =>
           request.id === id ? { ...request, unreadCount: result.tradeRequest.unreadCount } : request,
         )

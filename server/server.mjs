@@ -748,6 +748,9 @@ function normalizeTradeRequest(raw) {
     status: ['pending', 'accepted', 'declined'].includes(raw?.status) ? raw.status : 'pending',
     createdAt: typeof raw?.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
     updatedAt: typeof raw?.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+    tradeEdition: typeof raw?.tradeEdition === 'string' ? raw.tradeEdition : null,
+    tradeCondition: typeof raw?.tradeCondition === 'string' ? raw.tradeCondition : null,
+    tradeCopyIndex: Number.isInteger(raw?.tradeCopyIndex) ? raw.tradeCopyIndex : null,
   }
 }
 
@@ -1331,7 +1334,13 @@ const server = createServer(async (request, response) => {
       const isIncoming = tr.toUserId === viewingUserId
       const unread = (db.messages ?? []).filter(m => m.tradeRequestId === tr.id && m.senderUserId !== viewingUserId && !m.readAt).length
       const tradeOwner = toUser?.syncState?.library?.[tr.gameId] ?? null
-      const tradeOffer = getTradeOfferDetails(tradeOwner)
+      const tradeOffer = tr.tradeEdition || tr.tradeCondition
+        ? {
+            editionStatus: tr.tradeEdition,
+            condition: tr.tradeCondition,
+            tradeCopyIndex: tr.tradeCopyIndex ?? null,
+          }
+        : getTradeOfferDetails(tradeOwner)
       return {
         id: tr.id,
         gameId: tr.gameId,
@@ -1346,6 +1355,7 @@ const server = createServer(async (request, response) => {
         unreadCount: unread,
         tradeEdition: tradeOffer?.editionStatus ?? null,
         tradeCondition: tradeOffer?.condition ?? null,
+        tradeCopyIndex: tradeOffer?.tradeCopyIndex ?? null,
       }
     }
 
@@ -1372,10 +1382,15 @@ const server = createServer(async (request, response) => {
 
     function getTradeOfferDetails(record) {
       if (!record || record.status !== 'owned') return null
-      const tradeCopy = Array.isArray(record.copies) ? record.copies.find((copy) => copy?.forTrade) : null
+      const tradeCopyIndex = Array.isArray(record.copies) ? record.copies.findIndex((copy) => copy?.forTrade) : -1
+      const tradeCopy = tradeCopyIndex >= 0 ? record.copies[tradeCopyIndex] : null
       const editionStatus = String(tradeCopy?.edition ?? record.editionStatus ?? 'loose')
       const condition = String(tradeCopy?.condition ?? record.condition ?? 'good')
-      return { editionStatus, condition }
+      return {
+        editionStatus,
+        condition,
+        tradeCopyIndex: tradeCopyIndex >= 0 ? tradeCopyIndex : null,
+      }
     }
 
     function hasPendingTradeForGame(db, viewerUserId, otherUserId, gameId) {
@@ -1422,16 +1437,36 @@ const server = createServer(async (request, response) => {
 
       const owners = db.users
         .filter((user) => user.id !== viewer.id && getOwnedTradeGameIds(user).includes(gameId))
-        .map((user) => ({
-          userId: user.id,
-          displayName: user.displayName ?? 'Unknown Collector',
-          hasPendingRequest: hasPendingTradeForGame(db, viewer.id, user.id, gameId),
-        }))
-
+        .map((user) => {
+          const tradeOffer = getTradeOfferDetails(user.syncState?.library?.[gameId])
+          return {
+            userId: user.id,
+            displayName: user.displayName ?? 'Unknown Collector',
+            hasPendingRequest: hasPendingTradeForGame(db, viewer.id, user.id, gameId),
+            tradeEdition: tradeOffer?.editionStatus ?? null,
+            tradeCondition: tradeOffer?.condition ?? null,
+          }
+        })
       json(request, response, 200, { gameId, owners })
       return
     }
 
+    if (request.method === 'POST' && url.pathname === '/trade/wanted') {
+      const viewer = await getSessionUser(request, db)
+      const body = await readBody(request)
+      const gameIds = Array.isArray(body.gameIds) ? body.gameIds.map((value) => String(value ?? '').trim()).filter(Boolean) : []
+      const viewerId = viewer?.id ?? null
+      const demand = gameIds.map((gameId) => {
+        const count = db.users.reduce((total, user) => {
+          if (viewerId && user.id === viewerId) return total
+          const wantedIds = getWantedGameIds(user)
+          return total + (wantedIds.includes(gameId) ? 1 : 0)
+        }, 0)
+        return { gameId, count }
+      })
+      json(request, response, 200, { demand })
+      return
+    }
     if (request.method === 'GET' && url.pathname === '/trade/discovery') {
       const viewer = await getSessionUser(request, db)
       if (!viewer) { json(request, response, 401, { error: 'Not signed in.' }); return }
@@ -1596,6 +1631,7 @@ const server = createServer(async (request, response) => {
         json(request, response, 409, { error: 'A pending trade request already exists for this game with that user.' }); return
       }
 
+      const tradeOffer = getTradeOfferDetails(toUser.syncState?.library?.[gameId])
       const tradeRequest = normalizeTradeRequest({
         id: randomBytes(12).toString('hex'),
         fromUserId: user.id,
@@ -1605,6 +1641,9 @@ const server = createServer(async (request, response) => {
         status: 'pending',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        tradeEdition: tradeOffer?.editionStatus ?? null,
+        tradeCondition: tradeOffer?.condition ?? null,
+        tradeCopyIndex: tradeOffer?.tradeCopyIndex ?? null,
       })
 
       if (!db.tradeRequests) db.tradeRequests = []
@@ -1834,6 +1873,8 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
+
 
 
 

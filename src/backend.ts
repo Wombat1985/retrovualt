@@ -217,6 +217,7 @@ export type TradeRequest = {
   unreadCount: number
   tradeEdition?: string
   tradeCondition?: string
+  tradeCopyIndex?: number | null
 }
 
 export type TradeMessage = {
@@ -234,6 +235,11 @@ export async function getTradeMatches(token: string) {
 }
 
 export type TradeAvailability = {
+  gameId: string
+  count: number
+}
+
+export type TradeWantedDemand = {
   gameId: string
   count: number
 }
@@ -268,6 +274,17 @@ export type TradeDiscoveryCollector = {
 export async function getTradeAvailability(gameIds: string[], token?: string) {
   return request<{ availability: TradeAvailability[] }>(
     '/trade/availability',
+    {
+      method: 'POST',
+      body: JSON.stringify({ gameIds }),
+    },
+    token,
+  )
+}
+
+export async function getTradeWantedDemand(gameIds: string[], token?: string) {
+  return request<{ demand: TradeWantedDemand[] }>(
+    '/trade/wanted',
     {
       method: 'POST',
       body: JSON.stringify({ gameIds }),
