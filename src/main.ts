@@ -12,6 +12,8 @@ import {
   getTradeAvailabilityOwners,
   getTradeInboxDiscovery,
   getTradeWantedDemand,
+  getTradeableNowGameIds,
+  getWantedNowGameIds,
   deleteAccount,
   deleteTradeRequest,
   deleteTradeMessage,
@@ -42,7 +44,7 @@ import {
 } from './backend'
 import { initMobileBannerAd } from './mobileAds'
 
-type OwnershipFilter = 'all' | 'owned' | 'wanted' | 'missing'
+type OwnershipFilter = 'all' | 'owned' | 'wanted' | 'missing' | 'tradeable-now' | 'wanted-now'
 type ReleaseTypeFilter = 'All release types' | 'Licensed' | 'Unlicensed' | 'Homebrew' | 'Custom'
 type SortMode = 'title' | 'year' | 'loose-high' | 'complete-high' | 'trend-high' | 'shelf-score'
 type GameStatus = 'missing' | 'wanted' | 'owned'
@@ -451,12 +453,14 @@ const state = {
   tradeInboxCollectors: [] as TradeDiscoveryCollector[],
   tradeAvailabilityByGameId: {} as Record<string, number>,
   tradeWantedByGameId: {} as Record<string, number>,
+  tradeableNowIds: null as Set<string> | null,
+  wantedNowIds: null as Set<string> | null,
   tradeAvailabilityOwnersGameId: null as string | null,
   tradeAvailabilityOwners: [] as TradeAvailabilityOwner[],
   tradeAvailabilityOwnersLoading: false,
   tradeInboxLoading: false,
   tradeInboxError: '',
-  tradeThread: null as { messages: TradeMessage[]; tradeRequest: TradeRequest; otherUser: { id: string; displayName: string } } | null,
+  tradeThread: null as { messages: TradeMessage[]; tradeRequest: TradeRequest; otherUser: { id: string; displayName: string }; suggestedReplyGameId: string | null } | null,
   tradeThreadLoading: false,
   tradeSendError: '',
   tradeInterestGameId: null as string | null,
@@ -1924,11 +1928,16 @@ function getFilteredGames() {
       return matchesSearchValue(game, searchValue, true)
     })
     .filter((game) => {
-      if (state.ownershipFilter === 'all') {
-        return true
+      switch (state.ownershipFilter) {
+        case 'all':
+          return true
+        case 'tradeable-now':
+          return !!getTradeableNowSet()?.has(game.id)
+        case 'wanted-now':
+          return !!getWantedNowSet()?.has(game.id)
+        default:
+          return getRecord(game.id).status === state.ownershipFilter
       }
-
-      return getRecord(game.id).status === state.ownershipFilter
     })
     .filter((game) => {
       if (!state.letterFilter) return true
@@ -2862,6 +2871,18 @@ function getTradeWantedCount(gameId: string) {
   return state.tradeWantedByGameId[gameId] ?? 0
 }
 
+function hasHighTradeDemand(gameId: string) {
+  return getTradeWantedCount(gameId) >= 3
+}
+
+function getTradeableNowSet() {
+  return state.tradeableNowIds
+}
+
+function getWantedNowSet() {
+  return state.wantedNowIds
+}
+
 function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, tradeCondition?: string | null) {
   const game = getGameById(gameId)
 
@@ -2877,7 +2898,7 @@ function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, t
     <div class="trade-game-snapshot">
       ${cover}
       <div class="trade-game-snapshot-copy">
-        <strong>${escapeHtml(game.title)}</strong>
+        <strong>${escapeHtml(game.title)}${hasHighTradeDemand(gameId) ? ' <span class="trade-high-demand-badge">High demand</span>' : ''}</strong>
         <span>${escapeHtml(game.console)}</span>
         <span>${escapeHtml(getEditionLabel(safeEdition))} / ${escapeHtml(getConditionLabel(safeCondition))}</span>
         <span>Trade value ${escapeHtml(formatPrice(getTradeMarketValue(game, safeEdition)))}</span>
@@ -2885,6 +2906,16 @@ function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, t
       </div>
     </div>
   `
+}
+
+function renderLocalTradeGameSnapshot(gameId: string) {
+  const record = getRecord(gameId)
+  const tradeCopy = getRecordCopies(record).find((copy) => copy.forTrade)
+  return renderTradeGameSnapshot(
+    gameId,
+    tradeCopy?.edition ?? record.editionStatus,
+    tradeCopy?.condition ?? record.condition,
+  )
 }
 
 function getSyncPayload() {
@@ -3281,6 +3312,32 @@ async function fetchTradeWantedDemandForGames(gameIds: string[]) {
   }
 }
 
+async function ensureTradeNowFilterData(filter: OwnershipFilter) {
+  if (filter === 'tradeable-now') {
+    if (state.tradeableNowIds) {
+      return
+    }
+    try {
+      const result = await getTradeableNowGameIds(state.authToken ?? undefined)
+      state.tradeableNowIds = new Set(result.gameIds)
+    } catch {
+      state.tradeableNowIds = new Set()
+    }
+  }
+
+  if (filter === 'wanted-now') {
+    if (state.wantedNowIds) {
+      return
+    }
+    try {
+      const result = await getWantedNowGameIds(state.authToken ?? undefined)
+      state.wantedNowIds = new Set(result.gameIds)
+    } catch {
+      state.wantedNowIds = new Set()
+    }
+  }
+}
+
 function scheduleTradeAvailabilityRefresh(games: CatalogEntry[]) {
   if (pendingTradeAvailabilityRefresh) {
     window.clearTimeout(pendingTradeAvailabilityRefresh)
@@ -3433,6 +3490,7 @@ function renderSelectedGameModal() {
             <span class="detail-chip">Shelf score ${getShelfScore(game)}</span>
             ${getCopiesSummary(record) ? `<span class="detail-chip detail-chip--copies">${escapeHtml(getCopiesSummary(record))}</span>` : `<span class="detail-chip">${getEditionLabel(record.editionStatus)}</span>`}
             <span class="detail-chip">${getConditionLabel(record.condition)}</span>
+            ${hasHighTradeDemand(game.id) ? `<span class="detail-chip detail-chip--trade">${getTradeWantedCount(game.id)} collectors want this</span>` : ''}
           </div>
           ${record.status === 'owned' ? `
             <div class="copies-section">
@@ -4073,6 +4131,8 @@ function renderFiltersSection() {
       ${renderFilterChip('owned', 'Owned')}
       ${renderFilterChip('wanted', 'Wanted')}
       ${renderFilterChip('missing', 'Missing')}
+      ${renderFilterChip('tradeable-now', 'Tradeable now')}
+      ${renderFilterChip('wanted-now', 'Wanted now')}
       <button class="secondary-button mobile-only-action" data-action="open-custom-entry" type="button">Add your own game</button>
       <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
       <button class="secondary-button" data-action="import-collection" type="button">Import collection</button>
@@ -4432,7 +4492,7 @@ function renderTradeProfile() {
 function renderTradeThread() {
   const thread = state.tradeThread
   if (!thread) return '<p class="subtle">Loading...</p>'
-  const { messages, tradeRequest: tr, otherUser } = thread
+  const { messages, tradeRequest: tr, otherUser, suggestedReplyGameId } = thread
 
   return `
     <section class="trade-thread">
@@ -4447,7 +4507,10 @@ function renderTradeThread() {
         <p class="subtle">${escapeHtml(getGameById(tr.gameId)?.title ?? tr.gameId)} &middot; <span class="trade-status-inline trade-status-inline--${tr.status}">${tr.status}</span></p>
         <button class="trade-delete-full-btn ghost-button" data-action="trade-delete-request" data-id="${escapeHtml(tr.id)}" type="button">Delete trade</button>
       </div>
-      ${renderTradeGameSnapshot(tr.gameId, tr.tradeEdition, tr.tradeCondition)}
+      <div class="trade-thread-snapshots">
+        ${renderTradeGameSnapshot(tr.gameId, tr.tradeEdition, tr.tradeCondition)}
+        ${tr.status === 'accepted' && suggestedReplyGameId ? renderLocalTradeGameSnapshot(suggestedReplyGameId) : ''}
+      </div>
       <p class="subtle trade-privacy-note">Never share your email, phone, or address here. Arrange trades safely.</p>
 
       <div class="trade-messages">
@@ -6613,6 +6676,11 @@ async function handleAction(element: HTMLElement) {
       }
       resetVisibleGameCount()
       renderCatalogOnly()
+      if (filter === 'tradeable-now' || filter === 'wanted-now') {
+        void ensureTradeNowFilterData(filter).then(() => {
+          renderCatalogOnly()
+        })
+      }
       break
     }
     case 'view-grid':

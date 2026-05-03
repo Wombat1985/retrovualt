@@ -1380,6 +1380,12 @@ const server = createServer(async (request, response) => {
         .map(([gameId]) => gameId)
     }
 
+    function getPreferredTradeOfferGameId(fromUser, toUser) {
+      const offeredIds = getOwnedTradeGameIds(fromUser)
+      const wantedIds = new Set(getWantedGameIds(toUser))
+      return offeredIds.find((gameId) => wantedIds.has(gameId)) ?? null
+    }
+
     function getTradeOfferDetails(record) {
       if (!record || record.status !== 'owned') return null
       const tradeCopyIndex = Array.isArray(record.copies) ? record.copies.findIndex((copy) => copy?.forTrade) : -1
@@ -1424,6 +1430,28 @@ const server = createServer(async (request, response) => {
         return { gameId, count }
       })
       json(request, response, 200, { availability })
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/trade/availability-game-ids') {
+      const viewer = await getSessionUser(request, db)
+      const viewerId = viewer?.id ?? null
+      const gameIds = [...new Set(db.users.flatMap((user) => {
+        if (viewerId && user.id === viewerId) return []
+        return getOwnedTradeGameIds(user)
+      }))]
+      json(request, response, 200, { gameIds })
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/trade/wanted-game-ids') {
+      const viewer = await getSessionUser(request, db)
+      const viewerId = viewer?.id ?? null
+      const gameIds = [...new Set(db.users.flatMap((user) => {
+        if (viewerId && user.id === viewerId) return []
+        return getWantedGameIds(user)
+      }))]
+      json(request, response, 200, { gameIds })
       return
     }
 
@@ -1773,10 +1801,12 @@ const server = createServer(async (request, response) => {
 
       const otherUserId = tradeRequest.fromUserId === user.id ? tradeRequest.toUserId : tradeRequest.fromUserId
       const otherUser = db.users.find(u => u.id === otherUserId)
+      const suggestedReplyGameId = otherUser ? getPreferredTradeOfferGameId(user, otherUser) : null
 
       json(request, response, 200, {
         tradeRequest: sanitizeTradeRequest(tradeRequest, user.id, db),
         otherUser: { id: otherUser?.id ?? '', displayName: otherUser?.displayName ?? 'Unknown Collector' },
+        suggestedReplyGameId,
         messages: msgs.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).map(m => ({
           id: m.id,
           senderUserId: m.senderUserId,
@@ -1873,6 +1903,7 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
 
 
 

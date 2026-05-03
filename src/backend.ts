@@ -203,6 +203,10 @@ export type TradeMatch = {
   isMutual: boolean
 }
 
+export type TradeSignalIds = {
+  gameIds: string[]
+}
+
 export type TradeRequest = {
   id: string
   gameId: string
@@ -309,6 +313,14 @@ export async function getTradeInboxDiscovery(token: string) {
   )
 }
 
+export async function getTradeableNowGameIds(token?: string) {
+  return request<TradeSignalIds>('/trade/availability-game-ids', { method: 'GET' }, token)
+}
+
+export async function getWantedNowGameIds(token?: string) {
+  return request<TradeSignalIds>('/trade/wanted-game-ids', { method: 'GET' }, token)
+}
+
 export async function createTradeRequest(token: string, toUserId: string, gameId: string, note = '') {
   return request<{ tradeRequest: TradeRequest }>(
     '/trade/requests',
@@ -338,7 +350,7 @@ export async function deleteTradeRequest(token: string, requestId: string) {
 }
 
 export async function getTradeMessages(token: string, requestId: string) {
-  return request<{ tradeRequest: TradeRequest; otherUser: { id: string; displayName: string }; messages: TradeMessage[] }>(
+  return request<{ tradeRequest: TradeRequest; otherUser: { id: string; displayName: string }; suggestedReplyGameId: string | null; messages: TradeMessage[] }>(
     `/trade/requests/${encodeURIComponent(requestId)}/messages`,
     { method: 'GET' },
     token,
