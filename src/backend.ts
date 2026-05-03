@@ -273,6 +273,7 @@ export type TradeDiscoveryCollector = {
   displayName: string
   matchingGameIds: string[]
   featuredGameId: string
+  lastSyncedAt: string | null
 }
 
 export async function getTradeAvailability(gameIds: string[], token?: string) {

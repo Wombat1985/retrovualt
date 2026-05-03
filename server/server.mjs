@@ -1538,6 +1538,7 @@ const server = createServer(async (request, response) => {
             displayName: other.displayName ?? 'Unknown Collector',
             matchingGameIds: otherOwnedIds,
             featuredGameId: otherOwnedIds[0],
+            lastSyncedAt: other.syncState?.updatedAt ?? null,
           })
         }
       }
@@ -1903,6 +1904,7 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
 
 
 

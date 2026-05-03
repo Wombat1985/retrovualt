@@ -2923,6 +2923,26 @@ function updateTradeListingState(record: GameRecord, forTrade: boolean) {
   }
 }
 
+function formatRelativeTime(value: string | null | undefined) {
+  if (!value) return ''
+  const timestamp = new Date(value).getTime()
+  if (!Number.isFinite(timestamp)) return ''
+  const diffMs = Date.now() - timestamp
+  if (diffMs < 60_000) return 'just now'
+  const minutes = Math.round(diffMs / 60_000)
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  const hours = Math.round(diffMs / 3_600_000)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.round(diffMs / 86_400_000)
+  if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`
+  const weeks = Math.round(days / 7)
+  if (weeks < 5) return `${weeks} week${weeks === 1 ? '' : 's'} ago`
+  const months = Math.round(days / 30)
+  if (months < 12) return `${months} month${months === 1 ? '' : 's'} ago`
+  const years = Math.round(days / 365)
+  return `${years} year${years === 1 ? '' : 's'} ago`
+}
+
 function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, tradeCondition?: string | null) {
   const game = getGameById(gameId)
 
@@ -3556,10 +3576,11 @@ function renderSelectedGameModal() {
             <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
             ${record.status === 'owned' && state.authToken ? `<button class="ghost-button for-trade-btn ${record.forTrade ? 'is-active' : ''}" data-action="toggle-for-trade" data-id="${safeGameId}" type="button">${record.forTrade ? 'For trade ✓' : 'Offer for trade'}</button>` : ''}
           </div>
-          ${record.status === 'owned' && getTradeWantedCount(game.id) > 0 ? `
+          ${record.status === 'owned' && (getTradeWantedCount(game.id) > 0 || record.forTrade) ? `
             <div class="trade-availability-panel">
-              <strong>${getTradeWantedCount(game.id) === 1 ? '1 collector currently wants this game.' : `${getTradeWantedCount(game.id)} collectors currently want this game.`}</strong>
+              <strong>${getTradeWantedCount(game.id) > 0 ? (getTradeWantedCount(game.id) === 1 ? '1 collector currently wants this game.' : `${getTradeWantedCount(game.id)} collectors currently want this game.`) : 'This game is live in your trade list.'}</strong>
               <span>${record.forTrade ? 'Your trade listing is in a good spot right now.' : 'Mark it for trade if you want to surface it to active collectors.'}</span>
+              ${record.forTrade && record.tradeListedAt ? `<span class="trade-availability-meta">You listed this ${escapeHtml(formatRelativeTime(record.tradeListedAt))}.</span>` : ''}
             </div>
           ` : ''}
           ${tradeAvailabilityCount > 0 && record.status !== 'owned' ? `
@@ -4247,6 +4268,12 @@ function renderTradeInbox() {
   const opportunities = state.tradeInboxOpportunities
   const collectors = state.tradeInboxCollectors
   const freshOpportunityIds = state.tradeInboxFreshOpportunityIds
+  const recentActiveCollectors = collectors
+    .filter((collector) => collector.lastSyncedAt)
+    .sort((left, right) => String(right.lastSyncedAt ?? '').localeCompare(String(left.lastSyncedAt ?? '')))
+    .slice(0, 4)
+  const recentActiveCollectorIds = new Set(recentActiveCollectors.map((collector) => collector.userId))
+  const rotatingCollectors = collectors.filter((collector) => !recentActiveCollectorIds.has(collector.userId))
 
   function gameTitle(gameId: string) {
     return getGameById(gameId)?.title ?? gameId
@@ -4256,6 +4283,7 @@ function renderTradeInbox() {
     const statusLabel = r.status === 'pending' ? 'Pending' : r.status === 'accepted' ? 'Accepted' : 'Declined'
     const statusClass = r.status === 'pending' ? 'trade-status--pending' : r.status === 'accepted' ? 'trade-status--accepted' : 'trade-status--declined'
     const dir = r.isIncoming ? `From <strong>${escapeHtml(r.fromDisplayName)}</strong>` : `To <strong>${escapeHtml(r.toDisplayName)}</strong>`
+    const dismissLabel = r.status === 'declined' ? 'Archive' : 'Delete'
     return `
       <div class="trade-req-card">
         <div class="trade-req-meta">
@@ -4273,7 +4301,7 @@ function renderTradeInbox() {
           ${r.status === 'accepted' ? `
             <button class="toggle-button" data-action="trade-open-thread" data-id="${escapeHtml(r.id)}" type="button">${r.unreadCount ? `View messages (${r.unreadCount} new)` : 'View messages'}</button>
           ` : ''}
-          <button class="ghost-button trade-delete-request-btn" data-action="trade-delete-request" data-id="${escapeHtml(r.id)}" type="button">Delete</button>
+          <button class="ghost-button trade-delete-request-btn" data-action="trade-delete-request" data-id="${escapeHtml(r.id)}" type="button">${dismissLabel}</button>
         </div>
       </div>`
   }
@@ -4329,12 +4357,31 @@ function renderTradeInbox() {
           </div>
         </div>
       ` : ''}
-      ${collectors.length > 0 ? `
+      ${recentActiveCollectors.length > 0 ? `
+        <div class="trade-matches-panel">
+          <p class="kicker">Recently active collectors</p>
+          <p class="subtle">Collectors who recently synced and already own games from your wanted list.</p>
+          <div class="trade-match-list">
+            ${recentActiveCollectors.map((collector) => `
+              <div class="trade-match-card">
+                <div class="trade-match-name">
+                  <strong>${escapeHtml(collector.displayName)}</strong>
+                </div>
+                ${renderTradeGameSnapshot(collector.featuredGameId)}
+                <p class="subtle">Owns ${collector.matchingGameIds.length} wanted game${collector.matchingGameIds.length === 1 ? '' : 's'} of yours, including ${escapeHtml(gameTitle(collector.featuredGameId))}.</p>
+                <p class="subtle trade-active-meta">Active ${escapeHtml(formatRelativeTime(collector.lastSyncedAt))}</p>
+                <button class="ghost-button trade-view-profile-btn" data-action="trade-view-profile" data-user-id="${escapeHtml(collector.userId)}" type="button">View collector</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+      ${rotatingCollectors.length > 0 ? `
         <div class="trade-matches-panel">
           <p class="kicker">More collectors to browse</p>
           <p class="subtle">A rotating mix of collectors who own games from your wanted list. Browse first, then request trades only where someone has opted in.</p>
           <div class="trade-match-list">
-            ${collectors.map((collector) => `
+            ${rotatingCollectors.map((collector) => `
               <div class="trade-match-card">
                 <div class="trade-match-name">
                   <strong>${escapeHtml(collector.displayName)}</strong>
