@@ -46,7 +46,7 @@ import { initMobileBannerAd } from './mobileAds'
 
 type OwnershipFilter = 'all' | 'owned' | 'wanted' | 'missing' | 'tradeable-now' | 'wanted-now'
 type ReleaseTypeFilter = 'All release types' | 'Licensed' | 'Unlicensed' | 'Homebrew' | 'Custom'
-type SortMode = 'title' | 'year' | 'loose-high' | 'complete-high' | 'trend-high' | 'shelf-score'
+type SortMode = 'title' | 'year' | 'loose-high' | 'complete-high' | 'trend-high' | 'shelf-score' | 'trade-recent'
 type GameStatus = 'missing' | 'wanted' | 'owned'
 type EditionStatus = 'loose' | 'boxed' | 'manual' | 'cib' | 'sealed' | 'graded'
 type ConditionRating = 'mint' | 'excellent' | 'good' | 'fair'
@@ -84,6 +84,7 @@ type GameRecord = {
   dateAcquired: string | null
   acquiredFrom: string
   forTrade?: boolean
+  tradeListedAt?: string | null
   copies?: GameCopy[]
 }
 
@@ -244,6 +245,7 @@ const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
 const ONBOARDING_STORAGE_KEY = 'retro-game-collector-onboarding-dismissed'
 const STREAK_STORAGE_KEY = 'retro-game-collector-visit-streak'
 const ACTIVITY_STORAGE_KEY = 'retro-game-collector-activity-events'
+const TRADE_OPPORTUNITY_SEEN_KEY = 'retro-game-collector-trade-opportunities-seen'
 const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
@@ -476,6 +478,7 @@ const state = {
   importSourceName: '',
   importDoneCount: 0,
   ownershipConfirmId: null as string | null,
+  tradeInboxFreshOpportunityIds: new Set<string>(),
 }
 
 unregisterServiceWorker()
@@ -494,6 +497,26 @@ function defaultRecord(): GameRecord {
     dateAcquired: null,
     acquiredFrom: '',
     forTrade: false,
+    tradeListedAt: null,
+  }
+}
+
+function loadSeenTradeOpportunityIds() {
+  try {
+    const raw = localStorage.getItem(TRADE_OPPORTUNITY_SEEN_KEY)
+    if (!raw) return new Set<string>()
+    const parsed = JSON.parse(raw)
+    return new Set(Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string' && value.length > 0) : [])
+  } catch {
+    return new Set<string>()
+  }
+}
+
+function saveSeenTradeOpportunityIds(ids: Iterable<string>) {
+  try {
+    localStorage.setItem(TRADE_OPPORTUNITY_SEEN_KEY, JSON.stringify([...new Set(ids)].slice(-300)))
+  } catch {
+    // Seen-state should never block the app.
   }
 }
 
@@ -530,6 +553,7 @@ function loadLibrary() {
         const dateAcquired = entry.dateAcquired
         const acquiredFrom = entry.acquiredFrom
         const forTrade = entry.forTrade
+        const tradeListedAt = entry.tradeListedAt
         const rawCopies = entry.copies
 
         if (status !== 'missing' && status !== 'wanted' && status !== 'owned') {
@@ -552,6 +576,7 @@ function loadLibrary() {
               dateAcquired: typeof dateAcquired === 'string' && dateAcquired ? dateAcquired : null,
               acquiredFrom: typeof acquiredFrom === 'string' ? acquiredFrom.slice(0, 80) : '',
               forTrade: typeof forTrade === 'boolean' ? forTrade : false,
+              tradeListedAt: typeof tradeListedAt === 'string' && tradeListedAt ? tradeListedAt : null,
               copies: Array.isArray(rawCopies) ? rawCopies.map(normalizeCopy).filter((c): c is GameCopy => c !== null) : undefined,
             } satisfies GameRecord,
           ],
@@ -1955,6 +1980,8 @@ function getFilteredGames() {
           return right.trendDelta - left.trendDelta || left.title.localeCompare(right.title)
         case 'shelf-score':
           return getShelfScore(right) - getShelfScore(left) || left.title.localeCompare(right.title)
+        case 'trade-recent':
+          return getTradeListedTimestamp(right.id) - getTradeListedTimestamp(left.id) || left.title.localeCompare(right.title)
         case 'title':
         default:
           return left.title.localeCompare(right.title)
@@ -2883,6 +2910,19 @@ function getWantedNowSet() {
   return state.wantedNowIds
 }
 
+function getTradeListedTimestamp(gameId: string) {
+  const value = getRecord(gameId).tradeListedAt
+  return value ? new Date(value).getTime() || 0 : 0
+}
+
+function updateTradeListingState(record: GameRecord, forTrade: boolean) {
+  return {
+    ...record,
+    forTrade,
+    tradeListedAt: forTrade ? (record.forTrade ? record.tradeListedAt ?? new Date().toISOString() : new Date().toISOString()) : null,
+  }
+}
+
 function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, tradeCondition?: string | null) {
   const game = getGameById(gameId)
 
@@ -2954,6 +2994,7 @@ function normalizeGameRecord(value: unknown): GameRecord {
     dateAcquired: typeof record.dateAcquired === 'string' && record.dateAcquired ? record.dateAcquired : null,
     acquiredFrom: typeof record.acquiredFrom === 'string' ? record.acquiredFrom : '',
     forTrade: typeof record.forTrade === 'boolean' ? record.forTrade : false,
+    tradeListedAt: typeof record.tradeListedAt === 'string' && record.tradeListedAt ? record.tradeListedAt : null,
     copies: Array.isArray(record.copies) ? record.copies.map(normalizeCopy).filter((c): c is GameCopy => c !== null) : undefined,
   }
 }
@@ -3011,6 +3052,10 @@ function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: Game
     dateAcquired: safeLocalRecord.dateAcquired ?? safeRemoteRecord.dateAcquired,
     acquiredFrom: safeLocalRecord.acquiredFrom.trim() ? safeLocalRecord.acquiredFrom : safeRemoteRecord.acquiredFrom,
     forTrade: safeLocalRecord.forTrade || safeRemoteRecord.forTrade,
+    tradeListedAt:
+      (safeLocalRecord.forTrade ? safeLocalRecord.tradeListedAt : null) ??
+      (safeRemoteRecord.forTrade ? safeRemoteRecord.tradeListedAt : null) ??
+      null,
     copies: mergedCopies,
   } satisfies GameRecord
 }
@@ -4201,6 +4246,7 @@ function renderTradeInbox() {
   const declined = reqs.filter((r) => r.status === 'declined')
   const opportunities = state.tradeInboxOpportunities
   const collectors = state.tradeInboxCollectors
+  const freshOpportunityIds = state.tradeInboxFreshOpportunityIds
 
   function gameTitle(gameId: string) {
     return getGameById(gameId)?.title ?? gameId
@@ -4248,12 +4294,13 @@ function renderTradeInbox() {
       ${opportunities.length > 0 ? `
         <div class="trade-matches-panel">
           <p class="kicker">Trading games you want</p>
-          <p class="subtle">Collectors who already marked your wanted games as available for trade.</p>
+          <p class="subtle">Collectors who already marked your wanted games as available for trade.${freshOpportunityIds.size ? ` <span class="trade-fresh-inline">${freshOpportunityIds.size} new</span>` : ''}</p>
           <div class="trade-match-list">
             ${opportunities.map((opportunity) => `
               <div class="trade-match-card trade-match-card--mutual">
                 <div class="trade-match-name">
                   <strong>${escapeHtml(gameTitle(opportunity.gameId))}</strong>
+                  ${freshOpportunityIds.has(opportunity.gameId) ? '<span class="trade-fresh-badge">New</span>' : ''}
                 </div>
                 ${renderTradeGameSnapshot(opportunity.gameId)}
                 <p class="subtle">${opportunity.requestableOwnerCount} collector${opportunity.requestableOwnerCount === 1 ? '' : 's'} ready to hear from you now.</p>
@@ -4548,7 +4595,11 @@ function renderAlphabetBar() {
 
 function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: CatalogEntry[]) {
   const isShelf = state.viewMode === 'shelf'
-  const emptyState = '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
+  const emptyState = state.ownershipFilter === 'tradeable-now'
+    ? '<div class="empty-state"><h3>No tradeable games right now</h3><p>Nothing in this view is currently marked for trade by other collectors. Try widening the console or region filters, or check Trade Inbox for fresh matches.</p><button class="ghost-button" data-action="trade-open-inbox" type="button">Open Trade Inbox</button></div>'
+    : state.ownershipFilter === 'wanted-now'
+      ? '<div class="empty-state"><h3>No active wanted signals here</h3><p>No collectors in this view are currently looking for these games. Try another console, clear a filter, or mark more of your own games for trade.</p><button class="secondary-button" data-action="ownership-filter" data-filter="all" type="button">Show all games</button></div>'
+      : '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
   return `
     <section class="catalog-section">
       <div class="section-heading">
@@ -5518,7 +5569,7 @@ function renderNow() {
             ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button><button class="secondary-button" type="button" data-action="open-login">Sign in</button>'}
             <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
             <button class="secondary-button" type="button" data-action="open-scanner">Scan barcode</button>
-            ${state.authToken ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button>` : ''}
+            ${state.authToken ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button>` : ''}
           </div>
         </div>
         <div class="hero-stats">
@@ -5588,6 +5639,7 @@ function renderNow() {
             <option value="complete-high" ${state.sortMode === 'complete-high' ? 'selected' : ''}>Complete price</option>
             <option value="trend-high" ${state.sortMode === 'trend-high' ? 'selected' : ''}>Market trend</option>
             <option value="shelf-score" ${state.sortMode === 'shelf-score' ? 'selected' : ''}>Shelf score</option>
+            <option value="trade-recent" ${state.sortMode === 'trade-recent' ? 'selected' : ''}>Recently listed for trade</option>
           </select>
         </label>
         <label class="select-field">
@@ -5697,7 +5749,7 @@ function renderNow() {
         <div class="trade-panel-backdrop" data-action="trade-close"></div>
         <aside class="trade-panel">
           <div class="trade-panel-header">
-            <span class="trade-panel-title">Trade Inbox${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-panel-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</span>
+            <span class="trade-panel-title">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-panel-badge trade-panel-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-panel-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</span>
             <button class="trade-panel-close" data-action="trade-close" type="button" aria-label="Close">&#x2715;</button>
           </div>
           <div class="trade-panel-body">
@@ -6591,12 +6643,13 @@ async function handleAction(element: HTMLElement) {
       const currentCopies = getRecordCopies(getRecord(id))
       if (currentCopies.length <= 1) {
         playUnmark()
-        setRecord(id, (record) => ({ ...record, status: 'missing', ownedCopies: 1, copies: undefined, forTrade: false }))
+        setRecord(id, (record) => ({ ...record, status: 'missing', ownedCopies: 1, copies: undefined, forTrade: false, tradeListedAt: null }))
       } else {
         setRecord(id, (record) => {
           const copies = getRecordCopies(record)
           const next = copies.filter((_, i) => i !== copyIdx)
           const best = bestCopyEdition(next)
+          const nextForTrade = next.some((c) => c.forTrade)
           return {
             ...record,
             copies: next,
@@ -6605,7 +6658,8 @@ async function handleAction(element: HTMLElement) {
             completeInBox: best === 'cib' || best === 'sealed' || best === 'graded',
             condition: next[0].condition,
             pricePaid: next[0].pricePaid,
-            forTrade: next.some((c) => c.forTrade),
+            forTrade: nextForTrade,
+            tradeListedAt: nextForTrade ? record.tradeListedAt ?? new Date().toISOString() : null,
           }
         })
       }
@@ -6674,6 +6728,9 @@ async function handleAction(element: HTMLElement) {
       if (element.textContent?.toLowerCase().includes('grail')) {
         state.sortMode = 'complete-high'
       }
+      if (filter === 'tradeable-now' && state.sortMode === 'title') {
+        state.sortMode = 'trade-recent'
+      }
       resetVisibleGameCount()
       renderCatalogOnly()
       if (filter === 'tradeable-now' || filter === 'wanted-now') {
@@ -6708,6 +6765,7 @@ async function handleAction(element: HTMLElement) {
       state.tradeMatches = []
       state.tradeInboxOpportunities = []
       state.tradeInboxCollectors = []
+      state.tradeInboxFreshOpportunityIds = new Set()
       render()
       if (state.authToken) {
         state.tradeInboxLoading = true
@@ -6749,6 +6807,10 @@ async function handleAction(element: HTMLElement) {
           discoveryResult.status === 'fulfilled' ? discoveryResult.value.opportunities : []
         state.tradeInboxCollectors =
           discoveryResult.status === 'fulfilled' ? discoveryResult.value.collectors : []
+        const seenOpportunityIds = loadSeenTradeOpportunityIds()
+        const loadedOpportunityIds = state.tradeInboxOpportunities.map((opportunity) => opportunity.gameId)
+        state.tradeInboxFreshOpportunityIds = new Set(loadedOpportunityIds.filter((gameId) => !seenOpportunityIds.has(gameId)))
+        saveSeenTradeOpportunityIds([...seenOpportunityIds, ...loadedOpportunityIds])
         void fetchTradeWantedDemandForGames([
           ...state.tradeRequests.map((request) => request.gameId),
           ...state.tradeInboxOpportunities.map((opportunity) => opportunity.gameId),
@@ -6760,6 +6822,7 @@ async function handleAction(element: HTMLElement) {
     }
     case 'trade-close':
       state.tradeView = false
+      state.tradeInboxFreshOpportunityIds = new Set()
       state.tradeThreadId = null
       state.tradeThread = null
       state.tradeAvailabilityOwnersGameId = null
@@ -6929,7 +6992,7 @@ async function handleAction(element: HTMLElement) {
       break
     case 'toggle-for-trade':
       if (!id) break
-      setRecord(id, (record) => ({ ...record, forTrade: !(record.forTrade ?? false) }))
+      setRecord(id, (record) => updateTradeListingState(record, !(record.forTrade ?? false)))
       render()
       break
     case 'trade-prompt-yes':
@@ -6938,7 +7001,7 @@ async function handleAction(element: HTMLElement) {
         state.tradePromptPickingCopy = true
         render()
       } else {
-        setRecord(id, (record) => ({ ...record, forTrade: true }))
+        setRecord(id, (record) => updateTradeListingState(record, true))
         state.tradePromptGameId = null
         state.tradePromptIsDuplicate = false
         state.tradePromptPickingCopy = false
@@ -6952,9 +7015,14 @@ async function handleAction(element: HTMLElement) {
         const copies = getRecordCopies(record)
         if (!isNaN(copyIdx) && copies[copyIdx]) {
           const updated = copies.map((c, i) => i === copyIdx ? { ...c, forTrade: true } : c)
-          return { ...record, copies: updated, forTrade: updated.some((c) => c.forTrade) }
+          return {
+            ...record,
+            copies: updated,
+            forTrade: updated.some((c) => c.forTrade),
+            tradeListedAt: record.tradeListedAt ?? new Date().toISOString(),
+          }
         }
-        return { ...record, forTrade: true }
+        return updateTradeListingState(record, true)
       })
       state.tradePromptGameId = null
       state.tradePromptIsDuplicate = false
