@@ -4363,6 +4363,7 @@ function renderTradeInbox() {
           <span>Hide archived</span>
         </label>
       ` : ''}
+      ${declined.length && state.hideArchivedTrades ? `<p class="subtle trade-archived-note">${declined.length} archived trade${declined.length === 1 ? '' : 's'} hidden. <button class="link-button trade-archived-link" data-action="show-archived-trades" type="button">Show</button></p>` : ''}
 
       ${state.tradeInboxLoading ? '<p class="subtle">Loading...</p>' : ''}
 
@@ -6973,7 +6974,9 @@ async function handleAction(element: HTMLElement) {
       const newStatus = action === 'trade-accept' ? 'accepted' : 'declined'
       try {
         const result = await respondToTradeRequest(state.authToken, id, newStatus)
-        state.tradeRequests = state.tradeRequests.map((r) => r.id === id ? result.tradeRequest : r)
+        state.tradeRequests = state.tradeRequests
+          .map((r) => r.id === id ? result.tradeRequest : r)
+          .filter((request) => !(request.status === 'declined' && request.isIncoming))
         render()
       } catch (err) {
         state.tradeSendError = err instanceof Error ? err.message : 'Could not update trade request.'
@@ -7085,6 +7088,10 @@ async function handleAction(element: HTMLElement) {
       patchTradePanel()
       break
     }
+    case 'show-archived-trades':
+      saveHideArchivedTrades(false)
+      patchTradePanel()
+      break
     case 'open-trade-request':
       if (!id) {
         return

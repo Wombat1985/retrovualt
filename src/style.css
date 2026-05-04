@@ -4029,6 +4029,19 @@ a {
   accent-color: #f1c95f;
 }
 
+.trade-archived-note {
+  margin: -4px 0 4px;
+}
+
+.trade-archived-link {
+  color: var(--accent-2);
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
 .trade-back-btn {
   background: transparent;
   border: none;

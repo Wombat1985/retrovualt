@@ -1705,7 +1705,10 @@ const server = createServer(async (request, response) => {
       const user = await getSessionUser(request, db)
       if (!user) { json(request, response, 401, { error: 'Not signed in.' }); return }
 
-      const userRequests = (db.tradeRequests ?? []).filter(r => r.fromUserId === user.id || r.toUserId === user.id)
+      const userRequests = (db.tradeRequests ?? []).filter(r => {
+        if (r.status === 'declined' && r.toUserId === user.id) return false
+        return r.fromUserId === user.id || r.toUserId === user.id
+      })
       const result = userRequests.map(r => sanitizeTradeRequest(r, user.id, db))
       result.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
 
@@ -1905,6 +1908,7 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
 
 
 
