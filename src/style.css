@@ -2622,12 +2622,15 @@ a {
   display: grid;
   place-items: center;
   z-index: 50;
+  overscroll-behavior: contain;
 }
 
 .game-modal {
   width: min(1120px, 100%);
   max-height: min(88vh, 980px);
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   display: grid;
   grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
   gap: 24px;

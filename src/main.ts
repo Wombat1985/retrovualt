@@ -344,6 +344,9 @@ let tradeAvailabilityFetchSequence = 0
 let libraryRevision = 0
 let appEventsBound = false
 let lastInputFocusSnapshot: FocusSnapshot | null = null
+let bodyScrollLocked = false
+let bodyScrollLockY = 0
+let selectedGameModalRenderedId: string | null = null
 
 type FocusSnapshot = {
   id: string
@@ -430,6 +433,7 @@ const state = {
   cachedConsoleProgress: [] as ConsoleProgress[],
   cachedConsoleProgressKey: '',
   selectedGameId: null as string | null,
+  selectedGameModalScrollTop: 0,
   badgesOpen: false,
   ownershipPickerGameId: null as string | null,
   justOwnedGameId: null as string | null,
@@ -5623,6 +5627,10 @@ function rememberInputFocus(input: HTMLInputElement) {
 }
 
 function renderNow() {
+  const currentModal = app.querySelector<HTMLElement>('.game-modal')
+  if (currentModal && state.selectedGameId) {
+    state.selectedGameModalScrollTop = currentModal.scrollTop
+  }
   const focusSnapshot = captureFocusSnapshot()
   const catalog = getCatalog()
   const filteredGames = getFilteredGames()
@@ -5866,6 +5874,12 @@ function renderNow() {
   `
 
   bindEvents()
+  const nextModal = app.querySelector<HTMLElement>('.game-modal')
+  if (nextModal && state.selectedGameId) {
+    nextModal.scrollTop = state.selectedGameId === selectedGameModalRenderedId ? state.selectedGameModalScrollTop : 0
+  }
+  selectedGameModalRenderedId = state.selectedGameId
+  syncBodyScrollLock()
   restoreFocusSnapshot(focusSnapshot)
   void syncLiveBarcodeScan()
   scheduleTradeAvailabilityRefresh(visibleGames)
@@ -5886,6 +5900,53 @@ function currentTradePanelContent() {
   if (state.tradeThreadId) return renderTradeThread()
   if (state.tradeProfileUserId) return renderTradeProfile()
   return renderTradeInbox()
+}
+
+function hasBlockingOverlayOpen() {
+  return Boolean(
+    state.selectedGameId ||
+    state.ownershipPickerGameId ||
+    state.customEntryOpen ||
+    state.badgesOpen ||
+    state.authView !== 'none' ||
+    state.importStep !== 'none' ||
+    state.scannerOpen ||
+    state.tradeAvailabilityOwnersGameId ||
+    state.tradeView,
+  )
+}
+
+function syncBodyScrollLock() {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const shouldLock = hasBlockingOverlayOpen()
+
+  if (shouldLock && !bodyScrollLocked) {
+    bodyScrollLockY = window.scrollY || window.pageYOffset || 0
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${bodyScrollLockY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.width = '100%'
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    bodyScrollLocked = true
+    return
+  }
+
+  if (!shouldLock && bodyScrollLocked) {
+    document.body.style.position = ''
+    document.body.style.top = ''
+    document.body.style.left = ''
+    document.body.style.right = ''
+    document.body.style.width = ''
+    document.body.style.overflow = ''
+    document.documentElement.style.overflow = ''
+    window.scrollTo(0, bodyScrollLockY)
+    bodyScrollLocked = false
+  }
 }
 
 function patchTradePanel() {
