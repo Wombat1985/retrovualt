@@ -7456,6 +7456,13 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
   const isAddingDuplicate = existing.status === 'owned'
 
   playItemGet()
+  if (pendingTradePromptTimeout) {
+    window.clearTimeout(pendingTradePromptTimeout)
+    pendingTradePromptTimeout = 0
+  }
+  state.tradePromptGameId = null
+  state.tradePromptIsDuplicate = false
+  state.tradePromptPickingCopy = false
   state.ownershipPickerGameId = null
   state.justOwnedGameId = id
 
@@ -7483,11 +7490,6 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
       copies: [newCopy],
     }
   })
-
-  if (pendingTradePromptTimeout) {
-    window.clearTimeout(pendingTradePromptTimeout)
-    pendingTradePromptTimeout = 0
-  }
 
   pendingTradePromptTimeout = window.setTimeout(() => {
     pendingTradePromptTimeout = 0
