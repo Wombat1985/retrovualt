@@ -945,6 +945,58 @@ function saveBarcodeMappings() {
 }
 
 function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
+  if (Array.isArray(value)) {
+    const [
+      id,
+      title,
+      consoleName,
+      year,
+      region,
+      coverUrlValue,
+      priceLoose,
+      priceComplete,
+      priceSourceUrlValue,
+      coverSourceUrlValue,
+      trendDelta,
+      rarity,
+    ] = value
+
+    const coverUrl = typeof coverUrlValue === 'string' ? normalizeCoverUrl(coverUrlValue) : ''
+    const priceSourceUrl = typeof priceSourceUrlValue === 'string' ? normalizeExternalUrl(priceSourceUrlValue) : ''
+    const coverSourceUrl = typeof coverSourceUrlValue === 'string' ? normalizeExternalUrl(coverSourceUrlValue) : ''
+
+    if (
+      typeof id !== 'string' ||
+      typeof title !== 'string' ||
+      typeof consoleName !== 'string' ||
+      (typeof year !== 'number' && year !== null) ||
+      typeof region !== 'string' ||
+      typeof priceLoose !== 'number' ||
+      (typeof priceComplete !== 'number' && priceComplete !== null) ||
+      !priceSourceUrl ||
+      !coverSourceUrl
+    ) {
+      return null
+    }
+
+    return {
+      id,
+      title,
+      console: consoleName,
+      year,
+      region,
+      coverUrl,
+      priceLoose,
+      priceComplete,
+      priceSourceUrl,
+      coverSourceUrl,
+      trendDelta: typeof trendDelta === 'number' ? trendDelta : 0,
+      rarity: isRarityTier(rarity) ? rarity : 'Classic',
+      releaseType: undefined,
+      variantLabel: undefined,
+    } satisfies CatalogEntry
+  }
+
   if (!value || typeof value !== 'object') {
     return null
   }
@@ -3384,9 +3436,13 @@ async function fetchTradeAvailabilityForGames(gameIds: string[]) {
     }
 
     const nextCounts = { ...state.tradeAvailabilityByGameId }
+    let changed = false
 
     for (const gameId of missingIds) {
-      nextCounts[gameId] = 0
+      if (nextCounts[gameId] !== 0) {
+        nextCounts[gameId] = 0
+        changed = true
+      }
     }
 
     for (const entry of result.availability) {
@@ -3394,7 +3450,15 @@ async function fetchTradeAvailabilityForGames(gameIds: string[]) {
         continue
       }
 
-      nextCounts[entry.gameId] = typeof entry.count === 'number' ? entry.count : 0
+      const nextCount = typeof entry.count === 'number' ? entry.count : 0
+      if (nextCounts[entry.gameId] !== nextCount) {
+        nextCounts[entry.gameId] = nextCount
+        changed = true
+      }
+    }
+
+    if (!changed) {
+      return
     }
 
     state.tradeAvailabilityByGameId = nextCounts
@@ -8380,6 +8444,7 @@ function unregisterServiceWorker() {
 
 async function loadGeneratedCatalog() {
   const cachedSnapshot = await readCatalogSnapshot()
+  const shouldFetchLiteCatalog = !cachedSnapshot?.generatedCatalog.length
 
   if (cachedSnapshot) {
     state.generatedCatalog = cachedSnapshot.generatedCatalog
@@ -8392,15 +8457,22 @@ async function loadGeneratedCatalog() {
   }
 
   try {
-    const response = await fetch('/catalogs/retro-catalog-meta.json')
+    const [metaResponse, liteResponse] = await Promise.all([
+      fetch('/catalogs/retro-catalog-meta.json'),
+      shouldFetchLiteCatalog ? fetch('/catalogs/retro-catalog-lite.json') : Promise.resolve<Response | null>(null),
+    ])
 
-    if (!response.ok) {
-      throw new Error(`Catalog request failed: ${response.status}`)
+    if (!metaResponse.ok) {
+      throw new Error(`Catalog request failed: ${metaResponse.status}`)
     }
 
-    const metaText = await response.text()
+    const [metaText, liteText] = await Promise.all([
+      metaResponse.text(),
+      liteResponse ? liteResponse.text() : Promise.resolve(''),
+    ])
     await new Promise<void>((resolve) => setTimeout(resolve, 0))
     const parsed = JSON.parse(metaText) as unknown
+    const parsedLite = liteText ? JSON.parse(liteText) as unknown : []
 
     if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { consoles?: unknown }).consoles)) {
       throw new Error('Catalog metadata payload was invalid.')
@@ -8435,6 +8507,10 @@ async function loadGeneratedCatalog() {
         ]
       })
 
+    const liteCatalog = Array.isArray(parsedLite)
+      ? parsedLite.map(normalizeCatalogEntry).filter(isCatalogEntry)
+      : []
+
     const nextMetaSignature = getCatalogMetaSignature(parsedMeta)
     const hasCompleteWarmCatalog =
       Boolean(cachedSnapshot?.generatedCatalog.length) &&
@@ -8443,7 +8519,11 @@ async function loadGeneratedCatalog() {
 
     state.catalogMeta = parsedMeta
 
-    if (!hasCompleteWarmCatalog) {
+    if (liteCatalog.length) {
+      state.generatedCatalog = dedupeCatalog(liteCatalog)
+      state.loadedConsoles = [...new Set(parsedMeta.map((entry) => entry.console))]
+      invalidateCatalogCache()
+    } else if (!hasCompleteWarmCatalog) {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
       invalidateCatalogCache()
