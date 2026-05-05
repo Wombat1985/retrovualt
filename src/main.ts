@@ -2931,10 +2931,25 @@ function getTradeListedTimestamp(gameId: string) {
 }
 
 function updateTradeListingState(record: GameRecord, forTrade: boolean) {
+  const copies = getRecordCopies(record)
+  const normalizedCopies = copies.length <= 1
+    ? (copies.length
+      ? [{ ...copies[0], forTrade }]
+      : (record.status === 'owned'
+        ? [{
+            edition: record.editionStatus,
+            condition: record.condition,
+            pricePaid: record.pricePaid,
+            forTrade,
+          }]
+        : undefined))
+    : (forTrade ? copies : copies.map((copy) => ({ ...copy, forTrade: false })))
+
   return {
     ...record,
     forTrade,
     tradeListedAt: forTrade ? (record.forTrade ? record.tradeListedAt ?? new Date().toISOString() : new Date().toISOString()) : null,
+    copies: normalizedCopies,
   }
 }
 
@@ -7171,7 +7186,18 @@ async function handleAction(element: HTMLElement) {
       break
     case 'toggle-for-trade':
       if (!id) break
-      setRecord(id, (record) => updateTradeListingState(record, !(record.forTrade ?? false)))
+      {
+        const record = getRecord(id)
+        const copies = getRecordCopies(record)
+        if (!record.forTrade && copies.length > 1) {
+          state.tradePromptGameId = id
+          state.tradePromptIsDuplicate = true
+          state.tradePromptPickingCopy = true
+          render()
+          break
+        }
+        setRecord(id, (nextRecord) => updateTradeListingState(nextRecord, !(nextRecord.forTrade ?? false)))
+      }
       break
     case 'trade-prompt-yes':
       if (!id) break
@@ -7194,11 +7220,11 @@ async function handleAction(element: HTMLElement) {
       setRecord(id, (record) => {
         const copies = getRecordCopies(record)
         if (!isNaN(copyIdx) && copies[copyIdx]) {
-          const updated = copies.map((c, i) => i === copyIdx ? { ...c, forTrade: true } : c)
+          const updated = copies.map((c, i) => ({ ...c, forTrade: i === copyIdx }))
           return {
             ...record,
             copies: updated,
-            forTrade: updated.some((c) => c.forTrade),
+            forTrade: true,
             tradeListedAt: record.tradeListedAt ?? new Date().toISOString(),
           }
         }
