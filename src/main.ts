@@ -7172,7 +7172,6 @@ async function handleAction(element: HTMLElement) {
     case 'toggle-for-trade':
       if (!id) break
       setRecord(id, (record) => updateTradeListingState(record, !(record.forTrade ?? false)))
-      render()
       break
     case 'trade-prompt-yes':
       if (!id) break
@@ -7180,16 +7179,18 @@ async function handleAction(element: HTMLElement) {
         state.tradePromptPickingCopy = true
         render()
       } else {
-        setRecord(id, (record) => updateTradeListingState(record, true))
         state.tradePromptGameId = null
         state.tradePromptIsDuplicate = false
         state.tradePromptPickingCopy = false
-        render()
+        setRecord(id, (record) => updateTradeListingState(record, true))
       }
       break
     case 'trade-prompt-pick-copy': {
       if (!id) break
       const copyIdx = parseInt(element.dataset.copyIndex ?? '', 10)
+      state.tradePromptGameId = null
+      state.tradePromptIsDuplicate = false
+      state.tradePromptPickingCopy = false
       setRecord(id, (record) => {
         const copies = getRecordCopies(record)
         if (!isNaN(copyIdx) && copies[copyIdx]) {
@@ -7203,10 +7204,6 @@ async function handleAction(element: HTMLElement) {
         }
         return updateTradeListingState(record, true)
       })
-      state.tradePromptGameId = null
-      state.tradePromptIsDuplicate = false
-      state.tradePromptPickingCopy = false
-      render()
       break
     }
     case 'trade-prompt-no':
