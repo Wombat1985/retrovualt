@@ -340,6 +340,7 @@ let pendingSyncStatusRender = 0
 let pendingSearchRender = 0
 let pendingBarcodeSearchRender = 0
 let pendingTradeAvailabilityRefresh = 0
+let pendingTradePromptTimeout = 0
 let tradeAvailabilityFetchSequence = 0
 let libraryRevision = 0
 let appEventsBound = false
@@ -7201,6 +7202,10 @@ async function handleAction(element: HTMLElement) {
       break
     case 'trade-prompt-yes':
       if (!id) break
+      if (pendingTradePromptTimeout) {
+        window.clearTimeout(pendingTradePromptTimeout)
+        pendingTradePromptTimeout = 0
+      }
       if (state.tradePromptIsDuplicate) {
         state.tradePromptPickingCopy = true
         render()
@@ -7213,6 +7218,10 @@ async function handleAction(element: HTMLElement) {
       break
     case 'trade-prompt-pick-copy': {
       if (!id) break
+      if (pendingTradePromptTimeout) {
+        window.clearTimeout(pendingTradePromptTimeout)
+        pendingTradePromptTimeout = 0
+      }
       const copyIdx = parseInt(element.dataset.copyIndex ?? '', 10)
       state.tradePromptGameId = null
       state.tradePromptIsDuplicate = false
@@ -7233,6 +7242,10 @@ async function handleAction(element: HTMLElement) {
       break
     }
     case 'trade-prompt-no':
+      if (pendingTradePromptTimeout) {
+        window.clearTimeout(pendingTradePromptTimeout)
+        pendingTradePromptTimeout = 0
+      }
       state.tradePromptGameId = null
       state.tradePromptIsDuplicate = false
       state.tradePromptPickingCopy = false
@@ -7471,7 +7484,13 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
     }
   })
 
-  window.setTimeout(() => {
+  if (pendingTradePromptTimeout) {
+    window.clearTimeout(pendingTradePromptTimeout)
+    pendingTradePromptTimeout = 0
+  }
+
+  pendingTradePromptTimeout = window.setTimeout(() => {
+    pendingTradePromptTimeout = 0
     if (state.justOwnedGameId === id) {
       state.justOwnedGameId = null
       if (state.authToken) {
