@@ -1038,6 +1038,93 @@ function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
   } satisfies CatalogEntry
 }
 
+type PackedLiteCatalog = {
+  version?: number
+  coverPrefix?: string
+  sourcePrefix?: string
+  rows?: unknown
+}
+
+function normalizePackedLiteCatalog(value: unknown): CatalogEntry[] {
+  if (!value || typeof value !== 'object') {
+    return []
+  }
+
+  const payload = value as PackedLiteCatalog
+  const rows = Array.isArray(payload.rows) ? payload.rows : null
+
+  if (!rows) {
+    return []
+  }
+
+  const coverPrefix = typeof payload.coverPrefix === 'string' ? payload.coverPrefix : ''
+  const sourcePrefix = typeof payload.sourcePrefix === 'string' ? payload.sourcePrefix : ''
+
+  return rows
+    .flatMap((row) => {
+      if (!Array.isArray(row)) {
+        return []
+      }
+
+      const [
+        id,
+        title,
+        consoleName,
+        year,
+        region,
+        coverRef,
+        priceLoose,
+        priceComplete,
+        sourceRef,
+        trendDelta,
+        rarity,
+        releaseType,
+        variantLabel,
+      ] = row
+
+      const coverUrl =
+        typeof coverRef === 'string'
+          ? normalizeCoverUrl(coverRef.startsWith('http') ? coverRef : `${coverPrefix}${coverRef}`)
+          : ''
+      const priceSourceUrl =
+        typeof sourceRef === 'string'
+          ? normalizeExternalUrl(sourceRef.startsWith('http') ? sourceRef : `${sourcePrefix}${sourceRef}`)
+          : ''
+
+      if (
+        typeof id !== 'string' ||
+        typeof title !== 'string' ||
+        typeof consoleName !== 'string' ||
+        (typeof year !== 'number' && year !== null) ||
+        typeof region !== 'string' ||
+        typeof priceLoose !== 'number' ||
+        (typeof priceComplete !== 'number' && priceComplete !== null) ||
+        !priceSourceUrl
+      ) {
+        return []
+      }
+
+      return [
+        {
+          id,
+          title,
+          console: consoleName,
+          year,
+          region,
+          coverUrl,
+          priceLoose,
+          priceComplete,
+          priceSourceUrl,
+          coverSourceUrl: priceSourceUrl,
+          trendDelta: typeof trendDelta === 'number' ? trendDelta : 0,
+          rarity: isRarityTier(rarity) ? rarity : 'Classic',
+          releaseType: normalizeReleaseType(releaseType),
+          variantLabel: typeof variantLabel === 'string' && variantLabel.trim() ? variantLabel.trim() : undefined,
+        } satisfies CatalogEntry,
+      ]
+    })
+}
+
 function normalizeExternalUrl(value: string) {
   try {
     const url = new URL(value)
@@ -8509,7 +8596,7 @@ async function loadGeneratedCatalog() {
 
     const liteCatalog = Array.isArray(parsedLite)
       ? parsedLite.map(normalizeCatalogEntry).filter(isCatalogEntry)
-      : []
+      : normalizePackedLiteCatalog(parsedLite)
 
     const nextMetaSignature = getCatalogMetaSignature(parsedMeta)
     const hasCompleteWarmCatalog =
