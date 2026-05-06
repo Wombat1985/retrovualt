@@ -222,6 +222,7 @@ export type TradeRequest = {
   unreadCount: number
   tradeEdition?: string
   tradeCondition?: string
+  tradeVariant?: string
   tradeCopyIndex?: number | null
 }
 
@@ -255,11 +256,13 @@ export type TradeAvailabilityOwner = {
   hasPendingRequest: boolean
   tradeEdition?: string
   tradeCondition?: string
+  tradeVariant?: string
 }
 
 export type TradeOfferDetails = {
   editionStatus: string
   condition: string
+  variant?: string
 }
 
 export type TradeInboxOpportunity = {

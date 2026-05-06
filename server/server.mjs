@@ -750,6 +750,7 @@ function normalizeTradeRequest(raw) {
     updatedAt: typeof raw?.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
     tradeEdition: typeof raw?.tradeEdition === 'string' ? raw.tradeEdition : null,
     tradeCondition: typeof raw?.tradeCondition === 'string' ? raw.tradeCondition : null,
+    tradeVariant: typeof raw?.tradeVariant === 'string' ? raw.tradeVariant.slice(0, 80) : null,
     tradeCopyIndex: Number.isInteger(raw?.tradeCopyIndex) ? raw.tradeCopyIndex : null,
   }
 }
@@ -1334,10 +1335,11 @@ const server = createServer(async (request, response) => {
       const isIncoming = tr.toUserId === viewingUserId
       const unread = (db.messages ?? []).filter(m => m.tradeRequestId === tr.id && m.senderUserId !== viewingUserId && !m.readAt).length
       const tradeOwner = toUser?.syncState?.library?.[tr.gameId] ?? null
-      const tradeOffer = tr.tradeEdition || tr.tradeCondition
+      const tradeOffer = tr.tradeEdition || tr.tradeCondition || tr.tradeVariant
         ? {
             editionStatus: tr.tradeEdition,
             condition: tr.tradeCondition,
+            variant: tr.tradeVariant,
             tradeCopyIndex: tr.tradeCopyIndex ?? null,
           }
         : getTradeOfferDetails(tradeOwner)
@@ -1356,6 +1358,7 @@ const server = createServer(async (request, response) => {
         unreadCount: unread,
         tradeEdition: tradeOffer?.editionStatus ?? null,
         tradeCondition: tradeOffer?.condition ?? null,
+        tradeVariant: tradeOffer?.variant ?? null,
         tradeCopyIndex: tradeOffer?.tradeCopyIndex ?? null,
       }
     }
@@ -1393,9 +1396,15 @@ const server = createServer(async (request, response) => {
       const tradeCopy = tradeCopyIndex >= 0 ? record.copies[tradeCopyIndex] : null
       const editionStatus = String(tradeCopy?.edition ?? record.editionStatus ?? 'loose')
       const condition = String(tradeCopy?.condition ?? record.condition ?? 'good')
+      const variant = typeof tradeCopy?.variant === 'string' && tradeCopy.variant.trim()
+        ? tradeCopy.variant.trim().slice(0, 80)
+        : typeof record.variant === 'string' && record.variant.trim()
+          ? record.variant.trim().slice(0, 80)
+          : ''
       return {
         editionStatus,
         condition,
+        variant,
         tradeCopyIndex: tradeCopyIndex >= 0 ? tradeCopyIndex : null,
       }
     }
@@ -1474,6 +1483,7 @@ const server = createServer(async (request, response) => {
             hasPendingRequest: hasPendingTradeForGame(db, viewer.id, user.id, gameId),
             tradeEdition: tradeOffer?.editionStatus ?? null,
             tradeCondition: tradeOffer?.condition ?? null,
+            tradeVariant: tradeOffer?.variant ?? null,
           }
         })
       json(request, response, 200, { gameId, owners })
@@ -1673,6 +1683,7 @@ const server = createServer(async (request, response) => {
         updatedAt: new Date().toISOString(),
         tradeEdition: tradeOffer?.editionStatus ?? null,
         tradeCondition: tradeOffer?.condition ?? null,
+        tradeVariant: tradeOffer?.variant ?? null,
         tradeCopyIndex: tradeOffer?.tradeCopyIndex ?? null,
       })
 

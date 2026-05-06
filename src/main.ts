@@ -76,6 +76,7 @@ type ImportRow = {
 type GameCopy = {
   edition: EditionStatus
   condition: ConditionRating
+  variant?: string
   pricePaid: number | null
   forTrade: boolean
 }
@@ -88,6 +89,7 @@ type GameRecord = {
   ownedCopies: number
   editionStatus: EditionStatus
   condition: ConditionRating
+  variant?: string
   targetPrice: number | null
   notes: string
   dateAcquired: string | null
@@ -105,6 +107,7 @@ type ExportEntry = CatalogEntry & {
   ownedCopies: number
   editionStatus: EditionStatus
   condition: ConditionRating
+  variant?: string
   targetPrice: number | null
   notes: string
   dateAcquired: string | null
@@ -115,6 +118,11 @@ type Spotlight = {
   game: CatalogEntry
   label: string
   copy: string
+}
+
+type VariantTarget = {
+  copyIndex: number | null
+  existingVariant: string
 }
 
 type DailyHuntItem = {
@@ -375,6 +383,7 @@ let syncTimeout: number | null = null
 let catalogSnapshotDbPromise: Promise<IDBDatabase> | null = null
 const editionOptions: EditionStatus[] = ['loose', 'boxed', 'manual', 'box-only', 'manual-only', 'box-manual', 'cib', 'sealed', 'graded']
 const conditionOptions: ConditionRating[] = ['mint', 'excellent', 'good', 'fair']
+const variantSuggestions = ['Standard', "Player's Choice", '3-screw', '5-screw', 'Revision A', 'Black label', 'Greatest Hits']
 const currencyOptions = [
   { code: 'USD', label: 'US Dollar', symbol: '$', perEuro: 1.1711 },
   { code: 'EUR', label: 'Euro', symbol: '€', perEuro: 1 },
@@ -508,6 +517,7 @@ function defaultRecord(): GameRecord {
     ownedCopies: 1,
     editionStatus: 'loose',
     condition: 'good',
+    variant: '',
     targetPrice: null,
     notes: '',
     dateAcquired: null,
@@ -564,6 +574,7 @@ function loadLibrary() {
         const ownedCopies = entry.ownedCopies
         const editionStatus = entry.editionStatus
         const condition = entry.condition
+        const variant = entry.variant
         const targetPrice = entry.targetPrice
         const notes = entry.notes
         const dateAcquired = entry.dateAcquired
@@ -587,6 +598,7 @@ function loadLibrary() {
               ownedCopies: typeof ownedCopies === 'number' && ownedCopies >= 1 ? Math.min(Math.round(ownedCopies), 99) : 1,
               editionStatus: isEditionStatus(editionStatus) ? editionStatus : 'loose',
               condition: isConditionRating(condition) ? condition : 'good',
+              variant: normalizeVariantLabel(variant),
               targetPrice: typeof targetPrice === 'number' ? targetPrice : null,
               notes: typeof notes === 'string' ? notes : '',
               dateAcquired: typeof dateAcquired === 'string' && dateAcquired ? dateAcquired : null,
@@ -1632,12 +1644,17 @@ function isConditionRating(value: unknown): value is ConditionRating {
   return conditionOptions.includes(value as ConditionRating)
 }
 
+function normalizeVariantLabel(value: unknown) {
+  return typeof value === 'string' ? value.trim().slice(0, 80) : ''
+}
+
 function normalizeCopy(raw: unknown): GameCopy | null {
   if (!raw || typeof raw !== 'object') return null
   const c = raw as Record<string, unknown>
   return {
     edition: isEditionStatus(c.edition) ? c.edition : 'loose',
     condition: isConditionRating(c.condition) ? c.condition : 'good',
+    variant: normalizeVariantLabel(c.variant),
     pricePaid: typeof c.pricePaid === 'number' ? c.pricePaid : null,
     forTrade: typeof c.forTrade === 'boolean' ? c.forTrade : false,
   }
@@ -1649,6 +1666,7 @@ function getRecordCopies(record: GameRecord): GameCopy[] {
   return [{
     edition: record.editionStatus,
     condition: record.condition,
+    variant: normalizeVariantLabel(record.variant),
     pricePaid: record.pricePaid,
     forTrade: record.forTrade ?? false,
   }]
@@ -3016,6 +3034,33 @@ function getOwnedButtonLabel(record: GameRecord): string {
   return `Owned: ${getEditionLabel(record.editionStatus)}`
 }
 
+function chooseVariantTarget(record: GameRecord): VariantTarget | null {
+  const copies = getRecordCopies(record)
+
+  if (copies.length <= 1) {
+    return {
+      copyIndex: copies.length === 1 ? 0 : null,
+      existingVariant: normalizeVariantLabel(copies[0]?.variant ?? record.variant),
+    }
+  }
+
+  const response = window.prompt(
+    `Choose which copy variant to update (1-${copies.length}).`,
+    '1',
+  )
+
+  if (response === null) {
+    return null
+  }
+
+  const copyIndex = Math.max(1, Math.min(copies.length, Number.parseInt(response.trim(), 10) || 1)) - 1
+
+  return {
+    copyIndex,
+    existingVariant: normalizeVariantLabel(copies[copyIndex]?.variant),
+  }
+}
+
 function getOwnershipLabel(status: GameStatus, record?: GameRecord) {
   if (status === 'owned') {
     const count = record ? getOwnedCopyCount(record) : 1
@@ -3078,6 +3123,21 @@ function getOwnedEditionSummary(record: GameRecord) {
   }
 
   return `${getEditionLabel(record.editionStatus)} owned`
+}
+
+function getOwnedVariantSummary(record: GameRecord) {
+  if (record.status !== 'owned') {
+    return normalizeVariantLabel(record.variant)
+  }
+
+  const copies = getRecordCopies(record)
+  const variants = [...new Set(copies.map((copy) => normalizeVariantLabel(copy.variant)).filter(Boolean))]
+
+  if (!variants.length) {
+    return normalizeVariantLabel(record.variant)
+  }
+
+  return variants.join(', ')
 }
 
 function getConditionLabel(condition: ConditionRating) {
@@ -3198,7 +3258,12 @@ function hasPendingTradeWithCollector(userId: string, gameId?: string) {
   })
 }
 
-function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, tradeCondition?: string | null) {
+function renderTradeGameSnapshot(
+  gameId: string,
+  tradeEdition?: string | null,
+  tradeCondition?: string | null,
+  tradeVariant?: string | null,
+) {
   const game = getGameById(gameId)
 
   if (!game) {
@@ -3207,6 +3272,7 @@ function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, t
 
   const safeEdition = getTradeEditionStatus(tradeEdition)
   const safeCondition = getTradeConditionRating(tradeCondition)
+  const safeVariant = normalizeVariantLabel(tradeVariant ?? '')
   const cover = game.coverUrl ? `<img class="trade-game-cover" src="${escapeHtml(game.coverUrl)}" alt="" loading="lazy" decoding="async" />` : '<div class="trade-game-cover trade-game-cover--blank"></div>'
 
   return `
@@ -3216,6 +3282,7 @@ function renderTradeGameSnapshot(gameId: string, tradeEdition?: string | null, t
         <strong>${escapeHtml(game.title)}${hasHighTradeDemand(gameId) ? ' <span class="trade-high-demand-badge">High demand</span>' : ''}</strong>
         <span>${escapeHtml(game.console)}</span>
         <span>${escapeHtml(getEditionLabel(safeEdition))} / ${escapeHtml(getConditionLabel(safeCondition))}</span>
+        ${safeVariant ? `<span>${escapeHtml(safeVariant)}</span>` : ''}
         <span>Trade value ${escapeHtml(formatPrice(getTradeMarketValue(game, safeEdition)))}</span>
         ${getTradeWantedCount(gameId) > 0 ? `<span>Wanted by ${getTradeWantedCount(gameId)} collector${getTradeWantedCount(gameId) === 1 ? '' : 's'}</span>` : ''}
       </div>
@@ -3230,6 +3297,7 @@ function renderLocalTradeGameSnapshot(gameId: string) {
     gameId,
     tradeCopy?.edition ?? record.editionStatus,
     tradeCopy?.condition ?? record.condition,
+    tradeCopy?.variant ?? record.variant,
   )
 }
 
@@ -3264,6 +3332,7 @@ function normalizeGameRecord(value: unknown): GameRecord {
     ownedCopies: typeof record.ownedCopies === 'number' && record.ownedCopies >= 1 ? Math.min(Math.round(record.ownedCopies), 99) : 1,
     editionStatus: isEditionStatus(record.editionStatus) ? record.editionStatus : 'loose',
     condition: isConditionRating(record.condition) ? record.condition : 'good',
+    variant: normalizeVariantLabel(record.variant),
     targetPrice: typeof record.targetPrice === 'number' ? record.targetPrice : null,
     notes: typeof record.notes === 'string' ? record.notes : '',
     dateAcquired: typeof record.dateAcquired === 'string' && record.dateAcquired ? record.dateAcquired : null,
@@ -3284,6 +3353,7 @@ function hasMeaningfulRecord(record: GameRecord) {
     safeRecord.ownedCopies !== 1 ||
     safeRecord.editionStatus !== 'loose' ||
     safeRecord.condition !== 'good' ||
+    safeRecord.variant !== '' ||
     safeRecord.pricePaid !== null ||
     safeRecord.targetPrice !== null ||
     safeRecord.notes.trim() !== ''
@@ -3322,6 +3392,7 @@ function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: Game
     ownedCopies: Math.max(getOwnedCopyCount(safeLocalRecord), getOwnedCopyCount(safeRemoteRecord)),
     editionStatus: safeLocalRecord.editionStatus !== 'loose' ? safeLocalRecord.editionStatus : safeRemoteRecord.editionStatus,
     condition: safeLocalRecord.condition !== 'good' ? safeLocalRecord.condition : safeRemoteRecord.condition,
+    variant: safeLocalRecord.variant?.trim() ? safeLocalRecord.variant : safeRemoteRecord.variant,
     targetPrice: safeLocalRecord.targetPrice ?? safeRemoteRecord.targetPrice,
     notes: safeLocalRecord.notes.trim() ? safeLocalRecord.notes : safeRemoteRecord.notes,
     dateAcquired: safeLocalRecord.dateAcquired ?? safeRemoteRecord.dateAcquired,
@@ -3818,6 +3889,7 @@ function renderSelectedGameModal() {
             <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status, record)}</span>
             <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
             ${variantSummary ? `<span class="detail-chip">${escapeHtml(variantSummary)}</span>` : ''}
+            ${getOwnedVariantSummary(record) ? `<span class="detail-chip">${escapeHtml(getOwnedVariantSummary(record))}</span>` : ''}
             <span class="detail-chip">${escapeHtml(getOwnedEditionSummary(record))}</span>
             <span class="detail-chip">Shelf score ${getShelfScore(game)}</span>
             ${getCopiesSummary(record) ? `<span class="detail-chip detail-chip--copies">${escapeHtml(getCopiesSummary(record))}</span>` : `<span class="detail-chip">${getEditionLabel(record.editionStatus)}</span>`}
@@ -3830,7 +3902,7 @@ function renderSelectedGameModal() {
               <div class="copies-list">
                 ${getRecordCopies(record).map((c, i) => `
                   <span class="copy-chip">
-                    <span>${escapeHtml(getEditionLabel(c.edition))} · ${escapeHtml(getConditionLabel(c.condition))}</span>
+                    <span>${escapeHtml(getEditionLabel(c.edition))} · ${escapeHtml(getConditionLabel(c.condition))}${c.variant ? ` · ${escapeHtml(c.variant)}` : ''}</span>
                     ${c.forTrade ? '<span class="copy-trade-tag">For Trade</span>' : ''}
                     <button class="copy-chip__remove" type="button" data-action="remove-copy" data-id="${safeGameId}" data-copy-index="${i}" aria-label="${getOwnedCopyCount(record) === 1 ? 'Remove from collection' : 'Remove this copy'}">×</button>
                   </span>`).join('')}
@@ -3914,6 +3986,7 @@ function renderSelectedGameModal() {
             <button class="ghost-button" data-action="set-price-paid" data-id="${safeGameId}" type="button">Set paid</button>
             <button class="ghost-button" data-action="set-target-price" data-id="${safeGameId}" type="button">Set alert</button>
             <button class="ghost-button" data-action="set-edition" data-id="${safeGameId}" type="button">Edition</button>
+            <button class="ghost-button" data-action="set-variant" data-id="${safeGameId}" type="button">Variant</button>
             ${record.status === 'owned' ? `<button class="ghost-button danger-ghost" data-action="confirm-remove-owned" data-id="${safeGameId}" type="button">${getOwnedCopyCount(record) > 1 ? 'Remove all copies' : 'Remove from collection'}</button>` : ''}
             <button class="ghost-button" data-action="set-condition" data-id="${safeGameId}" type="button">Condition</button>
             <button class="ghost-button" data-action="edit-notes" data-id="${safeGameId}" type="button">Notes</button>
@@ -4380,7 +4453,7 @@ function executeImport(): void {
         notes: notes || existing.notes,
         dateAcquired: dateAcquired || existing.dateAcquired,
         ownedCopies: 1,
-        copies: [{ edition: editionStatus, condition, pricePaid, forTrade: false }],
+        copies: [{ edition: editionStatus, condition, variant: '', pricePaid, forTrade: false }],
       } satisfies GameRecord
     })()
   }
@@ -4562,7 +4635,7 @@ function renderTradeInbox() {
           <span class="trade-req-dir">${dir}</span>
           ${r.unreadCount ? `<span class="trade-unread-badge">${r.unreadCount} new</span>` : ''}
         </div>
-        ${renderTradeGameSnapshot(r.gameId, r.tradeEdition, r.tradeCondition) || `<p class="trade-req-game">${escapeHtml(getGameById(r.gameId)?.title ?? r.gameId)}</p>`}
+        ${renderTradeGameSnapshot(r.gameId, r.tradeEdition, r.tradeCondition, r.tradeVariant) || `<p class="trade-req-game">${escapeHtml(getGameById(r.gameId)?.title ?? r.gameId)}</p>`}
         ${r.note ? `<p class="trade-req-note">${escapeHtml(r.note)}</p>` : ''}
         <div class="trade-req-actions">
           ${r.status === 'pending' && r.isIncoming ? `
@@ -4772,7 +4845,7 @@ function renderTradeRequestModal() {
                 <div>
                   <strong>${escapeHtml(owner.displayName)}</strong>
                   <span>${owner.hasPendingRequest ? 'Pending request already open' : 'Available for trade right now'}</span>
-                  <span>${escapeHtml(getEditionLabel(getTradeEditionStatus(owner.tradeEdition)))} / ${escapeHtml(getConditionLabel(getTradeConditionRating(owner.tradeCondition)))}${game ? ` / ${escapeHtml(formatPrice(getTradeMarketValue(game, owner.tradeEdition)))}` : ''}</span>
+                  <span>${escapeHtml(getEditionLabel(getTradeEditionStatus(owner.tradeEdition)))} / ${escapeHtml(getConditionLabel(getTradeConditionRating(owner.tradeCondition)))}${owner.tradeVariant ? ` / ${escapeHtml(owner.tradeVariant)}` : ''}${game ? ` / ${escapeHtml(formatPrice(getTradeMarketValue(game, owner.tradeEdition)))}` : ''}</span>
                 </div>
                 <button
                   class="ghost-button"
@@ -4788,7 +4861,7 @@ function renderTradeRequestModal() {
         ${selectedOwner ? `
           <div class="trade-request-compose">
             <p class="modal-section-label">Requesting from ${escapeHtml(selectedOwner.displayName)}</p>
-            ${renderTradeGameSnapshot(gameId, selectedOwner.tradeEdition, selectedOwner.tradeCondition)}
+            ${renderTradeGameSnapshot(gameId, selectedOwner.tradeEdition, selectedOwner.tradeCondition, selectedOwner.tradeVariant)}
             <textarea id="trade-note-input" class="trade-note-input" maxlength="500" rows="4"></textarea>
             <div class="trade-compose-actions">
               <button class="toggle-button" data-action="trade-send-request" type="button">Send trade request</button>
@@ -4824,7 +4897,7 @@ function renderTradeProfile() {
         <span class="trade-profile-game-title">${escapeHtml(title)}</span>
         ${consoleName ? `<span class="trade-profile-game-console">${consoleName}</span>` : ''}
         <span class="trade-profile-badge trade-profile-badge--${badge}">${badge === 'owned' ? 'Has it' : 'Wants it'}</span>
-        ${badge === 'owned' && tradeOffer ? `<span class="trade-profile-game-console">${escapeHtml(getEditionLabel(getTradeEditionStatus(tradeEdition)))} / ${escapeHtml(getConditionLabel(getTradeConditionRating(tradeCondition)))} / ${escapeHtml(tradeValue)}</span>` : ''}
+        ${badge === 'owned' && tradeOffer ? `<span class="trade-profile-game-console">${escapeHtml(getEditionLabel(getTradeEditionStatus(tradeEdition)))} / ${escapeHtml(getConditionLabel(getTradeConditionRating(tradeCondition)))}${tradeOffer.variant ? ` / ${escapeHtml(tradeOffer.variant)}` : ''} / ${escapeHtml(tradeValue)}</span>` : ''}
         ${pendingWithCollector ? '<span class="trade-profile-game-console trade-profile-pending">Pending with this collector</span>' : ''}
       </div>
       <div class="trade-profile-actions">
@@ -4891,7 +4964,7 @@ function renderTradeThread() {
         <button class="trade-delete-full-btn ghost-button" data-action="trade-delete-request" data-id="${escapeHtml(tr.id)}" type="button">Delete trade</button>
       </div>
       <div class="trade-thread-snapshots">
-        ${renderTradeGameSnapshot(tr.gameId, tr.tradeEdition, tr.tradeCondition)}
+        ${renderTradeGameSnapshot(tr.gameId, tr.tradeEdition, tr.tradeCondition, tr.tradeVariant)}
         ${tr.status === 'accepted' && suggestedReplyGameId ? renderLocalTradeGameSnapshot(suggestedReplyGameId) : ''}
       </div>
       <p class="subtle trade-privacy-note">Never share your email, phone, or address here. Arrange trades safely.</p>
@@ -6890,6 +6963,7 @@ async function handleAction(element: HTMLElement) {
         ...record,
         status: record.status === 'missing' ? 'owned' : record.status,
         completeInBox: !record.completeInBox,
+        editionStatus: !record.completeInBox ? 'cib' : record.editionStatus,
       }))
       break
     case 'set-price-paid':
@@ -7035,6 +7109,13 @@ async function handleAction(element: HTMLElement) {
       }
 
       updateEditionStatus(id)
+      break
+    case 'set-variant':
+      if (!id) {
+        return
+      }
+
+      updateVariantStatus(id)
       break
     case 'set-copies':
       if (!id) {
@@ -7697,7 +7778,7 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
   state.justOwnedGameId = id
 
   setRecord(id, (record) => {
-    const newCopy: GameCopy = { edition: editionStatus, condition: 'good', pricePaid: null, forTrade: false }
+    const newCopy: GameCopy = { edition: editionStatus, condition: 'good', variant: '', pricePaid: null, forTrade: false }
     if (isAddingDuplicate) {
       const existingCopies = getRecordCopies(record)
       const allCopies = [...existingCopies, newCopy]
@@ -7887,6 +7968,48 @@ function updateCondition(id: string) {
     ...record,
     condition: next,
   }))
+}
+
+function updateVariantStatus(id: string) {
+  const current = getRecord(id)
+  const target = chooseVariantTarget(current)
+
+  if (!target) {
+    return
+  }
+
+  const suggestionText = variantSuggestions.join(', ')
+  const response = window.prompt(
+    `Set variant label. Examples: ${suggestionText}. Leave blank to clear it.`,
+    target.existingVariant,
+  )
+
+  if (response === null) {
+    return
+  }
+
+  const nextVariant = normalizeVariantLabel(response)
+
+  setRecord(id, (record) => {
+    if (target.copyIndex === null || !record.copies?.length || !record.copies[target.copyIndex]) {
+      return {
+        ...record,
+        variant: nextVariant,
+      }
+    }
+
+    const updatedCopies = record.copies.map((copy, index) =>
+      index === target.copyIndex ? { ...copy, variant: nextVariant } : copy,
+    )
+
+    const primaryVariant = normalizeVariantLabel(updatedCopies[0]?.variant)
+
+    return {
+      ...record,
+      copies: updatedCopies,
+      variant: primaryVariant,
+    }
+  })
 }
 
 function updateNotes(id: string) {
@@ -8582,6 +8705,7 @@ function exportCatalog() {
       ownedCopies: getOwnedCopyCount(record),
       editionStatus: record.editionStatus,
       condition: record.condition,
+      variant: normalizeVariantLabel(record.variant),
       targetPrice: record.targetPrice,
       notes: record.notes,
       dateAcquired: record.dateAcquired,
