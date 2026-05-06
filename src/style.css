@@ -2072,7 +2072,7 @@ a {
 .ownership-choice {
   display: grid;
   gap: 8px;
-  padding: 20px;
+  padding: 16px;
   text-align: left;
   color: var(--text);
   background: rgba(255, 255, 255, 0.045);
@@ -2101,7 +2101,7 @@ a {
 
 .ownership-choice strong {
   font-family: var(--display);
-  font-size: 2rem;
+  font-size: 1.55rem;
 }
 
 .ownership-choice em {
@@ -3221,6 +3221,14 @@ a {
 
   .ownership-picker {
     padding: 20px;
+  }
+
+  .ownership-choice {
+    padding: 14px;
+  }
+
+  .ownership-choice strong {
+    font-size: 1.28rem;
   }
 
   .onboarding-step {

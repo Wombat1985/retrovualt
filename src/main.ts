@@ -48,7 +48,16 @@ type OwnershipFilter = 'all' | 'owned' | 'wanted' | 'missing' | 'tradeable-now' 
 type ReleaseTypeFilter = 'All release types' | 'Licensed' | 'Unlicensed' | 'Homebrew' | 'Custom'
 type SortMode = 'title' | 'year' | 'loose-high' | 'complete-high' | 'trend-high' | 'shelf-score' | 'trade-recent'
 type GameStatus = 'missing' | 'wanted' | 'owned'
-type EditionStatus = 'loose' | 'boxed' | 'manual' | 'cib' | 'sealed' | 'graded'
+type EditionStatus =
+  | 'loose'
+  | 'boxed'
+  | 'manual'
+  | 'box-only'
+  | 'manual-only'
+  | 'box-manual'
+  | 'cib'
+  | 'sealed'
+  | 'graded'
 type ConditionRating = 'mint' | 'excellent' | 'good' | 'fair'
 type AuthView = 'none' | 'register' | 'login' | 'reset' | 'account' | 'confirm-reset'
 type ImportStep = 'none' | 'preview' | 'done'
@@ -364,7 +373,7 @@ const app = appElement
 const pendingConsoleLoads = new Map<string, Promise<void>>()
 let syncTimeout: number | null = null
 let catalogSnapshotDbPromise: Promise<IDBDatabase> | null = null
-const editionOptions: EditionStatus[] = ['loose', 'boxed', 'manual', 'cib', 'sealed', 'graded']
+const editionOptions: EditionStatus[] = ['loose', 'boxed', 'manual', 'box-only', 'manual-only', 'box-manual', 'cib', 'sealed', 'graded']
 const conditionOptions: ConditionRating[] = ['mint', 'excellent', 'good', 'fair']
 const currencyOptions = [
   { code: 'USD', label: 'US Dollar', symbol: '$', perEuro: 1.1711 },
@@ -1646,7 +1655,19 @@ function getRecordCopies(record: GameRecord): GameCopy[] {
 }
 
 const EDITION_RANK: Record<EditionStatus, number> = {
-  loose: 0, manual: 1, boxed: 2, cib: 3, sealed: 4, graded: 5,
+  loose: 0,
+  'manual-only': 1,
+  'box-only': 2,
+  manual: 3,
+  boxed: 4,
+  'box-manual': 5,
+  cib: 6,
+  sealed: 7,
+  graded: 8,
+}
+
+function isCompleteEditionStatus(editionStatus: EditionStatus) {
+  return editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
 }
 
 function bestCopyEdition(copies: GameCopy[]): EditionStatus {
@@ -1926,19 +1947,52 @@ function getReferencePrice(game: CatalogEntry) {
   return game.priceComplete ?? game.priceLoose
 }
 
+function getEditionMarketValue(game: CatalogEntry, editionStatus: EditionStatus) {
+  const looseValue = game.priceLoose
+  const completeValue = getReferencePrice(game)
+  const extrasValue = Math.max(0, completeValue - looseValue)
+  const fallbackExtrasValue = extrasValue > 0 ? extrasValue : Math.max(0, looseValue * 0.6)
+
+  switch (editionStatus) {
+    case 'boxed':
+      return looseValue + fallbackExtrasValue * 0.55
+    case 'manual':
+      return looseValue + fallbackExtrasValue * 0.3
+    case 'box-only':
+      return fallbackExtrasValue * 0.7
+    case 'manual-only':
+      return fallbackExtrasValue * 0.3
+    case 'box-manual':
+      return fallbackExtrasValue
+    case 'cib':
+    case 'sealed':
+    case 'graded':
+      return completeValue
+    case 'loose':
+    default:
+      return looseValue
+  }
+}
+
 function isCompleteEdition(record: GameRecord) {
-  return record.completeInBox || record.editionStatus === 'cib' || record.editionStatus === 'sealed' || record.editionStatus === 'graded'
+  return record.completeInBox || isCompleteEditionStatus(record.editionStatus)
 }
 
 function getOwnedMarketPrice(game: CatalogEntry) {
   const record = getRecord(game.id)
-  const singleCopyValue = isCompleteEdition(record) ? getReferencePrice(game) : game.priceLoose
-  return singleCopyValue * getOwnedCopyCount(record)
+  const copies = getRecordCopies(record)
+
+  if (copies.length > 0) {
+    return copies.reduce((total, copy) => total + getEditionMarketValue(game, copy.edition), 0)
+  }
+
+  return getEditionMarketValue(game, record.editionStatus) * getOwnedCopyCount(record)
 }
 
 function getOwnedValueLabel(game: CatalogEntry) {
   const record = getRecord(game.id)
-  const baseLabel = isCompleteEdition(record) ? 'Complete value' : 'Loose value'
+  const editionLabel = getEditionLabel(record.editionStatus)
+  const baseLabel = isCompleteEdition(record) ? 'Complete value' : `${editionLabel} value`
   return getOwnedCopyCount(record) > 1 ? `${baseLabel} x${getOwnedCopyCount(record)}` : baseLabel
 }
 
@@ -2992,7 +3046,13 @@ function getEditionLabel(editionStatus: EditionStatus) {
     case 'boxed':
       return 'Boxed'
     case 'manual':
-      return 'Manual'
+      return 'Cart + manual'
+    case 'box-only':
+      return 'Box only'
+    case 'manual-only':
+      return 'Manual only'
+    case 'box-manual':
+      return 'Box + manual'
     case 'cib':
       return 'CIB'
     case 'sealed':
@@ -3040,13 +3100,9 @@ function getTradeConditionRating(value: string | undefined | null) {
   return isTradeConditionRating(value) ? value : 'good'
 }
 
-function isCompleteTradeEdition(editionStatus: EditionStatus) {
-  return editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
-}
-
 function getTradeMarketValue(game: CatalogEntry, editionStatus: string | undefined | null) {
   const safeEdition = getTradeEditionStatus(editionStatus)
-  return isCompleteTradeEdition(safeEdition) ? getReferencePrice(game) : game.priceLoose
+  return getEditionMarketValue(game, safeEdition)
 }
 
 function getTradeWantedCount(gameId: string) {
@@ -4176,9 +4232,12 @@ function mapImportEdition(complete: string): EditionStatus {
   const n = complete.toLowerCase().trim()
   if (n === 'true' || n === 'yes' || n === '1' || n === 'cib' || n === 'complete' || n === 'complete in box') return 'cib'
   if (n === 'sealed' || n === 'new' || n === 'sealed/new') return 'sealed'
-  if (n === 'boxed' || n === 'box' || n === 'box only') return 'boxed'
+  if (n === 'boxed' || n === 'box' || n === 'cart + box' || n === 'cartridge + box') return 'boxed'
+  if (n === 'box only') return 'box-only'
   if (n === 'graded') return 'graded'
+  if (n === 'manual only') return 'manual-only'
   if (n === 'manual' || n === 'cart + manual' || n === 'cartridge + manual') return 'manual'
+  if (n === 'box + manual' || n === 'box and manual' || n === 'box/manual' || n === 'box + manual no game') return 'box-manual'
   return 'loose'
 }
 
@@ -4307,7 +4366,7 @@ function executeImport(): void {
   for (const row of toImport) {
     if (!row.game) continue
     const { editionStatus, condition, pricePaid, notes, dateAcquired } = row
-    const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
+    const completeInBox = isCompleteEditionStatus(editionStatus)
     state.library[row.game.id] = (() => {
       const existing = getRecord(row.game!.id)
       if (existing.status === 'owned') return existing
@@ -5071,6 +5130,11 @@ function renderOwnershipPickerModal() {
   }
 
   const completeValue = game.priceComplete === null ? getReferencePrice(game) : game.priceComplete
+  const boxedValue = getEditionMarketValue(game, 'boxed')
+  const manualValue = getEditionMarketValue(game, 'manual')
+  const boxOnlyValue = getEditionMarketValue(game, 'box-only')
+  const manualOnlyValue = getEditionMarketValue(game, 'manual-only')
+  const boxManualValue = getEditionMarketValue(game, 'box-manual')
   const safeGameId = escapeHtml(game.id)
   const existingRecord = getRecord(game.id)
   const isAddingCopy = existingRecord.status === 'owned'
@@ -5091,13 +5155,28 @@ function renderOwnershipPickerModal() {
           </button>
           <button class="ownership-choice" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="boxed">
             <span>Boxed</span>
-            <strong>${formatPrice(game.priceLoose)}</strong>
+            <strong>${formatPrice(boxedValue)}</strong>
             <em>Box + cart, no manual</em>
           </button>
           <button class="ownership-choice" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="manual">
             <span>Cart + manual</span>
-            <strong>${formatPrice(game.priceLoose)}</strong>
+            <strong>${formatPrice(manualValue)}</strong>
             <em>Cart + manual, no box</em>
+          </button>
+          <button class="ownership-choice" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="box-only">
+            <span>Box only</span>
+            <strong>${formatPrice(boxOnlyValue)}</strong>
+            <em>Packaging only, no game</em>
+          </button>
+          <button class="ownership-choice" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="manual-only">
+            <span>Manual only</span>
+            <strong>${formatPrice(manualOnlyValue)}</strong>
+            <em>Instruction manual only</em>
+          </button>
+          <button class="ownership-choice" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="box-manual">
+            <span>Box + manual</span>
+            <strong>${formatPrice(boxManualValue)}</strong>
+            <em>No game included</em>
           </button>
           <button class="ownership-choice ownership-choice--premium" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="cib">
             <span>Complete (CiB)</span>
@@ -5169,7 +5248,7 @@ function renderCustomEntryModal() {
           <label><span>Cover image URL</span><input name="coverUrl" type="text" inputmode="url" /><small>Leave blank to keep the generated cover tile, or paste any https image URL.</small></label>
           <div class="auth-settings-grid">
             <label><span>Status</span><select name="status"><option value="owned">Owned</option><option value="wanted">Wanted</option><option value="missing">Just add entry</option></select></label>
-            <label><span>Edition</span><select name="editionStatus"><option value="loose">Loose</option><option value="cib">Complete in box</option><option value="boxed">Boxed</option><option value="manual">Manual</option><option value="sealed">Sealed</option><option value="graded">Graded</option></select></label>
+            <label><span>Edition</span><select name="editionStatus"><option value="loose">Loose</option><option value="boxed">Boxed</option><option value="manual">Cart + manual</option><option value="box-only">Box only</option><option value="manual-only">Manual only</option><option value="box-manual">Box + manual</option><option value="cib">Complete in box</option><option value="sealed">Sealed</option><option value="graded">Graded</option></select></label>
           </div>
           <label><span>Notes</span><input name="notes" maxlength="220" /></label>
           <button class="toggle-button" type="submit">Add to my collection</button>
@@ -6572,7 +6651,7 @@ function handleCustomEntryForm(form: HTMLFormElement) {
     }
 
     setRecord(entry.id, (record) => {
-      const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
+      const completeInBox = isCompleteEditionStatus(editionStatus)
 
       return {
         ...record,
@@ -6989,7 +7068,7 @@ async function handleAction(element: HTMLElement) {
             copies: next,
             ownedCopies: next.length,
             editionStatus: best,
-            completeInBox: best === 'cib' || best === 'sealed' || best === 'graded',
+            completeInBox: isCompleteEditionStatus(best),
             condition: next[0].condition,
             pricePaid: next[0].pricePaid,
             forTrade: nextForTrade,
@@ -7602,7 +7681,7 @@ function recordNewBadgeUnlocks(previousBadgeIds: Set<string>) {
 }
 
 function markGameOwned(id: string, editionStatus: EditionStatus) {
-  const completeInBox = editionStatus === 'cib' || editionStatus === 'sealed' || editionStatus === 'graded'
+  const completeInBox = isCompleteEditionStatus(editionStatus)
   const existing = getRecord(id)
   const isAddingDuplicate = existing.status === 'owned'
 
@@ -7629,7 +7708,7 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
         copies: allCopies,
         ownedCopies: allCopies.length,
         editionStatus: best,
-        completeInBox: best === 'cib' || best === 'sealed' || best === 'graded',
+        completeInBox: isCompleteEditionStatus(best),
       }
     }
     return {
@@ -7775,14 +7854,14 @@ function updateEditionStatus(id: string) {
   const next = response.trim().toLowerCase()
 
   if (!isEditionStatus(next)) {
-    window.alert('Please enter one of: loose, boxed, manual, cib, sealed, graded.')
+    window.alert('Please enter one of: loose, boxed, manual, box-only, manual-only, box-manual, cib, sealed, graded.')
     return
   }
 
   setRecord(id, (record) => ({
     ...record,
     editionStatus: next,
-    completeInBox: next === 'cib' || next === 'sealed' || next === 'graded',
+    completeInBox: isCompleteEditionStatus(next),
   }))
 }
 
