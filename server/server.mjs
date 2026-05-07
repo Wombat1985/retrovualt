@@ -793,6 +793,74 @@ async function sendTradeNotificationEmail(email, subject, intro, ctaLabel = 'Ope
   }
 }
 
+async function sendAdminBroadcastEmail(email, payload) {
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.RESET_FROM_EMAIL
+  const appUrl = defaultAllowedOrigins[0] ?? 'https://www.retrovaultelite.com'
+
+  if (!apiKey || !from) {
+    throw new Error('Broadcast email is not configured. Add RESEND_API_KEY and RESET_FROM_EMAIL first.')
+  }
+
+  const {
+    subject,
+    intro,
+    added,
+    fixed,
+    testing,
+    closing,
+    ctaLabel = 'Open Retro Vault Elite',
+  } = payload
+
+  const makeList = (items) => {
+    if (!items.length) {
+      return '<p style="margin:0 0 18px">Nothing listed in this section yet.</p>'
+    }
+
+    return `<ul style="margin:0 0 18px; padding-left:20px">${items
+      .map((item) => `<li style="margin:0 0 8px">${item}</li>`)
+      .join('')}</ul>`
+  }
+
+  const html = `
+    <div style="font-family:Segoe UI,Arial,sans-serif; color:#0f1724; line-height:1.6">
+      <p>${intro}</p>
+      <h2 style="margin:24px 0 10px; color:#0f1724">What is new</h2>
+      ${makeList(added)}
+      <h2 style="margin:24px 0 10px; color:#0f1724">What was fixed</h2>
+      ${makeList(fixed)}
+      <h2 style="margin:24px 0 10px; color:#0f1724">What still needs testing</h2>
+      ${makeList(testing)}
+      <p>${closing}</p>
+      <p style="margin:24px 0">
+        <a href="${appUrl}" style="display:inline-block; padding:12px 18px; border-radius:999px; background:#ffcf63; color:#1a1004; text-decoration:none; font-weight:800">
+          ${ctaLabel}
+        </a>
+      </p>
+      <p style="color:#526072; font-size:13px">You are receiving this because you created an account on Retro Vault Elite.</p>
+    </div>
+  `
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: email,
+      subject: `Retro Vault Elite — ${subject}`,
+      html,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '')
+    throw new Error(`Broadcast email failed (${response.status}): ${errorText || response.statusText}`)
+  }
+}
+
 async function sendPasswordResetEmail(email, resetLink) {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
@@ -848,6 +916,7 @@ const server = createServer(async (request, response) => {
       request.method === 'PUT' && url.pathname.startsWith('/barcode/') ||
       url.pathname.startsWith('/admin/barcodes') ||
       url.pathname === '/admin/stats' ||
+      url.pathname === '/admin/broadcast-email' ||
       url.pathname.startsWith('/trade/')
     const db = await loadDb({ required: accountRoute })
     pruneSecurityState(db)
@@ -915,6 +984,94 @@ const server = createServer(async (request, response) => {
       }
 
       json(request, response, 200, getAdminStats(db))
+      return
+    }
+
+    if (request.method === 'POST' && url.pathname === '/admin/broadcast-email') {
+      if (!getAdminKey()) {
+        json(request, response, 503, { error: 'Admin reporting is not configured.' })
+        return
+      }
+
+      if (!isAdminRequest(request, url)) {
+        json(request, response, 401, { error: 'Admin key required.' })
+        return
+      }
+
+      const body = await readBody(request)
+      const subject = String(body.subject ?? '').trim().slice(0, 140)
+      const intro = String(body.intro ?? '').trim().slice(0, 1200)
+      const closing = String(body.closing ?? '').trim().slice(0, 800)
+      const ctaLabel = String(body.ctaLabel ?? 'Open Retro Vault Elite').trim().slice(0, 60) || 'Open Retro Vault Elite'
+      const added = Array.isArray(body.added) ? body.added.map((item) => String(item ?? '').trim()).filter(Boolean).slice(0, 12) : []
+      const fixed = Array.isArray(body.fixed) ? body.fixed.map((item) => String(item ?? '').trim()).filter(Boolean).slice(0, 12) : []
+      const testing = Array.isArray(body.testing) ? body.testing.map((item) => String(item ?? '').trim()).filter(Boolean).slice(0, 12) : []
+
+      if (!subject) {
+        json(request, response, 400, { error: 'Add an email subject first.' })
+        return
+      }
+
+      if (!intro) {
+        json(request, response, 400, { error: 'Add a short intro first.' })
+        return
+      }
+
+      if (!closing) {
+        json(request, response, 400, { error: 'Add a closing note first.' })
+        return
+      }
+
+      const recipients = [...new Set(db.users.map((user) => String(user.email ?? '').trim().toLowerCase()).filter(Boolean))]
+
+      if (!recipients.length) {
+        json(request, response, 400, { error: 'No signed-up account emails were found.' })
+        return
+      }
+
+      let sentCount = 0
+      const failures = []
+      const batchSize = 10
+
+      for (let index = 0; index < recipients.length; index += batchSize) {
+        const batch = recipients.slice(index, index + batchSize)
+        const results = await Promise.allSettled(
+          batch.map((email) =>
+            sendAdminBroadcastEmail(email, {
+              subject,
+              intro,
+              added,
+              fixed,
+              testing,
+              closing,
+              ctaLabel,
+            }).then(() => email),
+          ),
+        )
+
+        for (let resultIndex = 0; resultIndex < results.length; resultIndex += 1) {
+          const result = results[resultIndex]
+          const email = batch[resultIndex]
+
+          if (result.status === 'fulfilled') {
+            sentCount += 1
+            continue
+          }
+
+          failures.push({
+            email,
+            message: result.reason instanceof Error ? result.reason.message : 'Unknown email error.',
+          })
+        }
+      }
+
+      json(request, response, failures.length ? 207 : 200, {
+        ok: failures.length === 0,
+        sentCount,
+        failedCount: failures.length,
+        totalCount: recipients.length,
+        failures: failures.slice(0, 20),
+      })
       return
     }
 
@@ -1919,6 +2076,8 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
+
 
 
 

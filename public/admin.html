@@ -77,6 +77,7 @@
       }
 
       input,
+      textarea,
       button {
         min-height: 48px;
         border-radius: 999px;
@@ -85,6 +86,12 @@
         color: var(--text);
         background: rgba(255, 255, 255, 0.06);
         font: inherit;
+      }
+
+      textarea {
+        min-height: 120px;
+        border-radius: 22px;
+        resize: vertical;
       }
 
       button {
@@ -419,6 +426,46 @@
             </table>
           </section>
           <section class="card" style="margin-top: 18px">
+            <div class="card-heading-row">
+              <div>
+                <h2>Email signed-up users</h2>
+                <p>Send a Retro Vault Elite update to everyone who created an account.</p>
+              </div>
+              <span class="ok">${Number(stats.userCount || 0).toLocaleString()} recipients</span>
+            </div>
+            <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 14px">
+              <label>
+                Subject
+                <input id="broadcast-subject" type="text" maxlength="140" value="Retro Vault Elite update" />
+              </label>
+              <label>
+                Button label
+                <input id="broadcast-cta" type="text" maxlength="60" value="Open Retro Vault Elite" />
+              </label>
+            </div>
+            <label style="margin-bottom: 12px">
+              Intro
+              <textarea id="broadcast-intro">Quick update from Retro Vault Elite. Thank you for signing up and helping shape the vault with your feedback. Here is what has been added, fixed, and what would still be useful to test.</textarea>
+            </label>
+            <label style="margin-bottom: 12px">
+              What is new
+              <textarea id="broadcast-added">Add one update per line.</textarea>
+            </label>
+            <label style="margin-bottom: 12px">
+              What was fixed
+              <textarea id="broadcast-fixed">Add one fix per line.</textarea>
+            </label>
+            <label style="margin-bottom: 12px">
+              What still needs testing
+              <textarea id="broadcast-testing">Add one testing request per line.</textarea>
+            </label>
+            <label style="margin-bottom: 12px">
+              Closing note
+              <textarea id="broadcast-closing">If you have a minute, please jump back in and let me know what still feels rough, confusing, or missing. Collector feedback is driving what gets improved next.</textarea>
+            </label>
+            <button class="small-button" type="button" data-action="send-broadcast-email">Send update email</button>
+          </section>
+          <section class="card" style="margin-top: 18px">
             <h2>Accounts</h2>
             <table>
               <thead>
@@ -570,6 +617,53 @@
         renderStats(JSON.parse(localStorage.getItem(cachedStatsKey) || 'null') || { analytics: {}, users: [] })
       }
 
+      function splitLines(value) {
+        return String(value || '')
+          .split(/\r?\n/g)
+          .map((line) => line.trim())
+          .filter(Boolean)
+      }
+
+      async function sendBroadcastEmail() {
+        const key = keyInput.value.trim()
+
+        if (!key) {
+          throw new Error('Paste your admin key first.')
+        }
+
+        const subject = document.querySelector('#broadcast-subject')?.value?.trim() || ''
+        const ctaLabel = document.querySelector('#broadcast-cta')?.value?.trim() || 'Open Retro Vault Elite'
+        const intro = document.querySelector('#broadcast-intro')?.value?.trim() || ''
+        const added = splitLines(document.querySelector('#broadcast-added')?.value)
+        const fixed = splitLines(document.querySelector('#broadcast-fixed')?.value)
+        const testing = splitLines(document.querySelector('#broadcast-testing')?.value)
+        const closing = document.querySelector('#broadcast-closing')?.value?.trim() || ''
+
+        const response = await fetchWithTimeout(`${API_BASE_URL}/admin/broadcast-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Key': key,
+          },
+          body: JSON.stringify({
+            subject,
+            ctaLabel,
+            intro,
+            added,
+            fixed,
+            testing,
+            closing,
+          }),
+        }, 120000)
+        const payload = await response.json()
+
+        if (!response.ok && response.status !== 207) {
+          throw new Error(payload.error || 'Could not send update email.')
+        }
+
+        return payload
+      }
+
       function renderCachedStats() {
         const cached = localStorage.getItem(cachedStatsKey)
 
@@ -640,6 +734,7 @@
         const barcodeRefreshButton = event.target.closest('[data-action="refresh-barcodes"]')
         const barcodeCopyButton = event.target.closest('[data-action="copy-barcodes"]')
         const barcodeImportButton = event.target.closest('[data-action="import-barcodes"]')
+        const broadcastButton = event.target.closest('[data-action="send-broadcast-email"]')
 
         if (barcodeRefreshButton) {
           try {
@@ -668,6 +763,22 @@
           } catch (error) {
             statusEl.className = 'error'
             statusEl.textContent = error instanceof Error ? error.message : 'Could not import barcode mappings.'
+          }
+          return
+        }
+
+        if (broadcastButton) {
+          try {
+            statusEl.className = ''
+            statusEl.textContent = 'Sending update email to signed-up collectors...'
+            const payload = await sendBroadcastEmail()
+            statusEl.className = payload.failedCount ? 'error' : 'ok'
+            statusEl.textContent = payload.failedCount
+              ? `Sent ${Number(payload.sentCount || 0).toLocaleString()} emails. ${Number(payload.failedCount || 0).toLocaleString()} failed.`
+              : `Sent ${Number(payload.sentCount || 0).toLocaleString()} update emails.`
+          } catch (error) {
+            statusEl.className = 'error'
+            statusEl.textContent = error instanceof Error ? error.message : 'Could not send update email.'
           }
           return
         }
