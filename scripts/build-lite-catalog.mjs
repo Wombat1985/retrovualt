@@ -27,7 +27,9 @@ async function main() {
     stripPrefix(entry.coverUrl, COVER_PREFIX),
     entry.priceLoose,
     entry.priceComplete,
+    entry.priceSealed ?? null,
     stripPrefix(entry.priceSourceUrl, SOURCE_PREFIX),
+    stripPrefix(entry.coverSourceUrl, SOURCE_PREFIX),
     entry.trendDelta,
     entry.rarity,
     entry.releaseType ?? '',
@@ -35,7 +37,7 @@ async function main() {
   ])
 
   const payload = {
-    version: 2,
+    version: 3,
     coverPrefix: COVER_PREFIX,
     sourcePrefix: SOURCE_PREFIX,
     rows,

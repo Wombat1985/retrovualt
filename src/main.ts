@@ -77,6 +77,8 @@ type GameCopy = {
   edition: EditionStatus
   condition: ConditionRating
   variant?: string
+  gradedLabel?: string
+  appraisedValue?: number | null
   pricePaid: number | null
   forTrade: boolean
 }
@@ -90,6 +92,8 @@ type GameRecord = {
   editionStatus: EditionStatus
   condition: ConditionRating
   variant?: string
+  gradedLabel?: string
+  appraisedValue?: number | null
   targetPrice: number | null
   notes: string
   dateAcquired: string | null
@@ -108,6 +112,8 @@ type ExportEntry = CatalogEntry & {
   editionStatus: EditionStatus
   condition: ConditionRating
   variant?: string
+  gradedLabel?: string
+  appraisedValue?: number | null
   targetPrice: number | null
   notes: string
   dateAcquired: string | null
@@ -123,6 +129,12 @@ type Spotlight = {
 type VariantTarget = {
   copyIndex: number | null
   existingVariant: string
+}
+
+type GradeTarget = {
+  copyIndex: number | null
+  existingLabel: string
+  existingValue: number | null
 }
 
 type DailyHuntItem = {
@@ -518,6 +530,8 @@ function defaultRecord(): GameRecord {
     editionStatus: 'loose',
     condition: 'good',
     variant: '',
+    gradedLabel: '',
+    appraisedValue: null,
     targetPrice: null,
     notes: '',
     dateAcquired: null,
@@ -575,6 +589,8 @@ function loadLibrary() {
         const editionStatus = entry.editionStatus
         const condition = entry.condition
         const variant = entry.variant
+        const gradedLabel = entry.gradedLabel
+        const appraisedValue = entry.appraisedValue
         const targetPrice = entry.targetPrice
         const notes = entry.notes
         const dateAcquired = entry.dateAcquired
@@ -599,6 +615,8 @@ function loadLibrary() {
               editionStatus: isEditionStatus(editionStatus) ? editionStatus : 'loose',
               condition: isConditionRating(condition) ? condition : 'good',
               variant: normalizeVariantLabel(variant),
+              gradedLabel: typeof gradedLabel === 'string' ? gradedLabel.slice(0, 80).trim() : '',
+              appraisedValue: typeof appraisedValue === 'number' ? appraisedValue : null,
               targetPrice: typeof targetPrice === 'number' ? targetPrice : null,
               notes: typeof notes === 'string' ? notes : '',
               dateAcquired: typeof dateAcquired === 'string' && dateAcquired ? dateAcquired : null,
@@ -976,6 +994,7 @@ function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
       coverUrlValue,
       priceLoose,
       priceComplete,
+      priceSealed,
       priceSourceUrlValue,
       coverSourceUrlValue,
       trendDelta,
@@ -994,6 +1013,7 @@ function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
       typeof region !== 'string' ||
       typeof priceLoose !== 'number' ||
       (typeof priceComplete !== 'number' && priceComplete !== null) ||
+      (typeof priceSealed !== 'number' && priceSealed !== null) ||
       !priceSourceUrl ||
       !coverSourceUrl
     ) {
@@ -1009,6 +1029,7 @@ function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
       coverUrl,
       priceLoose,
       priceComplete,
+      priceSealed,
       priceSourceUrl,
       coverSourceUrl,
       trendDelta: typeof trendDelta === 'number' ? trendDelta : 0,
@@ -1035,6 +1056,7 @@ function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
     typeof entry.region !== 'string' ||
     typeof entry.priceLoose !== 'number' ||
     (typeof entry.priceComplete !== 'number' && entry.priceComplete !== null) ||
+    (typeof entry.priceSealed !== 'number' && entry.priceSealed !== null && typeof entry.priceSealed !== 'undefined') ||
     !priceSourceUrl ||
     !coverSourceUrl
   ) {
@@ -1050,6 +1072,7 @@ function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
     coverUrl,
     priceLoose: entry.priceLoose,
     priceComplete: entry.priceComplete,
+    priceSealed: typeof entry.priceSealed === 'number' ? entry.priceSealed : null,
     priceSourceUrl,
     coverSourceUrl,
     trendDelta: typeof entry.trendDelta === 'number' ? entry.trendDelta : 0,
@@ -1087,6 +1110,7 @@ function normalizePackedLiteCatalog(value: unknown): CatalogEntry[] {
         return []
       }
 
+      const isNewLiteRow = row.length >= 15
       const [
         id,
         title,
@@ -1096,12 +1120,21 @@ function normalizePackedLiteCatalog(value: unknown): CatalogEntry[] {
         coverRef,
         priceLoose,
         priceComplete,
-        sourceRef,
-        trendDelta,
-        rarity,
-        releaseType,
-        variantLabel,
+        priceSealedOrSource,
+        sourceOrTrend,
+        coverSourceOrRarity,
+        trendOrReleaseType,
+        rarityOrVariant,
+        releaseTypeMaybe,
+        variantLabelMaybe,
       ] = row
+      const priceSealed = isNewLiteRow ? priceSealedOrSource : null
+      const sourceRef = isNewLiteRow ? sourceOrTrend : priceSealedOrSource
+      const coverSourceRef = isNewLiteRow ? coverSourceOrRarity : sourceRef
+      const trendDelta = isNewLiteRow ? trendOrReleaseType : sourceOrTrend
+      const rarity = isNewLiteRow ? rarityOrVariant : coverSourceOrRarity
+      const releaseType = isNewLiteRow ? releaseTypeMaybe : trendOrReleaseType
+      const variantLabel = isNewLiteRow ? variantLabelMaybe : rarityOrVariant
 
       const coverUrl =
         typeof coverRef === 'string'
@@ -1111,6 +1144,10 @@ function normalizePackedLiteCatalog(value: unknown): CatalogEntry[] {
         typeof sourceRef === 'string'
           ? normalizeExternalUrl(sourceRef.startsWith('http') ? sourceRef : `${sourcePrefix}${sourceRef}`)
           : ''
+      const coverSourceUrl =
+        typeof coverSourceRef === 'string'
+          ? normalizeExternalUrl(coverSourceRef.startsWith('http') ? coverSourceRef : `${sourcePrefix}${coverSourceRef}`)
+          : priceSourceUrl
 
       if (
         typeof id !== 'string' ||
@@ -1120,6 +1157,7 @@ function normalizePackedLiteCatalog(value: unknown): CatalogEntry[] {
         typeof region !== 'string' ||
         typeof priceLoose !== 'number' ||
         (typeof priceComplete !== 'number' && priceComplete !== null) ||
+        (typeof priceSealed !== 'number' && priceSealed !== null) ||
         !priceSourceUrl
       ) {
         return []
@@ -1135,8 +1173,9 @@ function normalizePackedLiteCatalog(value: unknown): CatalogEntry[] {
           coverUrl,
           priceLoose,
           priceComplete,
+          priceSealed,
           priceSourceUrl,
-          coverSourceUrl: priceSourceUrl,
+          coverSourceUrl,
           trendDelta: typeof trendDelta === 'number' ? trendDelta : 0,
           rarity: isRarityTier(rarity) ? rarity : 'Classic',
           releaseType: normalizeReleaseType(releaseType),
@@ -1655,6 +1694,8 @@ function normalizeCopy(raw: unknown): GameCopy | null {
     edition: isEditionStatus(c.edition) ? c.edition : 'loose',
     condition: isConditionRating(c.condition) ? c.condition : 'good',
     variant: normalizeVariantLabel(c.variant),
+    gradedLabel: typeof c.gradedLabel === 'string' ? c.gradedLabel.slice(0, 80).trim() : '',
+    appraisedValue: typeof c.appraisedValue === 'number' ? c.appraisedValue : null,
     pricePaid: typeof c.pricePaid === 'number' ? c.pricePaid : null,
     forTrade: typeof c.forTrade === 'boolean' ? c.forTrade : false,
   }
@@ -1667,6 +1708,8 @@ function getRecordCopies(record: GameRecord): GameCopy[] {
     edition: record.editionStatus,
     condition: record.condition,
     variant: normalizeVariantLabel(record.variant),
+    gradedLabel: typeof record.gradedLabel === 'string' ? record.gradedLabel.slice(0, 80).trim() : '',
+    appraisedValue: typeof record.appraisedValue === 'number' ? record.appraisedValue : null,
     pricePaid: record.pricePaid,
     forTrade: record.forTrade ?? false,
   }]
@@ -1965,7 +2008,7 @@ function getReferencePrice(game: CatalogEntry) {
   return game.priceComplete ?? game.priceLoose
 }
 
-function getEditionMarketValue(game: CatalogEntry, editionStatus: EditionStatus) {
+function getEditionMarketValue(game: CatalogEntry, editionStatus: EditionStatus, appraisedValue?: number | null) {
   const looseValue = game.priceLoose
   const completeValue = getReferencePrice(game)
   const extrasValue = Math.max(0, completeValue - looseValue)
@@ -1983,9 +2026,13 @@ function getEditionMarketValue(game: CatalogEntry, editionStatus: EditionStatus)
     case 'box-manual':
       return fallbackExtrasValue
     case 'cib':
-    case 'sealed':
-    case 'graded':
       return completeValue
+    case 'sealed':
+      return typeof game.priceSealed === 'number' ? game.priceSealed : completeValue
+    case 'graded':
+      return typeof appraisedValue === 'number' && appraisedValue > 0
+        ? appraisedValue
+        : (typeof game.priceSealed === 'number' ? game.priceSealed : completeValue)
     case 'loose':
     default:
       return looseValue
@@ -2001,16 +2048,21 @@ function getOwnedMarketPrice(game: CatalogEntry) {
   const copies = getRecordCopies(record)
 
   if (copies.length > 0) {
-    return copies.reduce((total, copy) => total + getEditionMarketValue(game, copy.edition), 0)
+    return copies.reduce((total, copy) => total + getEditionMarketValue(game, copy.edition, copy.appraisedValue), 0)
   }
 
-  return getEditionMarketValue(game, record.editionStatus) * getOwnedCopyCount(record)
+  return getEditionMarketValue(game, record.editionStatus, record.appraisedValue) * getOwnedCopyCount(record)
 }
 
 function getOwnedValueLabel(game: CatalogEntry) {
   const record = getRecord(game.id)
   const editionLabel = getEditionLabel(record.editionStatus)
-  const baseLabel = isCompleteEdition(record) ? 'Complete value' : `${editionLabel} value`
+  const baseLabel =
+    record.editionStatus === 'graded'
+      ? 'Appraised value'
+      : isCompleteEdition(record)
+        ? 'Complete value'
+        : `${editionLabel} value`
   return getOwnedCopyCount(record) > 1 ? `${baseLabel} x${getOwnedCopyCount(record)}` : baseLabel
 }
 
@@ -3061,6 +3113,45 @@ function chooseVariantTarget(record: GameRecord): VariantTarget | null {
   }
 }
 
+function chooseGradeTarget(record: GameRecord): GradeTarget | null {
+  const copies = getRecordCopies(record)
+
+  if (copies.length <= 1) {
+    return {
+      copyIndex: copies.length === 1 ? 0 : null,
+      existingLabel: typeof copies[0]?.gradedLabel === 'string' && copies[0].gradedLabel.trim()
+        ? copies[0].gradedLabel.trim()
+        : typeof record.gradedLabel === 'string' ? record.gradedLabel.trim() : '',
+      existingValue: typeof copies[0]?.appraisedValue === 'number'
+        ? copies[0].appraisedValue
+        : (typeof record.appraisedValue === 'number' ? record.appraisedValue : null),
+    }
+  }
+
+  const gradedIndexes = copies
+    .map((copy, index) => ({ copy, index }))
+    .filter(({ copy }) => copy.edition === 'graded')
+
+  const eligible = gradedIndexes.length > 0 ? gradedIndexes : copies.map((copy, index) => ({ copy, index }))
+  const response = window.prompt(
+    `Choose which copy grade to update (${eligible.map(({ index }) => index + 1).join(', ')}).`,
+    String((eligible[0]?.index ?? 0) + 1),
+  )
+
+  if (response === null) {
+    return null
+  }
+
+  const wanted = Number.parseInt(response.trim(), 10) || (eligible[0]?.index ?? 0) + 1
+  const chosen = eligible.find(({ index }) => index === wanted - 1) ?? eligible[0]
+
+  return {
+    copyIndex: chosen?.index ?? 0,
+    existingLabel: typeof chosen?.copy?.gradedLabel === 'string' ? chosen.copy.gradedLabel.trim() : '',
+    existingValue: typeof chosen?.copy?.appraisedValue === 'number' ? chosen.copy.appraisedValue : null,
+  }
+}
+
 function getOwnershipLabel(status: GameStatus, record?: GameRecord) {
   if (status === 'owned') {
     const count = record ? getOwnedCopyCount(record) : 1
@@ -3333,6 +3424,8 @@ function normalizeGameRecord(value: unknown): GameRecord {
     editionStatus: isEditionStatus(record.editionStatus) ? record.editionStatus : 'loose',
     condition: isConditionRating(record.condition) ? record.condition : 'good',
     variant: normalizeVariantLabel(record.variant),
+    gradedLabel: typeof record.gradedLabel === 'string' ? record.gradedLabel.slice(0, 80).trim() : '',
+    appraisedValue: typeof record.appraisedValue === 'number' ? record.appraisedValue : null,
     targetPrice: typeof record.targetPrice === 'number' ? record.targetPrice : null,
     notes: typeof record.notes === 'string' ? record.notes : '',
     dateAcquired: typeof record.dateAcquired === 'string' && record.dateAcquired ? record.dateAcquired : null,
@@ -3393,6 +3486,8 @@ function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: Game
     editionStatus: safeLocalRecord.editionStatus !== 'loose' ? safeLocalRecord.editionStatus : safeRemoteRecord.editionStatus,
     condition: safeLocalRecord.condition !== 'good' ? safeLocalRecord.condition : safeRemoteRecord.condition,
     variant: safeLocalRecord.variant?.trim() ? safeLocalRecord.variant : safeRemoteRecord.variant,
+    gradedLabel: safeLocalRecord.gradedLabel?.trim() ? safeLocalRecord.gradedLabel : safeRemoteRecord.gradedLabel,
+    appraisedValue: safeLocalRecord.appraisedValue ?? safeRemoteRecord.appraisedValue,
     targetPrice: safeLocalRecord.targetPrice ?? safeRemoteRecord.targetPrice,
     notes: safeLocalRecord.notes.trim() ? safeLocalRecord.notes : safeRemoteRecord.notes,
     dateAcquired: safeLocalRecord.dateAcquired ?? safeRemoteRecord.dateAcquired,
@@ -3890,6 +3985,7 @@ function renderSelectedGameModal() {
             <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
             ${variantSummary ? `<span class="detail-chip">${escapeHtml(variantSummary)}</span>` : ''}
             ${getOwnedVariantSummary(record) ? `<span class="detail-chip">${escapeHtml(getOwnedVariantSummary(record))}</span>` : ''}
+            ${record.editionStatus === 'graded' && record.gradedLabel ? `<span class="detail-chip">${escapeHtml(record.gradedLabel)}</span>` : ''}
             <span class="detail-chip">${escapeHtml(getOwnedEditionSummary(record))}</span>
             <span class="detail-chip">Shelf score ${getShelfScore(game)}</span>
             ${getCopiesSummary(record) ? `<span class="detail-chip detail-chip--copies">${escapeHtml(getCopiesSummary(record))}</span>` : `<span class="detail-chip">${getEditionLabel(record.editionStatus)}</span>`}
@@ -3942,6 +4038,10 @@ function renderSelectedGameModal() {
               <strong>${game.priceComplete === null ? 'Listing only' : formatPrice(game.priceComplete)}</strong>
             </article>
             <article>
+              <span>Sealed market</span>
+              <strong>${typeof game.priceSealed === 'number' ? formatPrice(game.priceSealed) : 'Not sourced yet'}</strong>
+            </article>
+            <article>
               <span>Your tracked value</span>
               <strong>${record.status === 'owned' ? formatPrice(getOwnedMarketPrice(game)) : 'Mark owned'}</strong>
             </article>
@@ -3973,6 +4073,7 @@ function renderSelectedGameModal() {
             <p><strong>Price snapshot:</strong> ${priceSnapshotDate}</p>
             <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus ${getOwnedValueLabel(game).toLowerCase()}.`}</p>
             <p><strong>Alert target:</strong> ${record.targetPrice === null ? 'No target set.' : `Notify yourself when loose value hits ${formatPrice(record.targetPrice)} or less.`}</p>
+            ${record.editionStatus === 'graded' ? `<p><strong>Graded copy:</strong> ${record.gradedLabel ? escapeHtml(record.gradedLabel) : 'No grade entered yet.'}${typeof record.appraisedValue === 'number' ? ` / Appraised ${formatPrice(record.appraisedValue)}` : ''}</p>` : ''}
             <p><strong>Date found:</strong> ${record.dateAcquired ? escapeHtml(record.dateAcquired) : 'Not recorded.'}</p>
             <p><strong>Found at:</strong> ${record.acquiredFrom ? escapeHtml(record.acquiredFrom) : 'Not recorded.'}</p>
             <p><strong>Art source:</strong> ${getCoverSourceLabel(game)}</p>
@@ -3986,6 +4087,7 @@ function renderSelectedGameModal() {
             <button class="ghost-button" data-action="set-price-paid" data-id="${safeGameId}" type="button">Set paid</button>
             <button class="ghost-button" data-action="set-target-price" data-id="${safeGameId}" type="button">Set alert</button>
             <button class="ghost-button" data-action="set-edition" data-id="${safeGameId}" type="button">Edition</button>
+            ${record.editionStatus === 'graded' ? `<button class="ghost-button" data-action="set-grade" data-id="${safeGameId}" type="button">Grade</button>` : ''}
             <button class="ghost-button" data-action="set-variant" data-id="${safeGameId}" type="button">Variant</button>
             ${record.status === 'owned' ? `<button class="ghost-button danger-ghost" data-action="confirm-remove-owned" data-id="${safeGameId}" type="button">${getOwnedCopyCount(record) > 1 ? 'Remove all copies' : 'Remove from collection'}</button>` : ''}
             <button class="ghost-button" data-action="set-condition" data-id="${safeGameId}" type="button">Condition</button>
@@ -5203,6 +5305,7 @@ function renderOwnershipPickerModal() {
   }
 
   const completeValue = game.priceComplete === null ? getReferencePrice(game) : game.priceComplete
+  const sealedValue = typeof game.priceSealed === 'number' ? game.priceSealed : null
   const boxedValue = getEditionMarketValue(game, 'boxed')
   const manualValue = getEditionMarketValue(game, 'manual')
   const boxOnlyValue = getEditionMarketValue(game, 'box-only')
@@ -5210,6 +5313,7 @@ function renderOwnershipPickerModal() {
   const boxManualValue = getEditionMarketValue(game, 'box-manual')
   const safeGameId = escapeHtml(game.id)
   const existingRecord = getRecord(game.id)
+  const gradedDisplayValue = typeof existingRecord.appraisedValue === 'number' ? formatPrice(existingRecord.appraisedValue) : 'Set value'
   const isAddingCopy = existingRecord.status === 'owned'
   const copiesSummary = isAddingCopy ? getCopiesSummary(existingRecord) || getEditionLabel(existingRecord.editionStatus) : ''
 
@@ -5258,16 +5362,16 @@ function renderOwnershipPickerModal() {
           </button>
           <button class="ownership-choice ownership-choice--premium" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="sealed">
             <span>Sealed</span>
-            <strong>${formatPrice(completeValue)}</strong>
-            <em>Factory sealed</em>
+            <strong>${sealedValue === null ? 'No market price' : formatPrice(sealedValue)}</strong>
+            <em>${sealedValue === null ? 'Factory sealed - source price not available yet' : 'Factory sealed'}</em>
           </button>
           <button class="ownership-choice ownership-choice--premium" type="button" data-action="confirm-owned" data-id="${safeGameId}" data-edition="graded">
             <span>Graded</span>
-            <strong>${formatPrice(completeValue)}</strong>
-            <em>Professionally graded</em>
+            <strong>${gradedDisplayValue}</strong>
+            <em>Enter grade and appraised value</em>
           </button>
         </div>
-        <p class="subtle">You can refine condition, paid price, and notes from the Details panel.</p>
+        <p class="subtle">You can refine condition, paid price, grade, and notes from the Details panel.</p>
       </section>
     </div>
   `
@@ -6783,6 +6887,7 @@ function createCustomEntryPreviewGame(title: string, consoleName: string, region
     coverUrl: '',
     priceLoose: 0,
     priceComplete: null,
+    priceSealed: null,
     priceSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
     coverSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
     trendDelta: 0,
@@ -6853,6 +6958,7 @@ function createCustomCatalogEntry(options: {
     coverUrl: options.coverUrl,
     priceLoose: options.priceLoose,
     priceComplete: options.priceComplete,
+    priceSealed: null,
     priceSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
     coverSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
     trendDelta: 0,
@@ -6900,6 +7006,9 @@ async function handleAction(element: HTMLElement) {
         ...record,
         status: 'missing',
         ownedCopies: 1,
+        variant: '',
+        gradedLabel: '',
+        appraisedValue: null,
         copies: undefined,
       }))
       break
@@ -6914,7 +7023,10 @@ async function handleAction(element: HTMLElement) {
         return
       }
 
-      markGameOwned(id, edition)
+      const newCopyIndex = markGameOwned(id, edition)
+      if (edition === 'graded') {
+        updateGradeStatus(id, newCopyIndex)
+      }
       break
     }
     case 'close-ownership-picker':
@@ -7117,6 +7229,13 @@ async function handleAction(element: HTMLElement) {
 
       updateVariantStatus(id)
       break
+    case 'set-grade':
+      if (!id) {
+        return
+      }
+
+      updateGradeStatus(id)
+      break
     case 'set-copies':
       if (!id) {
         return
@@ -7137,7 +7256,7 @@ async function handleAction(element: HTMLElement) {
       const currentCopies = getRecordCopies(getRecord(id))
       if (currentCopies.length <= 1) {
         playUnmark()
-        setRecord(id, (record) => ({ ...record, status: 'missing', ownedCopies: 1, copies: undefined, forTrade: false, tradeListedAt: null }))
+        setRecord(id, (record) => ({ ...record, status: 'missing', ownedCopies: 1, variant: '', gradedLabel: '', appraisedValue: null, copies: undefined, forTrade: false, tradeListedAt: null }))
       } else {
         setRecord(id, (record) => {
           const copies = getRecordCopies(record)
@@ -7151,6 +7270,9 @@ async function handleAction(element: HTMLElement) {
             editionStatus: best,
             completeInBox: isCompleteEditionStatus(best),
             condition: next[0].condition,
+            variant: normalizeVariantLabel(next[0].variant),
+            gradedLabel: typeof next[0].gradedLabel === 'string' ? next[0].gradedLabel.trim() : '',
+            appraisedValue: typeof next[0].appraisedValue === 'number' ? next[0].appraisedValue : null,
             pricePaid: next[0].pricePaid,
             forTrade: nextForTrade,
             tradeListedAt: nextForTrade ? record.tradeListedAt ?? new Date().toISOString() : null,
@@ -7765,6 +7887,7 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
   const completeInBox = isCompleteEditionStatus(editionStatus)
   const existing = getRecord(id)
   const isAddingDuplicate = existing.status === 'owned'
+  const newCopyIndex = isAddingDuplicate ? getRecordCopies(existing).length : 0
 
   playItemGet()
   if (pendingTradePromptTimeout) {
@@ -7778,7 +7901,15 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
   state.justOwnedGameId = id
 
   setRecord(id, (record) => {
-    const newCopy: GameCopy = { edition: editionStatus, condition: 'good', variant: '', pricePaid: null, forTrade: false }
+    const newCopy: GameCopy = {
+      edition: editionStatus,
+      condition: 'good',
+      variant: '',
+      gradedLabel: '',
+      appraisedValue: null,
+      pricePaid: null,
+      forTrade: false,
+    }
     if (isAddingDuplicate) {
       const existingCopies = getRecordCopies(record)
       const allCopies = [...existingCopies, newCopy]
@@ -7822,6 +7953,8 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
       render()
     }
   }, 1300)
+
+  return newCopyIndex
 }
 
 function updatePricePaid(id: string) {
@@ -7944,6 +8077,10 @@ function updateEditionStatus(id: string) {
     editionStatus: next,
     completeInBox: isCompleteEditionStatus(next),
   }))
+
+  if (next === 'graded') {
+    updateGradeStatus(id)
+  }
 }
 
 function updateCondition(id: string) {
@@ -8008,6 +8145,96 @@ function updateVariantStatus(id: string) {
       ...record,
       copies: updatedCopies,
       variant: primaryVariant,
+    }
+  })
+}
+
+function updateGradeStatus(id: string, preferredCopyIndex?: number | null) {
+  const current = getRecord(id)
+  const hasEligibleCopy =
+    typeof preferredCopyIndex === 'number' ||
+    current.editionStatus === 'graded' ||
+    getRecordCopies(current).some((copy) => copy.edition === 'graded')
+
+  if (!hasEligibleCopy) {
+    window.alert('Set a copy to graded first, then add the grade and appraised value.')
+    return
+  }
+
+  const target =
+    typeof preferredCopyIndex === 'number'
+      ? {
+          copyIndex: preferredCopyIndex,
+          existingLabel: getRecordCopies(current)[preferredCopyIndex]?.gradedLabel?.trim() ?? '',
+          existingValue: typeof getRecordCopies(current)[preferredCopyIndex]?.appraisedValue === 'number'
+            ? getRecordCopies(current)[preferredCopyIndex].appraisedValue
+            : null,
+        }
+      : chooseGradeTarget(current)
+
+  if (!target) {
+    return
+  }
+
+  const labelResponse = window.prompt(
+    'Enter the graded label, like WATA 9.4 A+, VGA 85, or CGC 9.6. Leave blank to clear it.',
+    target.existingLabel,
+  )
+
+  if (labelResponse === null) {
+    return
+  }
+
+  const nextLabel = labelResponse.trim().slice(0, 80)
+  const selectedCurrency = getSelectedCurrency()
+  const currentValue = typeof target.existingValue === 'number' ? convertUsdAmount(target.existingValue).toFixed(2) : ''
+  const valueResponse = window.prompt(
+    `Enter the appraised value in ${selectedCurrency.code}. Leave blank to clear it.`,
+    currentValue,
+  )
+
+  if (valueResponse === null) {
+    return
+  }
+
+  const trimmedValue = valueResponse.trim()
+  const nextAppraisedValue =
+    trimmedValue === ''
+      ? null
+      : Number.isNaN(Number(trimmedValue)) || Number(trimmedValue) < 0
+        ? NaN
+        : (selectedCurrency.code === 'USD'
+            ? Number(trimmedValue)
+            : (Number(trimmedValue) / selectedCurrency.perEuro) * currencyOptions[0].perEuro)
+
+  if (Number.isNaN(nextAppraisedValue)) {
+    window.alert('Please enter a valid positive appraised value.')
+    return
+  }
+
+  setRecord(id, (record) => {
+    if (target.copyIndex === null || !record.copies?.length || !record.copies[target.copyIndex]) {
+      return {
+        ...record,
+        gradedLabel: nextLabel,
+        appraisedValue: nextAppraisedValue,
+      }
+    }
+
+    const updatedCopies = record.copies.map((copy, index) =>
+      index === target.copyIndex
+        ? { ...copy, gradedLabel: nextLabel, appraisedValue: nextAppraisedValue }
+        : copy,
+    )
+
+    const primaryGradedLabel = typeof updatedCopies[0]?.gradedLabel === 'string' ? updatedCopies[0].gradedLabel.trim() : ''
+    const primaryAppraisedValue = typeof updatedCopies[0]?.appraisedValue === 'number' ? updatedCopies[0].appraisedValue : null
+
+    return {
+      ...record,
+      copies: updatedCopies,
+      gradedLabel: primaryGradedLabel,
+      appraisedValue: primaryAppraisedValue,
     }
   })
 }
@@ -8706,6 +8933,8 @@ function exportCatalog() {
       editionStatus: record.editionStatus,
       condition: record.condition,
       variant: normalizeVariantLabel(record.variant),
+      gradedLabel: typeof record.gradedLabel === 'string' ? record.gradedLabel.trim() : '',
+      appraisedValue: typeof record.appraisedValue === 'number' ? record.appraisedValue : null,
       targetPrice: record.targetPrice,
       notes: record.notes,
       dateAcquired: record.dateAcquired,

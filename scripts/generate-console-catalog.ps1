@@ -56,6 +56,7 @@ function Get-ConsoleCatalog {
       $coverMatch = [regex]::Match($block, '<img class="photo" loading="lazy" src="([^"]+)"')
       $looseMatch = [regex]::Match($block, '<td class="price numeric used_price">[\s\S]*?<span class="js-price">\$(\d[\d,]*(?:\.\d{2})?)</span>')
       $completeMatch = [regex]::Match($block, '<td class="price numeric cib_price">[\s\S]*?<span class="js-price">\$(\d[\d,]*(?:\.\d{2})?)</span>')
+      $sealedMatch = [regex]::Match($block, '<td class="price numeric new_price">[\s\S]*?<span class="js-price">\$(\d[\d,]*(?:\.\d{2})?)</span>')
 
       if (-not ($titleMatch.Success -and $coverMatch.Success -and $looseMatch.Success)) {
         continue
@@ -73,6 +74,7 @@ function Get-ConsoleCatalog {
       $coverUrl = ($coverMatch.Groups[1].Value -replace '/60.jpg', '/240.jpg')
       $priceLoose = [decimal]($looseMatch.Groups[1].Value -replace ',', '')
       $priceComplete = if ($completeMatch.Success) { [decimal]($completeMatch.Groups[1].Value -replace ',', '') } else { $null }
+      $priceSealed = if ($sealedMatch.Success) { [decimal]($sealedMatch.Groups[1].Value -replace ',', '') } else { $null }
 
       $consoleEntries.Add([pscustomobject]@{
         id = $id
@@ -83,6 +85,7 @@ function Get-ConsoleCatalog {
         coverUrl = $coverUrl
         priceLoose = $priceLoose
         priceComplete = $priceComplete
+        priceSealed = $priceSealed
         priceSourceUrl = "https://www.pricecharting.com/game/$($Console.slug)/$slug"
         coverSourceUrl = "https://www.pricecharting.com/game/$($Console.slug)/$slug"
         trendDelta = 0

@@ -10,6 +10,7 @@ export type CatalogEntry = {
   coverUrl: string
   priceLoose: number
   priceComplete: number | null
+  priceSealed?: number | null
   priceSourceUrl: string
   coverSourceUrl: string
   trendDelta: number

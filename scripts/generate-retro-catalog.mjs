@@ -92,6 +92,9 @@ function parseConsolePage(html, consoleSlug, consoleName, consoleRegion = 'North
     const completeMatch = block.match(
       /<td class="price numeric cib_price">[\s\S]*?<span class="js-price">\$(\d[\d,]*(?:\.\d{2})?)<\/span>/,
     )
+    const sealedMatch = block.match(
+      /<td class="price numeric new_price">[\s\S]*?<span class="js-price">\$(\d[\d,]*(?:\.\d{2})?)<\/span>/,
+    )
 
     if (!titleMatch || !coverMatch || !looseMatch) {
       continue
@@ -101,6 +104,7 @@ function parseConsolePage(html, consoleSlug, consoleName, consoleRegion = 'North
     const title = decodeHtml(titleMatch[2])
     const priceLoose = Number.parseFloat(looseMatch[1].replaceAll(',', ''))
     const priceComplete = completeMatch ? Number.parseFloat(completeMatch[1].replaceAll(',', '')) : null
+    const priceSealed = sealedMatch ? Number.parseFloat(sealedMatch[1].replaceAll(',', '')) : null
     const coverUrl = coverMatch[1].replace('/60.jpg', '/240.jpg')
 
     entries.push({
@@ -112,6 +116,7 @@ function parseConsolePage(html, consoleSlug, consoleName, consoleRegion = 'North
       coverUrl,
       priceLoose,
       priceComplete,
+      priceSealed,
       priceSourceUrl: `https://www.pricecharting.com/game/${consoleSlug}/${slug}`,
       coverSourceUrl: `https://www.pricecharting.com/game/${consoleSlug}/${slug}`,
       trendDelta: 0,
