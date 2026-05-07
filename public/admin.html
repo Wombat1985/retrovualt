@@ -464,6 +464,7 @@
               <textarea id="broadcast-closing">If you have a minute, please jump back in and let me know what still feels rough, confusing, or missing. Collector feedback is driving what gets improved next.</textarea>
             </label>
             <button class="small-button" type="button" data-action="send-broadcast-email">Send update email</button>
+            <div id="broadcast-result" style="margin-top:12px"></div>
           </section>
           <section class="card" style="margin-top: 18px">
             <h2>Accounts</h2>
@@ -664,6 +665,41 @@
         return payload
       }
 
+      function renderBroadcastResult(payload) {
+        const resultEl = document.querySelector('#broadcast-result')
+
+        if (!resultEl) {
+          return
+        }
+
+        const sentCount = Number(payload?.sentCount || 0)
+        const failedCount = Number(payload?.failedCount || 0)
+        const totalCount = Number(payload?.totalCount || 0)
+        const failures = Array.isArray(payload?.failures) ? payload.failures : []
+
+        if (!failedCount) {
+          resultEl.innerHTML = `
+            <p class="ok" style="margin:0">Email sent successfully.</p>
+            <p style="margin:6px 0 0">${sentCount.toLocaleString()} of ${totalCount.toLocaleString()} signed-up collectors were emailed.</p>
+          `
+          return
+        }
+
+        resultEl.innerHTML = `
+          <p class="error" style="margin:0">Email send finished with failures.</p>
+          <p style="margin:6px 0 0">Sent ${sentCount.toLocaleString()} of ${totalCount.toLocaleString()}. Failed: ${failedCount.toLocaleString()}.</p>
+          <ul style="margin:10px 0 0; padding-left:20px">
+            ${failures
+              .slice(0, 5)
+              .map(
+                (failure) =>
+                  `<li>${escapeHtml(failure.email || 'Unknown email')} - ${escapeHtml(failure.message || 'Unknown error')}</li>`,
+              )
+              .join('')}
+          </ul>
+        `
+      }
+
       function renderCachedStats() {
         const cached = localStorage.getItem(cachedStatsKey)
 
@@ -774,11 +810,16 @@
             const payload = await sendBroadcastEmail()
             statusEl.className = payload.failedCount ? 'error' : 'ok'
             statusEl.textContent = payload.failedCount
-              ? `Sent ${Number(payload.sentCount || 0).toLocaleString()} emails. ${Number(payload.failedCount || 0).toLocaleString()} failed.`
-              : `Sent ${Number(payload.sentCount || 0).toLocaleString()} update emails.`
+              ? 'Email send finished with some failures. See the result details below.'
+              : 'Email sent successfully.'
+            renderBroadcastResult(payload)
           } catch (error) {
             statusEl.className = 'error'
             statusEl.textContent = error instanceof Error ? error.message : 'Could not send update email.'
+            const resultEl = document.querySelector('#broadcast-result')
+            if (resultEl) {
+              resultEl.innerHTML = '<p class="error" style="margin:0">Email failed to send.</p>'
+            }
           }
           return
         }
