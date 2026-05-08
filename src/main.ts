@@ -4752,6 +4752,13 @@ function renderTradeInbox() {
       </div>`
   }
 
+  const tradeNotice = `
+    <div class="trade-responsibility-note" role="note" aria-label="Trade responsibility notice">
+      <strong>Collector-to-collector only.</strong>
+      <span>Retro Vault Elite only provides discovery and messaging tools. Trades, payments, shipping, item checks, and standard safety precautions are entirely the responsibility of the users involved.</span>
+    </div>
+  `
+
   return `
     <section class="trade-inbox">
       <div class="section-heading">
@@ -4761,6 +4768,7 @@ function renderTradeInbox() {
         </div>
         <button class="ghost-button" data-action="trade-close" type="button">&#8592; Back to collection</button>
       </div>
+      ${tradeNotice}
 
       ${declined.length ? `
         <label class="trade-archive-toggle">
@@ -4923,6 +4931,12 @@ function renderTradeRequestModal() {
   const game = getGameById(gameId)
   const gameTitle = game?.title ?? gameId
   const selectedOwner = state.tradeAvailabilityOwners.find((owner) => owner.userId === state.tradeInterestUserId) ?? null
+  const tradeNotice = `
+    <div class="trade-responsibility-note trade-responsibility-note--compact" role="note" aria-label="Trade responsibility notice">
+      <strong>Collector-to-collector only.</strong>
+      <span>Retro Vault Elite does not broker, verify, ship, or take payment for trades. Standard safety precautions are the responsibility of the users involved.</span>
+    </div>
+  `
 
   return `
     <div class="trade-request-backdrop" data-action="trade-request-close">
@@ -4931,6 +4945,7 @@ function renderTradeRequestModal() {
         <p class="kicker">Trade opportunity</p>
         <h2 id="trade-request-title">${escapeHtml(gameTitle)}</h2>
         <p class="modal-description">Collectors offering this game can be contacted from here without leaving the vault.</p>
+        ${tradeNotice}
         ${state.tradeAvailabilityOwnersLoading ? `
           <p class="subtle">Loading...</p>
         ` : ''}
@@ -5029,6 +5044,10 @@ function renderTradeProfile() {
   return `<section class="trade-profile-view">
     <button class="trade-back-btn" data-action="trade-back-to-inbox" type="button">&#8592; Back</button>
     <h2 class="trade-profile-name">${escapeHtml(profile.displayName)}'s Trade List</h2>
+    <div class="trade-responsibility-note trade-responsibility-note--compact" role="note" aria-label="Trade responsibility notice">
+      <strong>Collector-to-collector only.</strong>
+      <span>Retro Vault Elite only provides discovery and messaging tools. Trades, payments, shipping, item checks, and standard safety precautions are the responsibility of the users involved.</span>
+    </div>
     ${hasPendingWithCollector ? '<p class="subtle trade-profile-pending-note">You already have a pending request with this collector. Opening inbox will show the current thread.</p>' : ''}
 
     ${theyHaveIWant.length ? `
@@ -5060,6 +5079,10 @@ function renderTradeThread() {
           <h2>With ${escapeHtml(otherUser.displayName)}</h2>
         </div>
         <button class="ghost-button" data-action="trade-back-to-inbox" type="button">&#8592; Back to inbox</button>
+      </div>
+      <div class="trade-responsibility-note trade-responsibility-note--compact" role="note" aria-label="Trade responsibility notice">
+        <strong>Collector-to-collector only.</strong>
+        <span>Retro Vault Elite does not broker, verify, ship, or take payment for trades. Standard safety precautions are the responsibility of the users involved.</span>
       </div>
       <div class="trade-thread-meta">
         <p class="subtle">${escapeHtml(getGameById(tr.gameId)?.title ?? tr.gameId)} &middot; <span class="trade-status-inline trade-status-inline--${tr.status}">${tr.status}</span></p>

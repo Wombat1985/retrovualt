@@ -3836,6 +3836,32 @@ a {
   gap: 20px;
 }
 
+.trade-responsibility-note {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 214, 110, 0.22);
+  background: rgba(255, 214, 110, 0.08);
+}
+
+.trade-responsibility-note strong {
+  color: var(--accent-2);
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.trade-responsibility-note span {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.trade-responsibility-note--compact {
+  margin-top: -4px;
+}
+
 .trade-matches-panel {
   background: rgba(11, 20, 31, 0.8);
   border: 1px solid rgba(241, 201, 95, 0.25);
