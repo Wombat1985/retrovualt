@@ -4165,6 +4165,14 @@ function renderTrustStrip() {
 }
 
 function renderFeatureStrip() {
+  const liveTradeSignal = state.authToken
+    ? state.tradeInboxFreshOpportunityIds.size > 0
+      ? `${state.tradeInboxFreshOpportunityIds.size} new trade opportunit${state.tradeInboxFreshOpportunityIds.size === 1 ? 'y is' : 'ies are'} waiting in Trade Inbox right now.`
+      : state.tradePending + state.tradeUnread > 0
+        ? `${state.tradePending + state.tradeUnread} active trade request${state.tradePending + state.tradeUnread === 1 ? ' is' : 's are'} already moving in your inbox.`
+        : 'When collectors mark games for trade, Trade Inbox brings those matches back to your wanted list.'
+    : 'Collectors can browse tradeable games now, then create an account when they want to send private trade requests.'
+
   return `
     <section class="feature-strip" aria-label="What Retro Vault Elite does">
       <article class="feature-strip__card">
@@ -4191,6 +4199,7 @@ function renderFeatureStrip() {
       <div class="feature-strip__flow">
         <p class="kicker">How it works</p>
         <strong>Add games, mark wanted or tradeable, then check Trade Inbox for matches.</strong>
+        <p class="subtle feature-strip__signal">${escapeHtml(liveTradeSignal)}</p>
       </div>
     </section>
   `
@@ -4211,6 +4220,11 @@ function renderOnboardingPanel() {
         <p class="kicker">Collector setup</p>
         <h2>${completed === steps.length ? 'Your vault is ready to show off.' : 'Build a collection people want to come back to.'}</h2>
         <p class="subtle">${completed}/${steps.length} core setup steps complete. Vault readiness ${setupScore}%. Finish these to unlock stronger stats, better value tracking, and a more personal collector profile.</p>
+        <div class="onboarding-tip">
+          <strong>New to trading?</strong>
+          <span>Mark one duplicate for trade to start getting matches in Trade Inbox.</span>
+          <button class="ghost-button" type="button" data-action="browse-owned-games">Browse owned games</button>
+        </div>
       </div>
       <div class="onboarding-steps">
         ${steps
@@ -7177,6 +7191,12 @@ async function handleAction(element: HTMLElement) {
       render()
       break
     case 'browse-library':
+      document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      break
+    case 'browse-owned-games':
+      state.ownershipFilter = 'owned'
+      resetVisibleGameCount()
+      render()
       document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       break
     case 'browse-tradeable-now':

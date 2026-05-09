@@ -424,6 +424,10 @@ a {
   margin-top: 6px;
 }
 
+.feature-strip__signal {
+  margin: 0;
+}
+
 .account-status-pill {
   display: inline-flex;
   align-items: center;
@@ -1310,6 +1314,28 @@ a {
 .onboarding-dismiss {
   position: relative;
   z-index: 1;
+}
+
+.onboarding-tip {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(88, 216, 170, 0.18);
+  background: rgba(88, 216, 170, 0.08);
+}
+
+.onboarding-tip strong {
+  color: var(--text);
+}
+
+.onboarding-tip span {
+  color: var(--muted);
+}
+
+.onboarding-tip .ghost-button {
+  justify-self: start;
 }
 
 .onboarding-copy h2 {
