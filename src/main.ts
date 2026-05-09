@@ -4175,9 +4175,14 @@ function renderFeatureStrip() {
         <span>Build a wanted list</span>
         <strong>Know what you are still hunting for.</strong>
       </article>
-      <article class="feature-strip__card">
+      <article class="feature-strip__card feature-strip__card--trade">
         <span>Mark duplicates for trade</span>
         <strong>Turn extra copies into real trade listings.</strong>
+        ${
+          state.authToken
+            ? `<button class="ghost-button feature-strip__button" type="button" data-action="trade-open-inbox">Open Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ` <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>` : ''}</button>`
+            : '<button class="ghost-button feature-strip__button" type="button" data-action="browse-tradeable-now">See tradeable games</button>'
+        }
       </article>
       <article class="feature-strip__card">
         <span>Find collector matches</span>
@@ -6152,11 +6157,16 @@ function renderNow() {
               : '<p class="account-status-pill account-status-pill--guest"><span>Guest mode</span><strong>Sign in or create an account to sync across devices.</strong></p>'
           }
           <div class="hero-actions">
-            ${state.authToken ? '<button class="install-button" type="button" data-action="open-account-settings">Account settings</button>' : '<button class="install-button" type="button" data-action="open-register">Create account</button><button class="secondary-button" type="button" data-action="open-login">Sign in</button>'}
+            ${state.authToken ? `<button class="install-button trade-inbox-btn trade-inbox-btn--hero" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button><button class="secondary-button" type="button" data-action="open-account-settings">Account settings</button>` : '<button class="install-button" type="button" data-action="open-register">Create account</button><button class="secondary-button" type="button" data-action="open-login">Sign in</button>'}
             <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
+            <button class="secondary-button" type="button" data-action="browse-tradeable-now">Tradeable now</button>
             <button class="secondary-button" type="button" data-action="open-scanner">Scan barcode</button>
-            ${state.authToken ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button>` : ''}
           </div>
+          <p class="hero-text hero-text--trade">${
+            state.authToken
+              ? 'Trade Inbox shows collectors trading games you want, good matches, and private trade requests once both sides accept.'
+              : 'You can browse tradeable games right away. Create an account when you want to mark duplicates for trade and start sending requests.'
+          }</p>
         </div>
         <div class="hero-stats">
           <article>
@@ -6265,6 +6275,17 @@ function renderNow() {
         <div class="toolbar-action toolbar-action--desktop">
           <span>Add missing game</span>
           <button class="secondary-button" data-action="open-custom-entry" type="button">Add your own game</button>
+        </div>
+        <div class="toolbar-action toolbar-action--desktop">
+          <span>Trading</span>
+          <div class="toolbar-action__buttons">
+            <button class="secondary-button" data-action="browse-tradeable-now" type="button">Tradeable now</button>
+            ${
+              state.authToken
+                ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button>`
+                : '<button class="secondary-button" data-action="open-register" type="button">Start trading</button>'
+            }
+          </div>
         </div>
       </section>
 
@@ -7156,6 +7177,12 @@ async function handleAction(element: HTMLElement) {
       render()
       break
     case 'browse-library':
+      document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      break
+    case 'browse-tradeable-now':
+      state.ownershipFilter = 'tradeable-now'
+      resetVisibleGameCount()
+      render()
       document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       break
     case 'daily-console': {

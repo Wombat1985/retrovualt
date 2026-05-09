@@ -358,6 +358,12 @@ a {
   font-size: 0.9rem;
 }
 
+.hero-text--trade {
+  max-width: 58ch;
+  margin-top: 14px;
+  font-size: 0.98rem;
+}
+
 .feature-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -382,6 +388,14 @@ a {
   min-height: 112px;
 }
 
+.feature-strip__card--trade {
+  background:
+    radial-gradient(circle at top right, rgba(88, 216, 170, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
+    var(--panel);
+  border-color: rgba(88, 216, 170, 0.2);
+}
+
 .feature-strip__card span {
   color: var(--accent-2);
   text-transform: uppercase;
@@ -403,6 +417,11 @@ a {
     radial-gradient(circle at top right, rgba(241, 201, 95, 0.16), transparent 34%),
     linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
     var(--panel);
+}
+
+.feature-strip__button {
+  justify-self: start;
+  margin-top: 6px;
 }
 
 .account-status-pill {
@@ -451,6 +470,10 @@ a {
 
 .hero-actions {
   margin-top: 20px;
+}
+
+.trade-inbox-btn--hero {
+  box-shadow: 0 10px 28px rgba(241, 201, 95, 0.2);
 }
 
 .mobile-account-bar {
@@ -1388,6 +1411,17 @@ a {
 .toolbar-action .secondary-button {
   width: 100%;
   justify-content: center;
+}
+
+.toolbar-action__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toolbar-action__buttons .secondary-button,
+.toolbar-action__buttons .trade-inbox-btn {
+  width: auto;
 }
 
 .mobile-only-action {
