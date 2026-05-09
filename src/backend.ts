@@ -390,3 +390,14 @@ export type TradeProfile = {
 export async function getTradeProfile(token: string, userId: string) {
   return request<TradeProfile>(`/trade/profile/${encodeURIComponent(userId)}`, {}, token)
 }
+
+export type PublicCommunityStats = {
+  userCount: number
+  trackedGamesCount: number
+  tradeListingCount: number
+  generatedAt: string
+}
+
+export async function getPublicCommunityStats() {
+  return request<PublicCommunityStats>('/stats/public', { method: 'GET' })
+}

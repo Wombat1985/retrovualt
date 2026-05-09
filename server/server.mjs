@@ -716,6 +716,25 @@ function getAdminStats(db) {
   }
 }
 
+function getPublicCommunityStats(db) {
+  let trackedGamesCount = 0
+  let tradeListingCount = 0
+
+  for (const user of db.users) {
+    const library = user?.syncState?.library && typeof user.syncState.library === 'object' ? user.syncState.library : {}
+    const records = Object.values(library).filter((record) => record && typeof record === 'object')
+
+    trackedGamesCount += records.filter((record) => record.status === 'owned' || record.status === 'wanted').length
+    tradeListingCount += records.filter((record) => record.status === 'owned' && record.forTrade === true).length
+  }
+
+  return {
+    userCount: db.users.length,
+    trackedGamesCount,
+    tradeListingCount,
+    generatedAt: new Date().toISOString(),
+  }
+}
 function createDefaultSyncState() {
   return {
     library: {},
@@ -984,6 +1003,11 @@ const server = createServer(async (request, response) => {
       }
 
       json(request, response, 200, getAdminStats(db))
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/stats/public') {
+      json(request, response, 200, getPublicCommunityStats(db))
       return
     }
 
@@ -2076,6 +2100,7 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
 
 
 

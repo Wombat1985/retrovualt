@@ -11,6 +11,7 @@ import {
   getTradeAvailability,
   getTradeAvailabilityOwners,
   getTradeInboxDiscovery,
+  getPublicCommunityStats,
   getTradeWantedDemand,
   getTradeableNowGameIds,
   getWantedNowGameIds,
@@ -39,6 +40,7 @@ import {
   type TradeInboxOpportunity,
   type TradeDiscoveryCollector,
   type TradeMessage,
+  type PublicCommunityStats,
   type TradeProfile,
   type TradeRequest,
 } from './backend'
@@ -276,6 +278,7 @@ const STREAK_STORAGE_KEY = 'retro-game-collector-visit-streak'
 const ACTIVITY_STORAGE_KEY = 'retro-game-collector-activity-events'
 const TRADE_OPPORTUNITY_SEEN_KEY = 'retro-game-collector-trade-opportunities-seen'
 const TRADE_HIDE_ARCHIVED_KEY = 'retro-game-collector-trade-hide-archived'
+const PUBLIC_COMMUNITY_STATS_STORAGE_KEY = 'retro-game-collector-community-stats'
 const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
@@ -370,6 +373,7 @@ let pendingSearchRender = 0
 let pendingBarcodeSearchRender = 0
 let pendingTradeAvailabilityRefresh = 0
 let pendingTradePromptTimeout = 0
+let publicCommunityStatsFetchPromise: Promise<void> | null = null
 let tradeAvailabilityFetchSequence = 0
 let libraryRevision = 0
 let appEventsBound = false
@@ -456,6 +460,7 @@ const state = {
   barcodeMappings: loadBarcodeMappings(),
   onboardingDismissed: loadOnboardingDismissed(),
   hideArchivedTrades: loadHideArchivedTrades(),
+  publicCommunityStats: loadPublicCommunityStatsCache(),
   visitStreak: recordDailyVisit(),
   activityEvents: loadActivityEvents(),
   cachedOwnedGames: [] as CatalogEntry[],
@@ -558,6 +563,76 @@ function saveSeenTradeOpportunityIds(ids: Iterable<string>) {
   } catch {
     // Seen-state should never block the app.
   }
+}
+
+function loadPublicCommunityStatsCache() {
+  try {
+    const raw = localStorage.getItem(PUBLIC_COMMUNITY_STATS_STORAGE_KEY)
+
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as Partial<PublicCommunityStats> | null
+
+    if (
+      !parsed ||
+      typeof parsed.userCount !== 'number' ||
+      typeof parsed.trackedGamesCount !== 'number' ||
+      typeof parsed.tradeListingCount !== 'number' ||
+      typeof parsed.generatedAt !== 'string'
+    ) {
+      return null
+    }
+
+    return {
+      userCount: parsed.userCount,
+      trackedGamesCount: parsed.trackedGamesCount,
+      tradeListingCount: parsed.tradeListingCount,
+      generatedAt: parsed.generatedAt,
+    } satisfies PublicCommunityStats
+  } catch {
+    return null
+  }
+}
+
+function savePublicCommunityStatsCache(stats: PublicCommunityStats) {
+  try {
+    localStorage.setItem(PUBLIC_COMMUNITY_STATS_STORAGE_KEY, JSON.stringify(stats))
+  } catch {
+    // Social proof cache should never block the app.
+  }
+}
+
+async function ensurePublicCommunityStatsLoaded() {
+  if (publicCommunityStatsFetchPromise) {
+    return publicCommunityStatsFetchPromise
+  }
+
+  publicCommunityStatsFetchPromise = (async () => {
+    try {
+      const stats = await getPublicCommunityStats()
+      const changed =
+        !state.publicCommunityStats ||
+        state.publicCommunityStats.userCount !== stats.userCount ||
+        state.publicCommunityStats.trackedGamesCount !== stats.trackedGamesCount ||
+        state.publicCommunityStats.tradeListingCount !== stats.tradeListingCount ||
+        state.publicCommunityStats.generatedAt !== stats.generatedAt
+
+      state.publicCommunityStats = stats
+      savePublicCommunityStatsCache(stats)
+
+      if (changed) {
+        render()
+      }
+    } catch {
+      // Public social proof should never block the vault.
+    } finally {
+      publicCommunityStatsFetchPromise = null
+    }
+  })()
+
+  return publicCommunityStatsFetchPromise
 }
 
 function loadLibrary() {
@@ -4200,6 +4275,24 @@ function renderFeatureStrip() {
         <p class="kicker">How it works</p>
         <strong>Add games, mark wanted or tradeable, then check Trade Inbox for matches.</strong>
         <p class="subtle feature-strip__signal">${escapeHtml(liveTradeSignal)}</p>
+        ${
+          state.publicCommunityStats
+            ? `<div class="feature-strip__proof" aria-label="Community activity">
+                <article>
+                  <strong>${state.publicCommunityStats.userCount.toLocaleString()}</strong>
+                  <span>collectors signed up</span>
+                </article>
+                <article>
+                  <strong>${state.publicCommunityStats.trackedGamesCount.toLocaleString()}</strong>
+                  <span>games tracked</span>
+                </article>
+                <article>
+                  <strong>${state.publicCommunityStats.tradeListingCount.toLocaleString()}</strong>
+                  <span>games listed for trade</span>
+                </article>
+              </div>`
+            : ''
+        }
       </div>
     </section>
   `
@@ -9311,9 +9404,15 @@ startTradeNotificationPoll()
 
 // Defer backend hits so the page paints before hitting Render (which may be cold-starting)
 if ('requestIdleCallback' in window) {
-  window.requestIdleCallback(() => { void trackPageView(Boolean(loadAuthToken())) })
+  window.requestIdleCallback(() => {
+    void ensurePublicCommunityStatsLoaded()
+    void trackPageView(Boolean(loadAuthToken()))
+  })
 } else {
-  setTimeout(() => { void trackPageView(Boolean(loadAuthToken())) }, 3000)
+  setTimeout(() => {
+    void ensurePublicCommunityStatsLoaded()
+    void trackPageView(Boolean(loadAuthToken()))
+  }, 1200)
 }
 setTimeout(() => { void hydrateAccount() }, 1500)
 

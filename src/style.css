@@ -428,6 +428,33 @@ a {
   margin: 0;
 }
 
+.feature-strip__proof {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.feature-strip__proof article {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.feature-strip__proof strong {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.feature-strip__proof span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .account-status-pill {
   display: inline-flex;
   align-items: center;
@@ -3125,6 +3152,10 @@ a {
   }
 
   .feature-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-strip__proof {
     grid-template-columns: 1fr;
   }
 
