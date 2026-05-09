@@ -4134,33 +4134,59 @@ function renderTrustStrip() {
   const syncCopy = state.authToken
     ? state.syncStatus
     : 'Device-only until you create an account'
-  const accountIdentity = getAccountIdentityLabel()
   const ownershipMode = getOwnedGames().some((game) => isCompleteEdition(getRecord(game.id)))
     ? 'Loose and complete values active'
     : 'Loose values active'
 
   return `
-    <section class="trust-strip" aria-label="Retro Vault trust signals">
+    <section class="trust-strip" aria-label="Collector setup and trading overview">
       <article>
-        <span>Secure sync</span>
-        <strong>${escapeHtml(syncCopy)}</strong>
+        <span>Wanted list</span>
+        <strong>Keep your hunt list ready for shelves, swaps, and trade matches.</strong>
       </article>
       <article>
-        <span>Account</span>
-        <strong>${state.authToken ? `Signed in as ${escapeHtml(accountIdentity)}` : 'Not signed in'}</strong>
-      </article>
-      <article>
-        <span>Market snapshot</span>
-        <strong>${priceSnapshotDate}</strong>
+        <span>Trading</span>
+        <strong>Mark duplicates for trade and use Trade Inbox to find collector matches.</strong>
       </article>
       <article>
         <span>Collection pricing</span>
-        <strong>${ownershipMode}</strong>
+        <strong>${ownershipMode} from the latest ${priceSnapshotDate} snapshot.</strong>
+      </article>
+      <article>
+        <span>Sync</span>
+        <strong>${escapeHtml(syncCopy)}</strong>
       </article>
       <article>
         <span>Your data</span>
         <strong>Owned by you, exportable anytime</strong>
       </article>
+    </section>
+  `
+}
+
+function renderFeatureStrip() {
+  return `
+    <section class="feature-strip" aria-label="What Retro Vault Elite does">
+      <article class="feature-strip__card">
+        <span>Track what you own</span>
+        <strong>Keep your collection in one place.</strong>
+      </article>
+      <article class="feature-strip__card">
+        <span>Build a wanted list</span>
+        <strong>Know what you are still hunting for.</strong>
+      </article>
+      <article class="feature-strip__card">
+        <span>Mark duplicates for trade</span>
+        <strong>Turn extra copies into real trade listings.</strong>
+      </article>
+      <article class="feature-strip__card">
+        <span>Find collector matches</span>
+        <strong>See who has what you want and who wants what you own.</strong>
+      </article>
+      <div class="feature-strip__flow">
+        <p class="kicker">How it works</p>
+        <strong>Add games, mark wanted or tradeable, then check Trade Inbox for matches.</strong>
+      </div>
     </section>
   `
 }
@@ -6115,9 +6141,9 @@ function renderNow() {
           <a href="/" class="site-logo" aria-label="Retro Vault Elite home">
             <img class="site-logo__image" src="/retro-vault-elite-logo.png" alt="Retro Vault Elite" width="320" height="320" decoding="async" fetchpriority="high" />
           </a>
-          <h1>Keep up with the video games you want and the collection you have.</h1>
+          <h1>Track your collection, build a wanted list, and trade duplicates with other collectors.</h1>
           <p class="hero-text">
-            Keep track of what you own, what you still want, what you paid, and all the oddball pieces that make your collection yours, without wrestling with a giant spreadsheet.
+            Retro Vault Elite helps you track what you own, what you still want, what you paid, and which extra copies are ready to trade, without juggling spreadsheets, notes, and price tabs.
           </p>
           <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 30 April 2026.</p>
           ${
@@ -6161,6 +6187,7 @@ function renderNow() {
         </div>
       </header>
 
+      ${renderFeatureStrip()}
       ${renderTrustStrip()}
 
       <section class="toolbar">

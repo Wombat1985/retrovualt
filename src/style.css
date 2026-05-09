@@ -358,6 +358,53 @@ a {
   font-size: 0.9rem;
 }
 
+.feature-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.feature-strip__card,
+.feature-strip__flow {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
+    var(--panel);
+  backdrop-filter: blur(18px);
+}
+
+.feature-strip__card {
+  display: grid;
+  gap: 8px;
+  min-height: 112px;
+}
+
+.feature-strip__card span {
+  color: var(--accent-2);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+}
+
+.feature-strip__card strong,
+.feature-strip__flow strong {
+  color: var(--text);
+  line-height: 1.38;
+}
+
+.feature-strip__flow {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  background:
+    radial-gradient(circle at top right, rgba(241, 201, 95, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
+    var(--panel);
+}
+
 .account-status-pill {
   display: inline-flex;
   align-items: center;
@@ -1161,6 +1208,7 @@ a {
 .filters,
 .smart-grid,
 .showcase-grid,
+.feature-strip,
 .identity-card,
 .achievement-strip,
 .retention-grid,
@@ -1177,7 +1225,7 @@ a {
 
 .trust-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -2867,6 +2915,7 @@ a {
   .newsletter-card,
   .badge-grid,
   .identity-card,
+  .feature-strip,
   .trust-strip,
   .onboarding-panel,
   .roadmap-strip {
@@ -2895,6 +2944,11 @@ a {
     align-items: start;
     flex-direction: column;
   }
+
+  .feature-strip,
+  .trust-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -2910,6 +2964,8 @@ a {
   .weekly-recap-card,
   .badge-preview,
   .newsletter-card,
+  .feature-strip__card,
+  .feature-strip__flow,
   .trust-strip article,
   .control-summary,
   .onboarding-panel,
@@ -3006,6 +3062,14 @@ a {
     max-width: none;
     font-size: clamp(1.5rem, 6.9vw, 2.15rem);
     line-height: 0.98;
+  }
+
+  .feature-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-strip {
+    grid-template-columns: 1fr;
   }
 
   .hero-text {
