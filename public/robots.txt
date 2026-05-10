@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.retrovaultelite.com/sitemap.xml
+Sitemap: https://retrovaultelite.com/sitemap.xml
+

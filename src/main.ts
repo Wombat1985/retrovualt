@@ -6712,8 +6712,8 @@ function bindEvents() {
         coverUrl: '',
         priceLoose: 0,
         priceComplete: null,
-        priceSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
-        coverSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
+        priceSourceUrl: 'https://retrovaultelite.com/custom-entry',
+        coverSourceUrl: 'https://retrovaultelite.com/custom-entry',
         trendDelta: 0,
         rarity: 'Classic',
       })
@@ -7066,8 +7066,8 @@ function createCustomEntryPreviewGame(title: string, consoleName: string, region
     priceLoose: 0,
     priceComplete: null,
     priceSealed: null,
-    priceSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
-    coverSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
+    priceSourceUrl: 'https://retrovaultelite.com/custom-entry',
+    coverSourceUrl: 'https://retrovaultelite.com/custom-entry',
     trendDelta: 0,
     rarity: 'Classic',
   } satisfies CatalogEntry
@@ -7137,8 +7137,8 @@ function createCustomCatalogEntry(options: {
     priceLoose: options.priceLoose,
     priceComplete: options.priceComplete,
     priceSealed: null,
-    priceSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
-    coverSourceUrl: 'https://www.retrovaultelite.com/custom-entry',
+    priceSourceUrl: 'https://retrovaultelite.com/custom-entry',
+    coverSourceUrl: 'https://retrovaultelite.com/custom-entry',
     trendDelta: 0,
     rarity: 'Classic',
     releaseType: 'custom',
@@ -9415,4 +9415,5 @@ if ('requestIdleCallback' in window) {
   }, 1200)
 }
 setTimeout(() => { void hydrateAccount() }, 1500)
+
 
