@@ -174,6 +174,11 @@ li {
   padding: 22px;
 }
 
+.seo-card--inner {
+  background: var(--panel-soft);
+  box-shadow: none;
+}
+
 .seo-card strong {
   color: var(--text);
 }
@@ -215,6 +220,54 @@ li {
   gap: 14px;
 }
 
+.detail-grid,
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.faq-item {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.faq-item h3 {
+  margin: 0 0 10px;
+  font-size: 1.08rem;
+}
+
+.note-panel {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(247, 155, 50, 0.22);
+  background: rgba(247, 155, 50, 0.08);
+}
+
+.check-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check-list li {
+  position: relative;
+  padding-left: 22px;
+}
+
+.check-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--accent-2);
+  font-weight: 900;
+}
+
 .copy-card .button {
   width: max-content;
 }
@@ -231,7 +284,9 @@ li {
   .seo-nav,
   .cta-row,
   .seo-grid,
-  .proof-grid {
+  .proof-grid,
+  .detail-grid,
+  .faq-grid {
     grid-template-columns: 1fr;
   }
 
