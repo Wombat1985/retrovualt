@@ -121,6 +121,18 @@
     <priority>0.55</priority>
   </url>
   <url>
+    <loc>https://retrovaultelite.com/why-i-built-retro-vault-elite.html</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://retrovaultelite.com/updates.html</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.72</priority>
+  </url>
+  <url>
     <loc>https://retrovaultelite.com/data-sources.html</loc>
     <lastmod>2026-04-18</lastmod>
     <changefreq>monthly</changefreq>
@@ -239,6 +251,18 @@
     <lastmod>2026-04-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://retrovaultelite.com/terms.html</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.45</priority>
+  </url>
+  <url>
+    <loc>https://retrovaultelite.com/trading-safety.html</loc>
+    <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
   </url>
   <url>
     <loc>https://retrovaultelite.com/support.html</loc>
