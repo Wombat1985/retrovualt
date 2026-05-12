@@ -3154,6 +3154,61 @@ function getCoverSourceLabel(game: CatalogEntry) {
   return 'Cover displayed from the linked source for identification. Artwork rights remain with their owners.'
 }
 
+function hasExternalMarketSource(game: CatalogEntry) {
+  return Boolean(game.priceSourceUrl) && !game.priceSourceUrl.includes('/custom-entry')
+}
+
+function getMarketCoverageSummary(game: CatalogEntry) {
+  const sourcedFields = [
+    { label: 'Loose', ready: typeof game.priceLoose === 'number' && game.priceLoose > 0 },
+    { label: 'Complete', ready: typeof game.priceComplete === 'number' && game.priceComplete > 0 },
+    { label: 'Sealed', ready: typeof game.priceSealed === 'number' && game.priceSealed > 0 },
+  ]
+
+  const sourcedCount = sourcedFields.filter((field) => field.ready).length
+  const sourcedLabels = sourcedFields.filter((field) => field.ready).map((field) => field.label)
+  const missingLabels = sourcedFields.filter((field) => !field.ready).map((field) => field.label)
+  const customEntry = !hasExternalMarketSource(game)
+
+  if (customEntry) {
+    return {
+      tone: 'manual',
+      title: 'Collector-entered market data',
+      detail: 'This entry was added manually, so values should be treated as your own reference until a sourced market link exists.',
+      sourcedLabels,
+      missingLabels,
+    }
+  }
+
+  if (sourcedCount === 3) {
+    return {
+      tone: 'strong',
+      title: 'Strong market coverage',
+      detail: 'Loose, complete, and sealed reference values are all available for this title.',
+      sourcedLabels,
+      missingLabels,
+    }
+  }
+
+  if (sourcedCount === 2) {
+    return {
+      tone: 'good',
+      title: 'Collector-grade reference coverage',
+      detail: `${sourcedLabels.join(' + ')} values are sourced. ${missingLabels.join(' / ')} still needs deeper market coverage.`,
+      sourcedLabels,
+      missingLabels,
+    }
+  }
+
+  return {
+    tone: 'light',
+    title: 'Early market coverage',
+    detail: 'This title still needs deeper condition coverage, so use the current market number as a starting reference instead of the final word.',
+    sourcedLabels,
+    missingLabels,
+  }
+}
+
 function getOwnedButtonLabel(record: GameRecord): string {
   if (record.status !== 'owned') return 'Mark owned'
   const count = getOwnedCopyCount(record)
@@ -4030,9 +4085,11 @@ function renderSelectedGameModal() {
   const record = getRecord(game.id)
   const safeGameId = escapeHtml(game.id)
   const safePriceSourceUrl = escapeHtml(game.priceSourceUrl)
+  const safeCoverSourceUrl = escapeHtml(game.coverSourceUrl)
   const variantSummary = getVariantSummary(game)
   const identifierRows = getGameIdentifierRows(game)
   const tradeAvailabilityCount = getTradeAvailabilityCount(game.id)
+  const marketCoverage = getMarketCoverageSummary(game)
   const valueGap =
     record.pricePaid === null ? null : getOwnedMarketPrice(game) - record.pricePaid
 
@@ -4144,6 +4201,30 @@ function renderSelectedGameModal() {
                 .join('')}
             </div>
           </section>
+          <section class="modal-evidence-panel modal-evidence-panel--${marketCoverage.tone}" aria-label="Market evidence">
+            <p class="modal-section-label">Market evidence</p>
+            <div class="modal-evidence-grid">
+              <article class="modal-evidence-card">
+                <span>Coverage</span>
+                <strong>${escapeHtml(marketCoverage.title)}</strong>
+                <p>${escapeHtml(marketCoverage.detail)}</p>
+              </article>
+              <article class="modal-evidence-card">
+                <span>Snapshot</span>
+                <strong>${priceSnapshotDate}</strong>
+                <p>${hasExternalMarketSource(game) ? 'Reference values are linked back to the external market source for this title.' : 'This entry is custom, so the market source still needs to be added.'}</p>
+              </article>
+              <article class="modal-evidence-card">
+                <span>Collector edge</span>
+                <strong>${tradeAvailabilityCount > 0 ? 'Trade-ready title' : 'Collector workflow ready'}</strong>
+                <p>${tradeAvailabilityCount > 0 ? `${tradeAvailabilityCount} collector${tradeAvailabilityCount === 1 ? '' : 's'} currently have this marked for trade.` : 'Track wanted status, duplicate copies, variants, notes, alerts, and trade state in the same place.'}</p>
+              </article>
+            </div>
+            <div class="modal-evidence-links">
+              <a class="link-button" href="${safePriceSourceUrl}" target="_blank" rel="noreferrer">Open market source</a>
+              <a class="ghost-button" href="${safeCoverSourceUrl}" target="_blank" rel="noreferrer">Open cover source</a>
+            </div>
+          </section>
           <div class="modal-notes">
             <p><strong>Price snapshot:</strong> ${priceSnapshotDate}</p>
             <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus ${getOwnedValueLabel(game).toLowerCase()}.`}</p>
@@ -4169,7 +4250,6 @@ function renderSelectedGameModal() {
             <button class="ghost-button" data-action="edit-notes" data-id="${safeGameId}" type="button">Notes</button>
             <button class="ghost-button" data-action="set-date-acquired" data-id="${safeGameId}" type="button">Date found</button>
             <button class="ghost-button" data-action="set-acquired-from" data-id="${safeGameId}" type="button">Source</button>
-            <a class="link-button" href="${safePriceSourceUrl}" target="_blank" rel="noreferrer">Open market source</a>
           </div>
         </div>
       </section>
