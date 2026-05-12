@@ -270,6 +270,62 @@
         line-height: 1.45;
       }
 
+      .app-shell__compare {
+        display: grid;
+        gap: 12px;
+        margin-top: 26px;
+      }
+
+      .app-shell__compare-intro,
+      .app-shell__compare-note,
+      .app-shell__compare-card {
+        padding: 16px 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+        background: rgba(8, 12, 18, 0.36);
+        backdrop-filter: blur(14px);
+      }
+
+      .app-shell__compare-intro h2 {
+        margin: 10px 0 8px;
+        font-size: clamp(1.25rem, 2.6vw, 1.85rem);
+        line-height: 1.08;
+      }
+
+      .app-shell__compare-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .app-shell__compare-card {
+        display: grid;
+        gap: 8px;
+      }
+
+      .app-shell__compare-card strong,
+      .app-shell__compare-note strong {
+        font-size: 1rem;
+        line-height: 1.35;
+      }
+
+      .app-shell__compare-card span,
+      .app-shell__compare-intro p,
+      .app-shell__compare-card p,
+      .app-shell__compare-note p {
+        color: #c1cadb;
+        line-height: 1.45;
+      }
+
+      .app-shell__compare-card small,
+      .app-shell__compare-intro small {
+        color: #f1c95f;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
       .app-shell__actions {
         display: flex;
         flex-wrap: wrap;
@@ -346,6 +402,10 @@
           grid-template-columns: 1fr;
         }
 
+        .app-shell__compare-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
         .app-shell__link-groups {
           grid-template-columns: 1fr;
         }
@@ -359,6 +419,10 @@
 
         .app-shell__lead {
           font-size: 1.05rem;
+        }
+
+        .app-shell__compare-grid {
+          grid-template-columns: 1fr;
         }
 
         .app-shell__actions {
@@ -382,7 +446,7 @@
           </a>
           <h1>Track your collection, build a wanted list, and trade duplicates with other collectors.</h1>
           <p class="app-shell__lead">
-            Retro Vault Elite keeps your collection, wanted list, paid prices, and tradeable duplicates together in one place that feels built for collectors instead of spreadsheets.
+            Retro Vault Elite keeps your collection, wanted list, paid prices, duplicates, and tradeable copies together in one place that feels built for collectors instead of spreadsheets and price-only lookups.
           </p>
           <div class="app-shell__proof" aria-label="Product highlights">
             <div class="app-shell__proof-item">
@@ -402,6 +466,38 @@
               <span>Add missing games yourself, including imports, odd variants, and other collector-only edge cases.</span>
             </div>
           </div>
+          <section class="app-shell__compare" aria-label="Why collectors use Retro Vault Elite">
+            <div class="app-shell__compare-intro">
+              <small>Why collectors stay</small>
+              <h2>More than a price lookup. This is where the whole collection lives.</h2>
+              <p>Price reference matters, but serious collecting is also condition, duplicates, upgrades, variants, wanted targets, notes, and knowing who has the game you still need.</p>
+            </div>
+            <div class="app-shell__compare-grid">
+              <article class="app-shell__compare-card">
+                <small>Track exact copies</small>
+                <strong>Keep loose, boxed, manual, CiB, sealed, graded, and duplicate copies separate.</strong>
+                <p>Collectors do not own one flat number. They own specific copies.</p>
+              </article>
+              <article class="app-shell__compare-card">
+                <small>Build upgrade plans</small>
+                <strong>Move from loose to complete without losing what you already own.</strong>
+                <p>Track paid prices, condition, and what still needs upgrading on the shelf.</p>
+              </article>
+              <article class="app-shell__compare-card">
+                <small>Use a real wanted list</small>
+                <strong>Wanted games tie into alerts, trade matches, and the next thing you should hunt.</strong>
+                <p>Your list should help you act, not just sit there.</p>
+              </article>
+              <article class="app-shell__compare-card">
+                <small>Trade from the vault</small>
+                <strong>Mark duplicates for trade, find collector matches, and keep the conversation tied to the game.</strong>
+                <p>Trading is part of the collection flow, not hidden off to the side.</p>
+              </article>
+            </div>
+            <div class="app-shell__compare-note">
+              <strong>Retro Vault Elite is for collectors who want one place to track, upgrade, value, and trade their games, not just check a number and leave.</strong>
+            </div>
+          </section>
           <div class="app-shell__actions">
             <a class="app-shell__button app-shell__button--primary" href="/">Open the app</a>
             <a class="app-shell__button" href="/retro-console-collection-tracker.html">Browse console pages</a>

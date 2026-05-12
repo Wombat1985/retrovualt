@@ -455,6 +455,74 @@ a {
   line-height: 1.35;
 }
 
+.positioning-strip {
+  display: grid;
+  gap: 14px;
+}
+
+.positioning-strip__intro,
+.positioning-strip__footer,
+.positioning-card {
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.positioning-strip__intro h2 {
+  margin: 10px 0;
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+  line-height: 1.03;
+}
+
+.positioning-strip__intro p,
+.positioning-strip__footer {
+  max-width: 72ch;
+}
+
+.positioning-strip__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.positioning-card {
+  display: grid;
+  gap: 10px;
+  min-height: 170px;
+}
+
+.positioning-card span {
+  color: var(--accent-2);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+}
+
+.positioning-card strong,
+.positioning-strip__footer strong {
+  color: var(--text);
+  line-height: 1.38;
+}
+
+.positioning-card--accent {
+  background:
+    radial-gradient(circle at top right, rgba(88, 216, 170, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  border-color: rgba(88, 216, 170, 0.22);
+}
+
+.positioning-strip__footer {
+  background:
+    radial-gradient(circle at top right, rgba(241, 201, 95, 0.14), transparent 36%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+}
+
 .account-status-pill {
   display: inline-flex;
   align-items: center;
@@ -1263,6 +1331,7 @@ a {
 .smart-grid,
 .showcase-grid,
 .feature-strip,
+.positioning-strip,
 .identity-card,
 .achievement-strip,
 .retention-grid,
@@ -3003,6 +3072,7 @@ a {
   .badge-grid,
   .identity-card,
   .feature-strip,
+  .positioning-strip__grid,
   .trust-strip,
   .onboarding-panel,
   .roadmap-strip {
@@ -3033,6 +3103,7 @@ a {
   }
 
   .feature-strip,
+  .positioning-strip__grid,
   .trust-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3155,6 +3226,7 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .positioning-strip__grid,
   .feature-strip__proof {
     grid-template-columns: 1fr;
   }

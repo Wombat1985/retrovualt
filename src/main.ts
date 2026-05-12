@@ -4298,6 +4298,48 @@ function renderFeatureStrip() {
   `
 }
 
+function renderCollectorPositioningStrip() {
+  const alertCount = getAlertMatches().length
+  const tradeSignal = state.publicCommunityStats?.tradeListingCount ?? state.tradeableNowIds?.size ?? 0
+  const ownedCount = getOwnedGames().length
+  const wantedCount = getWantedGames().length
+
+  return `
+    <section class="positioning-strip" aria-label="Why collectors use Retro Vault Elite">
+      <div class="positioning-strip__intro">
+        <p class="kicker">Why collectors stay</p>
+        <h2>More than a price lookup. This is where the whole collection lives.</h2>
+        <p class="subtle">Price checking matters. But serious collecting is also duplicates, upgrade plans, wanted targets, condition, variants, notes, and knowing who has the game you still need.</p>
+      </div>
+      <div class="positioning-strip__grid">
+        <article class="positioning-card">
+          <span>Track exact copies</span>
+          <strong>Keep loose, boxed, manual, CiB, sealed, graded, and duplicate copies separate.</strong>
+          <p class="subtle">${ownedCount.toLocaleString()} owned game${ownedCount === 1 ? '' : 's'} can be tracked as real collector copies instead of one flat quantity number.</p>
+        </article>
+        <article class="positioning-card">
+          <span>Build upgrade plans</span>
+          <strong>Move from loose to complete without losing the history of what you already own.</strong>
+          <p class="subtle">Track what you paid, what condition it is in, and what still needs upgrading on the shelf.</p>
+        </article>
+        <article class="positioning-card">
+          <span>Use a real wanted list</span>
+          <strong>Wanted games are not just a bookmark. They tie into price targets, hunt lists, and trade matches.</strong>
+          <p class="subtle">${wantedCount.toLocaleString()} wanted game${wantedCount === 1 ? '' : 's'}${alertCount > 0 ? `, including ${alertCount.toLocaleString()} active alert hit${alertCount === 1 ? '' : 's'}` : ''}.</p>
+        </article>
+        <article class="positioning-card positioning-card--accent">
+          <span>Trade from the vault</span>
+          <strong>Mark duplicates for trade, see who has what you want, and keep the whole conversation tied to the game.</strong>
+          <p class="subtle">${tradeSignal.toLocaleString()} game${tradeSignal === 1 ? '' : 's'} are already marked for trade across the collector community.</p>
+        </article>
+      </div>
+      <div class="positioning-strip__footer">
+        <strong>Retro Vault Elite is for collectors who want one place to track, upgrade, value, and trade their games, not just check a number and leave.</strong>
+      </div>
+    </section>
+  `
+}
+
 function renderOnboardingPanel() {
   const steps = getOnboardingSteps()
   const completed = steps.filter((step) => step.done).length
@@ -6305,6 +6347,7 @@ function renderNow() {
       </header>
 
       ${renderFeatureStrip()}
+      ${renderCollectorPositioningStrip()}
       ${renderTrustStrip()}
 
       <section class="toolbar">
