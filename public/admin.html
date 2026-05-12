@@ -77,6 +77,7 @@
       }
 
       input,
+      select,
       textarea,
       button {
         min-height: 48px;
@@ -92,6 +93,10 @@
         min-height: 120px;
         border-radius: 22px;
         resize: vertical;
+      }
+
+      select {
+        appearance: none;
       }
 
       button {
@@ -326,6 +331,28 @@
           .join('')
       }
 
+      function renderCampaignRows(campaigns) {
+        if (!campaigns?.length) {
+          return '<tr><td colspan="7">No email campaigns sent yet.</td></tr>'
+        }
+
+        return campaigns
+          .map(
+            (campaign) => `
+              <tr>
+                <td>${escapeHtml(campaign.createdAt)}</td>
+                <td>${escapeHtml(campaign.subject)}</td>
+                <td>${escapeHtml(campaign.audience || 'members')}</td>
+                <td>${escapeHtml(campaign.campaignType || 'site_update')}</td>
+                <td>${Number(campaign.recipientCount || 0).toLocaleString()}</td>
+                <td>${Number(campaign.sentCount || 0).toLocaleString()}</td>
+                <td>${Number(campaign.failedCount || 0).toLocaleString()}</td>
+              </tr>
+            `,
+          )
+          .join('')
+      }
+
       function renderStats(stats) {
         const backendLifetimeViews = Number(stats.analytics.lifetimePageViews || stats.analytics.totalPageViews || 0)
         const cachedLifetimeViews = Number(localStorage.getItem(lifetimeViewsKey) || 0)
@@ -428,15 +455,36 @@
           <section class="card" style="margin-top: 18px">
             <div class="card-heading-row">
               <div>
-                <h2>Email signed-up users</h2>
-                <p>Send a Retro Vault Elite update to everyone who created an account.</p>
+                <h2>Email collectors</h2>
+                <p>Send a weekly member update, a weekly newsletter, or a combined email to the right audience.</p>
               </div>
-              <span class="ok">${Number(stats.userCount || 0).toLocaleString()} recipients</span>
+              <span class="ok">${Number(stats.userCount || 0).toLocaleString()} members / ${Number(stats.newsletterSubscriberCount || 0).toLocaleString()} subscribers</span>
+            </div>
+            <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 14px">
+              <label>
+                Campaign type
+                <select id="broadcast-campaign-type">
+                  <option value="site_update">Weekly site update</option>
+                  <option value="newsletter">Weekly newsletter</option>
+                </select>
+              </label>
+              <label>
+                Audience
+                <select id="broadcast-audience">
+                  <option value="members">Signed-up members</option>
+                  <option value="newsletter">Newsletter subscribers</option>
+                  <option value="both">Members + subscribers</option>
+                </select>
+              </label>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px">
+              <button class="small-button" type="button" data-action="preset-site-update">Load weekly member update</button>
+              <button class="small-button" type="button" data-action="preset-newsletter">Load weekly newsletter</button>
             </div>
             <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 14px">
               <label>
                 Subject
-                <input id="broadcast-subject" type="text" maxlength="140" value="Retro Vault Elite update" />
+                <input id="broadcast-subject" type="text" maxlength="140" value="Retro Vault Elite weekly member update" />
               </label>
               <label>
                 Button label
@@ -448,23 +496,47 @@
               <textarea id="broadcast-intro">Quick update from Retro Vault Elite. Thank you for signing up and helping shape the vault with your feedback. Here is what has been added, fixed, and what would still be useful to test.</textarea>
             </label>
             <label style="margin-bottom: 12px">
-              What is new
+              Section 1
               <textarea id="broadcast-added">Add one update per line.</textarea>
             </label>
             <label style="margin-bottom: 12px">
-              What was fixed
+              Section 2
               <textarea id="broadcast-fixed">Add one fix per line.</textarea>
             </label>
             <label style="margin-bottom: 12px">
-              What still needs testing
+              Section 3
               <textarea id="broadcast-testing">Add one testing request per line.</textarea>
             </label>
             <label style="margin-bottom: 12px">
               Closing note
               <textarea id="broadcast-closing">If you have a minute, please jump back in and let me know what still feels rough, confusing, or missing. Collector feedback is driving what gets improved next.</textarea>
             </label>
-            <button class="small-button" type="button" data-action="send-broadcast-email">Send update email</button>
+            <div class="grid" style="grid-template-columns: 1fr auto; margin-bottom: 12px">
+              <label>
+                Test email address
+                <input id="broadcast-test-email" type="email" autocomplete="email" placeholder="you@example.com" />
+              </label>
+              <button class="small-button" type="button" data-action="send-test-broadcast-email">Send test email</button>
+            </div>
+            <button class="small-button" type="button" data-action="send-broadcast-email">Send campaign</button>
             <div id="broadcast-result" style="margin-top:12px"></div>
+          </section>
+          <section class="card" style="margin-top: 18px">
+            <h2>Recent email campaigns</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Created</th>
+                  <th>Subject</th>
+                  <th>Audience</th>
+                  <th>Type</th>
+                  <th>Recipients</th>
+                  <th>Sent</th>
+                  <th>Failed</th>
+                </tr>
+              </thead>
+              <tbody>${renderCampaignRows(stats.recentEmailCampaigns)}</tbody>
+            </table>
           </section>
           <section class="card" style="margin-top: 18px">
             <h2>Accounts</h2>
@@ -634,6 +706,9 @@
 
         const subject = document.querySelector('#broadcast-subject')?.value?.trim() || ''
         const ctaLabel = document.querySelector('#broadcast-cta')?.value?.trim() || 'Open Retro Vault Elite'
+        const audience = document.querySelector('#broadcast-audience')?.value?.trim() || 'members'
+        const campaignType = document.querySelector('#broadcast-campaign-type')?.value?.trim() || 'site_update'
+        const testEmail = document.querySelector('#broadcast-test-email')?.value?.trim() || ''
         const intro = document.querySelector('#broadcast-intro')?.value?.trim() || ''
         const added = splitLines(document.querySelector('#broadcast-added')?.value)
         const fixed = splitLines(document.querySelector('#broadcast-fixed')?.value)
@@ -649,6 +724,9 @@
           body: JSON.stringify({
             subject,
             ctaLabel,
+            audience,
+            campaignType,
+            testEmail,
             intro,
             added,
             fixed,
@@ -659,10 +737,59 @@
         const payload = await response.json()
 
         if (!response.ok && response.status !== 207) {
-          throw new Error(payload.error || 'Could not send update email.')
+          throw new Error(payload.error || 'Could not send email campaign.')
         }
 
         return payload
+      }
+
+      function loadBroadcastPreset(type) {
+        const campaignTypeInput = document.querySelector('#broadcast-campaign-type')
+        const audienceInput = document.querySelector('#broadcast-audience')
+        const subjectInput = document.querySelector('#broadcast-subject')
+        const ctaInput = document.querySelector('#broadcast-cta')
+        const introInput = document.querySelector('#broadcast-intro')
+        const addedInput = document.querySelector('#broadcast-added')
+        const fixedInput = document.querySelector('#broadcast-fixed')
+        const testingInput = document.querySelector('#broadcast-testing')
+        const closingInput = document.querySelector('#broadcast-closing')
+
+        if (
+          !campaignTypeInput ||
+          !audienceInput ||
+          !subjectInput ||
+          !ctaInput ||
+          !introInput ||
+          !addedInput ||
+          !fixedInput ||
+          !testingInput ||
+          !closingInput
+        ) {
+          return
+        }
+
+        if (type === 'newsletter') {
+          campaignTypeInput.value = 'newsletter'
+          audienceInput.value = 'newsletter'
+          subjectInput.value = 'Retro Vault Elite weekly collector watchlist'
+          ctaInput.value = 'Open the vault'
+          introInput.value = 'Here is this week's Retro Vault Elite collector watchlist: a quick note on what changed in the vault, what collectors should keep an eye on, and what is worth checking this week.'
+          addedInput.value = 'Add one collector watchlist item per line.'
+          fixedInput.value = 'Add one vault update per line.'
+          testingInput.value = 'Add one thing worth checking or testing this week per line.'
+          closingInput.value = 'Thanks for following along. If anything feels off, rough, or missing, reach out through the site support page and let me know.'
+          return
+        }
+
+        campaignTypeInput.value = 'site_update'
+        audienceInput.value = 'members'
+        subjectInput.value = 'Retro Vault Elite weekly member update'
+        ctaInput.value = 'Open Retro Vault Elite'
+        introInput.value = 'Quick update from Retro Vault Elite. Thank you for signing up and helping shape the vault with your feedback. Here is what has been added, fixed, and what would still be useful to test.'
+        addedInput.value = 'Add one update per line.'
+        fixedInput.value = 'Add one fix per line.'
+        testingInput.value = 'Add one testing request per line.'
+        closingInput.value = 'If you have a minute, please jump back in and let me know what still feels rough, confusing, or missing. Collector feedback is driving what gets improved next.'
       }
 
       function renderBroadcastResult(payload) {
@@ -676,17 +803,18 @@
         const failedCount = Number(payload?.failedCount || 0)
         const totalCount = Number(payload?.totalCount || 0)
         const failures = Array.isArray(payload?.failures) ? payload.failures : []
+        const mode = payload?.mode === 'test' ? 'test email' : 'campaign'
 
         if (!failedCount) {
           resultEl.innerHTML = `
-            <p class="ok" style="margin:0">Email sent successfully.</p>
-            <p style="margin:6px 0 0">${sentCount.toLocaleString()} of ${totalCount.toLocaleString()} signed-up collectors were emailed.</p>
+            <p class="ok" style="margin:0">${mode === 'test email' ? 'Test email sent successfully.' : 'Email campaign sent successfully.'}</p>
+            <p style="margin:6px 0 0">${sentCount.toLocaleString()} of ${totalCount.toLocaleString()} ${mode === 'test email' ? 'test recipients' : 'recipients'} were emailed.</p>
           `
           return
         }
 
         resultEl.innerHTML = `
-          <p class="error" style="margin:0">Email send finished with failures.</p>
+          <p class="error" style="margin:0">${mode === 'test email' ? 'Test email finished with failures.' : 'Email send finished with failures.'}</p>
           <p style="margin:6px 0 0">Sent ${sentCount.toLocaleString()} of ${totalCount.toLocaleString()}. Failed: ${failedCount.toLocaleString()}.</p>
           <ul style="margin:10px 0 0; padding-left:20px">
             ${failures
@@ -771,6 +899,9 @@
         const barcodeCopyButton = event.target.closest('[data-action="copy-barcodes"]')
         const barcodeImportButton = event.target.closest('[data-action="import-barcodes"]')
         const broadcastButton = event.target.closest('[data-action="send-broadcast-email"]')
+        const broadcastTestButton = event.target.closest('[data-action="send-test-broadcast-email"]')
+        const sitePresetButton = event.target.closest('[data-action="preset-site-update"]')
+        const newsletterPresetButton = event.target.closest('[data-action="preset-newsletter"]')
 
         if (barcodeRefreshButton) {
           try {
@@ -803,22 +934,45 @@
           return
         }
 
-        if (broadcastButton) {
+        if (sitePresetButton) {
+          loadBroadcastPreset('site_update')
+          statusEl.className = 'ok'
+          statusEl.textContent = 'Loaded weekly member update preset.'
+          return
+        }
+
+        if (newsletterPresetButton) {
+          loadBroadcastPreset('newsletter')
+          statusEl.className = 'ok'
+          statusEl.textContent = 'Loaded weekly newsletter preset.'
+          return
+        }
+
+        if (broadcastButton || broadcastTestButton) {
           try {
+            const testInput = document.querySelector('#broadcast-test-email')
+            if (broadcastButton && testInput) {
+              testInput.value = ''
+            }
             statusEl.className = ''
-            statusEl.textContent = 'Sending update email to signed-up collectors...'
+            statusEl.textContent = broadcastTestButton ? 'Sending test email...' : 'Sending email campaign...'
             const payload = await sendBroadcastEmail()
             statusEl.className = payload.failedCount ? 'error' : 'ok'
             statusEl.textContent = payload.failedCount
               ? 'Email send finished with some failures. See the result details below.'
-              : 'Email sent successfully.'
+              : payload.mode === 'test'
+                ? 'Test email sent successfully.'
+                : 'Email campaign sent successfully.'
             renderBroadcastResult(payload)
+            if (payload.mode !== 'test') {
+              await loadStats()
+            }
           } catch (error) {
             statusEl.className = 'error'
-            statusEl.textContent = error instanceof Error ? error.message : 'Could not send update email.'
+            statusEl.textContent = error instanceof Error ? error.message : 'Could not send email.'
             const resultEl = document.querySelector('#broadcast-result')
             if (resultEl) {
-              resultEl.innerHTML = '<p class="error" style="margin:0">Email failed to send.</p>'
+              resultEl.innerHTML = `<p class="error" style="margin:0">${escapeHtml(error.message || 'Email failed to send.')}</p>`
             }
           }
           return

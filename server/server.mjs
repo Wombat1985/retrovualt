@@ -53,6 +53,7 @@ function createEmptyDb() {
     sessions: [],
     passwordResets: [],
     newsletterSubscribers: [],
+    emailCampaigns: [],
     sharedBarcodeMappings: {},
     analytics: createDefaultAnalyticsState(),
     tradeRequests: [],
@@ -80,6 +81,7 @@ function normalizeDb(parsed) {
     sessions: Array.isArray(parsed?.sessions) ? parsed.sessions : [],
     passwordResets: Array.isArray(parsed?.passwordResets) ? parsed.passwordResets : [],
     newsletterSubscribers: Array.isArray(parsed?.newsletterSubscribers) ? parsed.newsletterSubscribers : [],
+    emailCampaigns: Array.isArray(parsed?.emailCampaigns) ? parsed.emailCampaigns.map(normalizeEmailCampaign).filter(Boolean) : [],
     sharedBarcodeMappings: normalizeSharedBarcodeMappings(parsed?.sharedBarcodeMappings),
     analytics: normalizeAnalyticsState(parsed?.analytics),
     tradeRequests: Array.isArray(parsed?.tradeRequests) ? parsed.tradeRequests.map(normalizeTradeRequest) : [],
@@ -679,6 +681,10 @@ function getAdminStats(db) {
   const viewsToday = Number(analytics.days?.[today]) || 0
   const signupsToday = users.filter((user) => String(user.createdAt).startsWith(today)).length
   const newsletterToday = db.newsletterSubscribers.filter((entry) => String(entry.createdAt).startsWith(today)).length
+  const recentEmailCampaigns = (db.emailCampaigns ?? [])
+    .slice()
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 8)
 
   return {
     generatedAt: new Date().toISOString(),
@@ -691,6 +697,7 @@ function getAdminStats(db) {
     newsletterToday,
     signupConversionRate: viewsToday ? Number(((signupsToday / viewsToday) * 100).toFixed(2)) : 0,
     users,
+    recentEmailCampaigns,
     newsletterSubscribers: db.newsletterSubscribers
       .slice()
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
@@ -785,6 +792,51 @@ function normalizeMessage(raw) {
   }
 }
 
+function normalizeEmailCampaign(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null
+  }
+
+  return {
+    id: String(raw.id ?? createId()),
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+    subject: String(raw.subject ?? '').slice(0, 140),
+    audience: String(raw.audience ?? 'members').slice(0, 40),
+    campaignType: String(raw.campaignType ?? 'site_update').slice(0, 40),
+    recipientCount: Number(raw.recipientCount) || 0,
+    sentCount: Number(raw.sentCount) || 0,
+    failedCount: Number(raw.failedCount) || 0,
+    testEmail: raw.testEmail ? String(raw.testEmail).toLowerCase() : null,
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function getRecipientLists(db) {
+  const memberEmails = [...new Set(db.users.map((user) => String(user.email ?? '').trim().toLowerCase()).filter(Boolean))]
+  const newsletterEmails = [
+    ...new Set(db.newsletterSubscribers.map((entry) => String(entry.email ?? '').trim().toLowerCase()).filter(Boolean)),
+  ]
+
+  return { memberEmails, newsletterEmails }
+}
+
+function resolveCampaignRecipients(db, audience = 'members') {
+  const { memberEmails, newsletterEmails } = getRecipientLists(db)
+
+  if (audience === 'newsletter') {
+    return newsletterEmails
+  }
+
+  if (audience === 'both') {
+    return [...new Set([...memberEmails, ...newsletterEmails])]
+  }
+
+  return memberEmails
+}
+
 async function sendTradeNotificationEmail(email, subject, intro, ctaLabel = 'Open Trade Inbox') {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
@@ -829,7 +881,23 @@ async function sendAdminBroadcastEmail(email, payload) {
     testing,
     closing,
     ctaLabel = 'Open Retro Vault Elite',
+    campaignType = 'site_update',
   } = payload
+
+  const sections =
+    campaignType === 'newsletter'
+      ? {
+          addedTitle: 'Collector watchlist',
+          fixedTitle: 'What changed in the vault',
+          testingTitle: 'Worth checking this week',
+          footer: 'You are receiving this because you joined the Retro Vault Elite newsletter.',
+        }
+      : {
+          addedTitle: 'What is new',
+          fixedTitle: 'What was fixed',
+          testingTitle: 'What still needs testing',
+          footer: 'You are receiving this because you created an account on Retro Vault Elite.',
+        }
 
   const makeList = (items) => {
     if (!items.length) {
@@ -844,11 +912,11 @@ async function sendAdminBroadcastEmail(email, payload) {
   const html = `
     <div style="font-family:Segoe UI,Arial,sans-serif; color:#0f1724; line-height:1.6">
       <p>${intro}</p>
-      <h2 style="margin:24px 0 10px; color:#0f1724">What is new</h2>
+      <h2 style="margin:24px 0 10px; color:#0f1724">${sections.addedTitle}</h2>
       ${makeList(added)}
-      <h2 style="margin:24px 0 10px; color:#0f1724">What was fixed</h2>
+      <h2 style="margin:24px 0 10px; color:#0f1724">${sections.fixedTitle}</h2>
       ${makeList(fixed)}
-      <h2 style="margin:24px 0 10px; color:#0f1724">What still needs testing</h2>
+      <h2 style="margin:24px 0 10px; color:#0f1724">${sections.testingTitle}</h2>
       ${makeList(testing)}
       <p>${closing}</p>
       <p style="margin:24px 0">
@@ -856,7 +924,7 @@ async function sendAdminBroadcastEmail(email, payload) {
           ${ctaLabel}
         </a>
       </p>
-      <p style="color:#526072; font-size:13px">You are receiving this because you created an account on Retro Vault Elite.</p>
+      <p style="color:#526072; font-size:13px">${sections.footer}</p>
     </div>
   `
 
@@ -869,7 +937,7 @@ async function sendAdminBroadcastEmail(email, payload) {
     body: JSON.stringify({
       from,
       to: email,
-      subject: `Retro Vault Elite — ${subject}`,
+      subject: `Retro Vault Elite ? ${subject}`,
       html,
     }),
   })
@@ -1027,6 +1095,13 @@ const server = createServer(async (request, response) => {
       const intro = String(body.intro ?? '').trim().slice(0, 1200)
       const closing = String(body.closing ?? '').trim().slice(0, 800)
       const ctaLabel = String(body.ctaLabel ?? 'Open Retro Vault Elite').trim().slice(0, 60) || 'Open Retro Vault Elite'
+      const audience = ['members', 'newsletter', 'both'].includes(String(body.audience ?? 'members'))
+        ? String(body.audience ?? 'members')
+        : 'members'
+      const campaignType = ['site_update', 'newsletter'].includes(String(body.campaignType ?? 'site_update'))
+        ? String(body.campaignType ?? 'site_update')
+        : 'site_update'
+      const testEmail = String(body.testEmail ?? '').trim().toLowerCase()
       const added = Array.isArray(body.added) ? body.added.map((item) => String(item ?? '').trim()).filter(Boolean).slice(0, 12) : []
       const fixed = Array.isArray(body.fixed) ? body.fixed.map((item) => String(item ?? '').trim()).filter(Boolean).slice(0, 12) : []
       const testing = Array.isArray(body.testing) ? body.testing.map((item) => String(item ?? '').trim()).filter(Boolean).slice(0, 12) : []
@@ -1046,16 +1121,22 @@ const server = createServer(async (request, response) => {
         return
       }
 
-      const recipients = [...new Set(db.users.map((user) => String(user.email ?? '').trim().toLowerCase()).filter(Boolean))]
+      if (testEmail && !isValidEmail(testEmail)) {
+        json(request, response, 400, { error: 'Enter a valid test email address.' })
+        return
+      }
+
+      const recipients = testEmail ? [testEmail] : resolveCampaignRecipients(db, audience)
 
       if (!recipients.length) {
-        json(request, response, 400, { error: 'No signed-up account emails were found.' })
+        json(request, response, 400, { error: 'No recipients were found for that audience.' })
         return
       }
 
       let sentCount = 0
       const failures = []
-      const batchSize = 10
+      const batchSize = 4
+      const batchDelayMs = 1100
 
       for (let index = 0; index < recipients.length; index += batchSize) {
         const batch = recipients.slice(index, index + batchSize)
@@ -1069,6 +1150,7 @@ const server = createServer(async (request, response) => {
               testing,
               closing,
               ctaLabel,
+              campaignType,
             }).then(() => email),
           ),
         )
@@ -1087,14 +1169,45 @@ const server = createServer(async (request, response) => {
             message: result.reason instanceof Error ? result.reason.message : 'Unknown email error.',
           })
         }
+
+        if (index + batchSize < recipients.length) {
+          await sleep(batchDelayMs)
+        }
+      }
+
+      if (!testEmail) {
+        db.emailCampaigns = [
+          normalizeEmailCampaign({
+            id: createId(),
+            createdAt: new Date().toISOString(),
+            subject,
+            audience,
+            campaignType,
+            recipientCount: recipients.length,
+            sentCount,
+            failedCount: failures.length,
+          }),
+          ...(db.emailCampaigns ?? []),
+        ].filter(Boolean).slice(0, 40)
+        await saveDb(db)
       }
 
       json(request, response, failures.length ? 207 : 200, {
         ok: failures.length === 0,
+        mode: testEmail ? 'test' : 'broadcast',
+        audience,
+        campaignType,
         sentCount,
         failedCount: failures.length,
         totalCount: recipients.length,
         failures: failures.slice(0, 20),
+        message: testEmail
+          ? failures.length
+            ? 'Test email finished with failures.'
+            : 'Test email sent successfully.'
+          : failures.length
+            ? 'Broadcast finished with failures.'
+            : 'Broadcast sent successfully.',
       })
       return
     }
