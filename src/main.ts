@@ -4564,6 +4564,51 @@ function renderCollectorCommandStrip() {
   `
 }
 
+function renderAccountUnlockStrip() {
+  const signedInCopy = state.authToken
+    ? `Your vault is syncing as ${state.accountDisplayName || state.accountEmail || 'collector'}, so wanted games, paid prices, notes, alerts, and trade activity stay with you across devices.`
+    : 'Create an account to keep your collection, wanted list, paid prices, alerts, notes, and trade activity in one place across every device.'
+
+  return `
+    <section class="account-unlock-strip" aria-label="Why create a Retro Vault Elite account">
+      <div class="account-unlock-strip__intro">
+        <p class="kicker">Why create an account</p>
+        <h2>${state.authToken ? 'Your collector data is now portable.' : 'The real upgrade is saving the whole collector workflow.'}</h2>
+        <p class="subtle">${escapeHtml(signedInCopy)}</p>
+      </div>
+      <div class="account-unlock-strip__grid">
+        <article class="account-unlock-card">
+          <span>Sync</span>
+          <strong>Pick up on phone, desktop, or tablet without losing your place.</strong>
+          <p class="subtle">Owned copies, wanted games, paid prices, and progress all follow the account instead of getting stuck on one browser.</p>
+        </article>
+        <article class="account-unlock-card">
+          <span>Alerts</span>
+          <strong>Wanted games become live targets instead of a static wishlist.</strong>
+          <p class="subtle">Target prices, trade openings, and weekly collector emails give people a reason to come back.</p>
+        </article>
+        <article class="account-unlock-card">
+          <span>Trade</span>
+          <strong>Duplicates, matches, and private trade requests all stay tied to the game.</strong>
+          <p class="subtle">Collectors can move from “I own two copies” to “this one is ready to trade” without leaving the vault.</p>
+        </article>
+        <article class="account-unlock-card account-unlock-card--accent">
+          <span>Collector memory</span>
+          <strong>Notes, variants, grades, custom entries, and weird edge cases are saved with the collection.</strong>
+          <p class="subtle">That is the difference between a disposable checklist and a real long-term collector home.</p>
+        </article>
+      </div>
+      <div class="account-unlock-strip__actions">
+        ${
+          state.authToken
+            ? '<button class="secondary-button" type="button" data-action="open-account-settings">Open account settings</button><button class="ghost-button" type="button" data-action="sync-now">Sync now</button>'
+            : '<button class="install-button" type="button" data-action="open-register">Create account</button><button class="secondary-button" type="button" data-action="open-login">Sign in</button>'
+        }
+      </div>
+    </section>
+  `
+}
+
 function renderOnboardingPanel() {
   const steps = getOnboardingSteps()
   const completed = steps.filter((step) => step.done).length
@@ -6575,6 +6620,7 @@ function renderNow() {
       ${renderTrustStrip()}
       ${renderReturnStrip()}
       ${renderCollectorCommandStrip()}
+      ${renderAccountUnlockStrip()}
 
       <section class="toolbar">
         <label class="search-field">
