@@ -4609,6 +4609,86 @@ function renderAccountUnlockStrip() {
   `
 }
 
+function getActivityActionMeta(event: ActivityEvent) {
+  if (event.gameId) {
+    return {
+      action: event.type === 'target_price_added' ? 'set-target-price' : 'open-details',
+      actionLabel: event.type === 'target_price_added' ? 'Review target' : 'Open game',
+      attr: ` data-id="${escapeHtml(event.gameId)}"`,
+    }
+  }
+
+  if (event.type === 'badge_unlocked') {
+    return {
+      action: 'open-badges',
+      actionLabel: 'View badges',
+      attr: '',
+    }
+  }
+
+  return {
+    action: 'browse-library',
+    actionLabel: 'Open vault',
+    attr: '',
+  }
+}
+
+function renderCollectorActivityStrip() {
+  const recentEvents = state.activityEvents.slice(0, 6)
+
+  return `
+    <section class="activity-strip" aria-label="Recent collector activity">
+      <div class="activity-strip__intro">
+        <p class="kicker">Recent collector activity</p>
+        <h2>${recentEvents.length ? 'Your vault is moving.' : 'The vault starts feeling alive once you log a few real collector moves.'}</h2>
+        <p class="subtle">${recentEvents.length ? 'Owned adds, wanted games, upgrades, price entries, favorites, and badge unlocks should all feel like progress worth seeing at a glance.' : 'Add games, set targets, mark favorites, and upgrade copies. The recent activity feed will turn that into a running collector story.'}</p>
+      </div>
+      <div class="activity-strip__grid">
+        ${
+          recentEvents.length
+            ? recentEvents
+                .map((event) => {
+                  const actionMeta = getActivityActionMeta(event)
+                  return `
+                    <article class="activity-card">
+                      <span>${escapeHtml(event.type.replace(/_/g, ' '))}</span>
+                      <strong>${escapeHtml(event.title)}</strong>
+                      <p class="subtle">${escapeHtml(event.detail)}</p>
+                      <em>${escapeHtml(formatRelativeTime(event.createdAt))}</em>
+                      <button class="ghost-button" type="button" data-action="${actionMeta.action}"${actionMeta.attr}>${escapeHtml(actionMeta.actionLabel)}</button>
+                    </article>
+                  `
+                })
+                .join('')
+            : `
+              <article class="activity-card activity-card--empty">
+                <span>First move</span>
+                <strong>Add one owned game.</strong>
+                <p class="subtle">That unlocks activity tracking, progress, and a clearer next-best-move loop.</p>
+                <em>Everything starts with one shelf entry.</em>
+                <button class="ghost-button" type="button" data-action="browse-library">Browse library</button>
+              </article>
+              <article class="activity-card activity-card--empty">
+                <span>Build the hunt</span>
+                <strong>Add one wanted game.</strong>
+                <p class="subtle">Wanted titles are the start of alerts, trade matches, and comeback reasons.</p>
+                <em>Wanted list first, deals later.</em>
+                <button class="ghost-button" type="button" data-action="browse-library">Find a grail</button>
+              </article>
+              <article class="activity-card activity-card--empty">
+                <span>Start a loop</span>
+                <strong>Set one target price.</strong>
+                <p class="subtle">That is how the vault starts telling you when something is worth checking again.</p>
+                <em>Targets make the wishlist useful.</em>
+                <button class="ghost-button" type="button" data-action="browse-library">Set a target</button>
+              </article>
+            `
+        }
+      </div>
+    </section>
+  `
+}
+
 function renderOnboardingPanel() {
   const steps = getOnboardingSteps()
   const completed = steps.filter((step) => step.done).length
@@ -6621,6 +6701,7 @@ function renderNow() {
       ${renderReturnStrip()}
       ${renderCollectorCommandStrip()}
       ${renderAccountUnlockStrip()}
+      ${renderCollectorActivityStrip()}
 
       <section class="toolbar">
         <label class="search-field">
