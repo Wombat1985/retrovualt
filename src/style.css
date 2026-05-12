@@ -1332,6 +1332,7 @@ a {
 .showcase-grid,
 .feature-strip,
 .positioning-strip,
+.return-strip,
 .identity-card,
 .achievement-strip,
 .retention-grid,
@@ -1350,6 +1351,58 @@ a {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
+}
+
+.return-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.return-strip__card {
+  display: grid;
+  gap: 10px;
+  min-height: 170px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
+    var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.return-strip__card span {
+  color: var(--accent-2);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.return-strip__card strong {
+  line-height: 1.35;
+}
+
+.return-strip__card .ghost-button {
+  justify-self: start;
+  margin-top: auto;
+}
+
+.return-strip__card--trade {
+  background:
+    radial-gradient(circle at top right, rgba(88, 216, 170, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
+    var(--panel);
+  border-color: rgba(88, 216, 170, 0.2);
+}
+
+.return-strip__card--alert {
+  background:
+    radial-gradient(circle at top right, rgba(241, 201, 95, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
+    var(--panel);
+  border-color: rgba(241, 201, 95, 0.18);
 }
 
 .trust-strip article,
@@ -3137,6 +3190,7 @@ a {
   .identity-card,
   .feature-strip,
   .positioning-strip__grid,
+  .return-strip,
   .trust-strip,
   .onboarding-panel,
   .roadmap-strip {
@@ -3168,6 +3222,7 @@ a {
 
   .feature-strip,
   .positioning-strip__grid,
+  .return-strip,
   .trust-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3290,6 +3345,7 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .return-strip,
   .positioning-strip__grid,
   .feature-strip__proof {
     grid-template-columns: 1fr;

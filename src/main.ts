@@ -4420,6 +4420,52 @@ function renderCollectorPositioningStrip() {
   `
 }
 
+function renderReturnStrip() {
+  const alertMatches = getAlertMatches()
+  const topAlert = alertMatches[0] ?? null
+  const upgradeCandidate = [...getOwnedGames()]
+    .filter((game) => {
+      const record = getRecord(game.id)
+      return !isCompleteEdition(record) && typeof game.priceComplete === 'number' && game.priceComplete > getOwnedMarketPrice(game)
+    })
+    .sort((left, right) => (right.priceComplete ?? 0) - getOwnedMarketPrice(right) - ((left.priceComplete ?? 0) - getOwnedMarketPrice(left)))[0] ?? null
+  const upgradePremium =
+    upgradeCandidate && typeof upgradeCandidate.priceComplete === 'number'
+      ? Math.max(0, upgradeCandidate.priceComplete - getOwnedMarketPrice(upgradeCandidate))
+      : 0
+  const weeklyHighlights = getWeeklyRecapHighlights()
+  const liveTradeCount = state.tradeInboxFreshOpportunityIds.size + state.tradePending + state.tradeUnread
+
+  return `
+    <section class="return-strip" aria-label="Reasons to come back to the vault">
+      <article class="return-strip__card return-strip__card--trade">
+        <span>Come back for trade movement</span>
+        <strong>${liveTradeCount > 0 ? `${liveTradeCount} trade signal${liveTradeCount === 1 ? '' : 's'} waiting right now.` : 'Trade Inbox is where collectors return when wanted games surface.'}</strong>
+        <p class="subtle">${state.authToken ? 'Private requests, accepted trades, and new matches all show up in one place.' : 'Create an account when you want duplicates, wanted games, and trade requests tied together.'}</p>
+        <button class="ghost-button" type="button" data-action="${state.authToken ? 'trade-open-inbox' : 'browse-tradeable-now'}">${state.authToken ? 'Open Trade Inbox' : 'See tradeable games'}</button>
+      </article>
+      <article class="return-strip__card return-strip__card--alert">
+        <span>Come back for wanted hits</span>
+        <strong>${topAlert ? `${topAlert.title} is at or below your target right now.` : 'Wanted games can trigger real price hits instead of sitting in a static wishlist.'}</strong>
+        <p class="subtle">${topAlert ? `Loose value ${formatPrice(topAlert.priceLoose)}${getRecord(topAlert.id).targetPrice !== null ? ` / Target ${formatPrice(getRecord(topAlert.id).targetPrice!)}` : ''}` : 'Set a target price on your wanted games and the vault starts giving you a reason to return.'}</p>
+        <button class="ghost-button" type="button" data-action="${topAlert ? 'open-details' : 'browse-library'}"${topAlert ? ` data-id="${escapeHtml(topAlert.id)}"` : ''}>${topAlert ? 'Open alert hit' : 'Build wanted list'}</button>
+      </article>
+      <article class="return-strip__card">
+        <span>Come back for upgrades</span>
+        <strong>${upgradeCandidate ? `${upgradeCandidate.title} has a ${formatPrice(upgradePremium)} step-up to complete.` : 'Upgrade paths get clearer once you track the copies you already own.'}</strong>
+        <p class="subtle">${upgradeCandidate ? `${getOwnedValueLabel(upgradeCandidate)} is currently tracked. Complete market is ${formatPrice(upgradeCandidate.priceComplete ?? 0)}.` : 'Loose, boxed, manual, CiB, sealed, graded, duplicates, and variants should all live in the same collector history.'}</p>
+        <button class="ghost-button" type="button" data-action="${upgradeCandidate ? 'open-details' : 'browse-owned-games'}"${upgradeCandidate ? ` data-id="${escapeHtml(upgradeCandidate.id)}"` : ''}>${upgradeCandidate ? 'Review upgrade' : 'Browse owned games'}</button>
+      </article>
+      <article class="return-strip__card">
+        <span>Come back for weekly progress</span>
+        <strong>${escapeHtml(weeklyHighlights.added)}</strong>
+        <p class="subtle">${escapeHtml(weeklyHighlights.value)}. ${escapeHtml(weeklyHighlights.alerts)}.</p>
+        <button class="ghost-button" type="button" data-action="share-recap">Copy weekly recap</button>
+      </article>
+    </section>
+  `
+}
+
 function renderOnboardingPanel() {
   const steps = getOnboardingSteps()
   const completed = steps.filter((step) => step.done).length
@@ -6429,6 +6475,7 @@ function renderNow() {
       ${renderFeatureStrip()}
       ${renderCollectorPositioningStrip()}
       ${renderTrustStrip()}
+      ${renderReturnStrip()}
 
       <section class="toolbar">
         <label class="search-field">
