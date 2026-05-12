@@ -1336,6 +1336,8 @@ a {
 .command-strip,
 .account-unlock-strip,
 .activity-strip,
+.market-radar-strip,
+.vault-health-strip,
 .identity-card,
 .achievement-strip,
 .retention-grid,
@@ -1579,6 +1581,72 @@ a {
     radial-gradient(circle at top right, rgba(150, 180, 255, 0.14), transparent 34%),
     linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
     var(--panel);
+}
+
+.market-radar-strip,
+.vault-health-strip {
+  display: grid;
+  gap: 14px;
+}
+
+.market-radar-strip__intro,
+.vault-health-strip__intro,
+.market-radar-card,
+.vault-health-card {
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.market-radar-strip__intro h2,
+.vault-health-strip__intro h2 {
+  margin: 10px 0;
+  font-size: clamp(1.35rem, 2.7vw, 2rem);
+  line-height: 1.05;
+}
+
+.market-radar-strip__grid,
+.vault-health-strip__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.market-radar-card,
+.vault-health-card {
+  display: grid;
+  gap: 10px;
+  min-height: 180px;
+}
+
+.market-radar-card span,
+.vault-health-card span {
+  color: var(--accent-2);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.market-radar-card strong,
+.vault-health-card strong {
+  line-height: 1.35;
+}
+
+.market-radar-card .ghost-button {
+  justify-self: start;
+  margin-top: auto;
+}
+
+.market-radar-card--hot {
+  background:
+    radial-gradient(circle at top right, rgba(255, 143, 143, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  border-color: rgba(255, 143, 143, 0.18);
 }
 
 .trust-strip article,
@@ -3370,6 +3438,8 @@ a {
   .command-strip,
   .account-unlock-strip__grid,
   .activity-strip__grid,
+  .market-radar-strip__grid,
+  .vault-health-strip__grid,
   .trust-strip,
   .onboarding-panel,
   .roadmap-strip {
@@ -3405,6 +3475,8 @@ a {
   .command-strip,
   .account-unlock-strip__grid,
   .activity-strip__grid,
+  .market-radar-strip__grid,
+  .vault-health-strip__grid,
   .trust-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3531,6 +3603,8 @@ a {
   .command-strip,
   .account-unlock-strip__grid,
   .activity-strip__grid,
+  .market-radar-strip__grid,
+  .vault-health-strip__grid,
   .positioning-strip__grid,
   .feature-strip__proof {
     grid-template-columns: 1fr;

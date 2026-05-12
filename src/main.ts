@@ -4689,6 +4689,106 @@ function renderCollectorActivityStrip() {
   `
 }
 
+function renderMarketRadarStrip() {
+  const mover = getMarketMovers()[0] ?? null
+  const wantedTradeHit =
+    getWantedGames()
+      .filter((game) => getTradeAvailabilityCount(game.id) > 0)
+      .sort((left, right) => getTradeAvailabilityCount(right.id) - getTradeAvailabilityCount(left.id))[0] ?? null
+  const grail = getMissingGrails()[0] ?? null
+  const nearComplete = getNearCompleteConsoles()[0] ?? null
+
+  return `
+    <section class="market-radar-strip" aria-label="Collector market radar">
+      <div class="market-radar-strip__intro">
+        <p class="kicker">Collector radar</p>
+        <h2>What is moving around your collection right now.</h2>
+        <p class="subtle">A strong collector tool should not only store data. It should surface the next title worth buying, trading, upgrading, or paying attention to.</p>
+      </div>
+      <div class="market-radar-strip__grid">
+        <article class="market-radar-card market-radar-card--hot">
+          <span>Market mover</span>
+          <strong>${mover ? mover.title : 'No mover surfaced yet'}</strong>
+          <p class="subtle">${mover ? `${formatDelta(mover.trendDelta)} trend / Loose ${formatPrice(mover.priceLoose)} / Complete ${mover.priceComplete === null ? 'Listing only' : formatPrice(mover.priceComplete)}` : 'The vault will start surfacing notable movers as soon as the live catalog is in view.'}</p>
+          <button class="ghost-button" type="button" data-action="${mover ? 'open-details' : 'browse-library'}"${mover ? ` data-id="${escapeHtml(mover.id)}"` : ''}>${mover ? 'Inspect mover' : 'Browse library'}</button>
+        </article>
+        <article class="market-radar-card">
+          <span>Trade opening</span>
+          <strong>${wantedTradeHit ? `${wantedTradeHit.title} is already up for trade.` : 'Trade openings appear here when collectors list games from your wanted stack.'}</strong>
+          <p class="subtle">${wantedTradeHit ? `${getTradeAvailabilityCount(wantedTradeHit.id)} collector${getTradeAvailabilityCount(wantedTradeHit.id) === 1 ? '' : 's'} currently have this wanted game marked for trade.` : 'This is the part of the loop that can bring people back without them having to manually dig through the whole catalog.'}</p>
+          <button class="ghost-button" type="button" data-action="${wantedTradeHit ? 'open-trade-request' : 'browse-tradeable-now'}"${wantedTradeHit ? ` data-id="${escapeHtml(wantedTradeHit.id)}"` : ''}>${wantedTradeHit ? 'Request trade' : 'Browse tradeable now'}</button>
+        </article>
+        <article class="market-radar-card">
+          <span>Grail pressure</span>
+          <strong>${grail ? `${grail.title} is still missing from the vault.` : 'Missing grails will surface here once your shelf takes shape.'}</strong>
+          <p class="subtle">${grail ? `${grail.console} / ${formatPrice(getReferencePrice(grail))} / ${grail.rarity}. Serious collectors want the hunt list to stay visible, not buried.` : 'The best collector tools keep the chase visible, not just the items you already own.'}</p>
+          <button class="ghost-button" type="button" data-action="${grail ? 'open-details' : 'browse-library'}"${grail ? ` data-id="${escapeHtml(grail.id)}"` : ''}>${grail ? 'Open grail' : 'Find a grail'}</button>
+        </article>
+        <article class="market-radar-card">
+          <span>Completion heat</span>
+          <strong>${nearComplete ? `${nearComplete.consoleName} is ${nearComplete.total - nearComplete.owned} game${nearComplete.total - nearComplete.owned === 1 ? '' : 's'} away.` : 'Completion runs start surfacing once your console shelves have shape.'}</strong>
+          <p class="subtle">${nearComplete ? `${nearComplete.owned}/${nearComplete.total} owned / ${nearComplete.progress}% complete. This is the kind of nudge that turns a tracker into a collecting habit.` : 'Console completion is one of the easiest reasons for a collector to check back and keep moving.'}</p>
+          <button class="ghost-button" type="button" data-action="${nearComplete ? 'daily-console' : 'browse-library'}"${nearComplete ? ` data-console="${escapeHtml(nearComplete.consoleName)}"` : ''}>${nearComplete ? 'See missing games' : 'Start a console run'}</button>
+        </article>
+      </div>
+    </section>
+  `
+}
+
+function renderVaultHealthStrip() {
+  const ownedGames = getOwnedGames()
+  const wantedGames = getWantedGames()
+  const paidCount = ownedGames.filter((game) => getRecord(game.id).pricePaid !== null).length
+  const noteCount = ownedGames.filter((game) => getRecord(game.id).notes.trim()).length
+  const targetCount = wantedGames.filter((game) => getRecord(game.id).targetPrice !== null).length
+  const tradeCount = ownedGames.filter((game) => getRecord(game.id).forTrade).length
+
+  const paidPercent = ownedGames.length ? Math.round((paidCount / ownedGames.length) * 100) : 0
+  const notePercent = ownedGames.length ? Math.round((noteCount / ownedGames.length) * 100) : 0
+  const targetPercent = wantedGames.length ? Math.round((targetCount / wantedGames.length) * 100) : 0
+  const tradePercent = ownedGames.length ? Math.round((tradeCount / ownedGames.length) * 100) : 0
+
+  return `
+    <section class="vault-health-strip" aria-label="Collector vault health">
+      <div class="vault-health-strip__intro">
+        <p class="kicker">Vault health</p>
+        <h2>How complete your collector setup really is.</h2>
+        <p class="subtle">A serious collector tool should help you see what is missing from your setup, not just what is missing from your shelf.</p>
+      </div>
+      <div class="vault-health-strip__grid">
+        <article class="vault-health-card">
+          <span>Paid prices</span>
+          <strong>${paidCount}/${ownedGames.length || 0}</strong>
+          <p class="subtle">${paidPercent}% of owned games have a paid price. This is what turns value tracking into a real collection ledger.</p>
+        </article>
+        <article class="vault-health-card">
+          <span>Collector notes</span>
+          <strong>${noteCount}/${ownedGames.length || 0}</strong>
+          <p class="subtle">${notePercent}% of owned games include notes. Condition stories, variant details, and shelf memory matter more over time than people think.</p>
+        </article>
+        <article class="vault-health-card">
+          <span>Wanted targets</span>
+          <strong>${targetCount}/${wantedGames.length || 0}</strong>
+          <p class="subtle">${wantedPercentText(targetPercent, wantedGames.length)}</p>
+        </article>
+        <article class="vault-health-card">
+          <span>Trade listings</span>
+          <strong>${tradeCount}/${ownedGames.length || 0}</strong>
+          <p class="subtle">${tradePercent}% of owned games are marked for trade. Duplicates only become useful opportunities once they are actually listed.</p>
+        </article>
+      </div>
+    </section>
+  `
+}
+
+function wantedPercentText(targetPercent: number, wantedTotal: number) {
+  if (!wantedTotal) {
+    return 'Add wanted games first, then set target prices so the vault can start surfacing real return-worthy alert hits.'
+  }
+
+  return `${targetPercent}% of wanted games have a target price. This is what makes a wanted list feel active instead of decorative.`
+}
+
 function renderOnboardingPanel() {
   const steps = getOnboardingSteps()
   const completed = steps.filter((step) => step.done).length
@@ -6702,6 +6802,8 @@ function renderNow() {
       ${renderCollectorCommandStrip()}
       ${renderAccountUnlockStrip()}
       ${renderCollectorActivityStrip()}
+      ${renderMarketRadarStrip()}
+      ${renderVaultHealthStrip()}
 
       <section class="toolbar">
         <label class="search-field">
