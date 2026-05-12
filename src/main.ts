@@ -4466,6 +4466,104 @@ function renderReturnStrip() {
   `
 }
 
+function renderCollectorCommandStrip() {
+  const ownedGames = getOwnedGames()
+  const wantedGames = getWantedGames()
+  const alertMatches = getAlertMatches()
+  const nearComplete = getNearCompleteConsoles()[0] ?? null
+  const tradeableOwned = ownedGames.filter((game) => getRecord(game.id).forTrade)
+  const wantedTradeHit =
+    wantedGames
+      .filter((game) => getTradeAvailabilityCount(game.id) > 0)
+      .sort((left, right) => getTradeAvailabilityCount(right.id) - getTradeAvailabilityCount(left.id))[0] ?? null
+  const firstWantedWithoutTarget = wantedGames.find((game) => getRecord(game.id).targetPrice === null) ?? null
+  const firstOwnedWithoutPrice = ownedGames.find((game) => getRecord(game.id).pricePaid === null) ?? null
+
+  let nextMove = {
+    label: 'Next best move',
+    title: 'Add your first owned game.',
+    detail: 'Everything gets smarter once the vault knows what is already on your shelf.',
+    meta: 'Unlock collector rank, completion, and trade tracking',
+    action: 'browse-library',
+    actionLabel: 'Browse library',
+    gameId: '',
+  }
+
+  if (ownedGames.length > 0 && wantedGames.length === 0) {
+    nextMove = {
+      label: 'Next best move',
+      title: 'Build your wanted list.',
+      detail: 'Wanted games unlock trade discovery, hunt planning, and future price alerts.',
+      meta: `${ownedGames.length.toLocaleString()} owned already tracked`,
+      action: 'browse-library',
+      actionLabel: 'Add wanted game',
+      gameId: '',
+    }
+  } else if (firstWantedWithoutTarget) {
+    nextMove = {
+      label: 'Next best move',
+      title: `Set a target on ${firstWantedWithoutTarget.title}.`,
+      detail: 'A target price turns a static wishlist entry into a live deal watch.',
+      meta: `Loose value ${formatPrice(firstWantedWithoutTarget.priceLoose)}`,
+      action: 'set-target-price',
+      actionLabel: 'Set target',
+      gameId: firstWantedWithoutTarget.id,
+    }
+  } else if (tradeableOwned.length === 0 && ownedGames.length > 1) {
+    nextMove = {
+      label: 'Next best move',
+      title: 'List one duplicate for trade.',
+      detail: 'Trade Inbox becomes far more useful once at least one owned copy is marked for trade.',
+      meta: `${ownedGames.length.toLocaleString()} owned games can be reviewed for duplicates`,
+      action: 'browse-owned-games',
+      actionLabel: 'Browse owned games',
+      gameId: '',
+    }
+  } else if (firstOwnedWithoutPrice) {
+    nextMove = {
+      label: 'Next best move',
+      title: `Add what you paid for ${firstOwnedWithoutPrice.title}.`,
+      detail: 'Paid prices turn your vault into a real collection ledger instead of a checklist.',
+      meta: `Current tracked value ${formatPrice(getOwnedMarketPrice(firstOwnedWithoutPrice))}`,
+      action: 'set-price-paid',
+      actionLabel: 'Set paid',
+      gameId: firstOwnedWithoutPrice.id,
+    }
+  }
+
+  const nextMoveDataId = nextMove.gameId ? ` data-id="${escapeHtml(nextMove.gameId)}"` : ''
+
+  return `
+    <section class="command-strip" aria-label="Collector command center">
+      <article class="command-strip__card command-strip__card--priority">
+        <span>${escapeHtml(nextMove.label)}</span>
+        <strong>${escapeHtml(nextMove.title)}</strong>
+        <p class="subtle">${escapeHtml(nextMove.detail)}</p>
+        <em>${escapeHtml(nextMove.meta)}</em>
+        <button class="ghost-button" type="button" data-action="${nextMove.action}"${nextMoveDataId}>${escapeHtml(nextMove.actionLabel)}</button>
+      </article>
+      <article class="command-strip__card">
+        <span>Trade opening</span>
+        <strong>${wantedTradeHit ? `${wantedTradeHit.title} already has collectors offering it.` : 'Trade matches get stronger when wanted games overlap with tradeable copies.'}</strong>
+        <p class="subtle">${wantedTradeHit ? `${getTradeAvailabilityCount(wantedTradeHit.id)} collector${getTradeAvailabilityCount(wantedTradeHit.id) === 1 ? '' : 's'} have this marked for trade right now.` : 'Wanted list + duplicates + opt-in trade listings is the collector loop we want people returning for.'}</p>
+        <button class="ghost-button" type="button" data-action="${wantedTradeHit ? 'open-trade-request' : 'browse-tradeable-now'}"${wantedTradeHit ? ` data-id="${escapeHtml(wantedTradeHit.id)}"` : ''}>${wantedTradeHit ? 'Request trade' : 'Browse tradeable now'}</button>
+      </article>
+      <article class="command-strip__card">
+        <span>Milestone pressure</span>
+        <strong>${nearComplete ? `${nearComplete.consoleName} is ${nearComplete.total - nearComplete.owned} game${nearComplete.total - nearComplete.owned === 1 ? '' : 's'} away.` : 'Completion tracking turns the vault into a real hunt plan.'}</strong>
+        <p class="subtle">${nearComplete ? `${nearComplete.owned}/${nearComplete.total} owned / ${nearComplete.progress}% complete.` : 'Once you start owning games on a console, the vault can surface the easiest set to finish next.'}</p>
+        <button class="ghost-button" type="button" data-action="${nearComplete ? 'daily-console' : 'browse-library'}"${nearComplete ? ` data-console="${escapeHtml(nearComplete.consoleName)}"` : ''}>${nearComplete ? 'View console' : 'Start a console run'}</button>
+      </article>
+      <article class="command-strip__card">
+        <span>This week</span>
+        <strong>${alertMatches.length > 0 ? `${alertMatches.length} alert hit${alertMatches.length === 1 ? '' : 's'} and ${tradeableOwned.length} trade listing${tradeableOwned.length === 1 ? '' : 's'} are already working for you.` : 'Weekly progress should feel like motion, not a pile of static entries.'}</strong>
+        <p class="subtle">${escapeHtml(getWeeklyRecapHighlights().added)}. ${escapeHtml(getWeeklyRecapHighlights().value)}.</p>
+        <button class="ghost-button" type="button" data-action="share-weekly-recap">Share weekly recap</button>
+      </article>
+    </section>
+  `
+}
+
 function renderOnboardingPanel() {
   const steps = getOnboardingSteps()
   const completed = steps.filter((step) => step.done).length
@@ -6476,6 +6574,7 @@ function renderNow() {
       ${renderCollectorPositioningStrip()}
       ${renderTrustStrip()}
       ${renderReturnStrip()}
+      ${renderCollectorCommandStrip()}
 
       <section class="toolbar">
         <label class="search-field">

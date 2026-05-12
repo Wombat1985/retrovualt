@@ -1333,6 +1333,7 @@ a {
 .feature-strip,
 .positioning-strip,
 .return-strip,
+.command-strip,
 .identity-card,
 .achievement-strip,
 .retention-grid,
@@ -1398,6 +1399,56 @@ a {
 }
 
 .return-strip__card--alert {
+  background:
+    radial-gradient(circle at top right, rgba(241, 201, 95, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
+    var(--panel);
+  border-color: rgba(241, 201, 95, 0.18);
+}
+
+.command-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.command-strip__card {
+  display: grid;
+  gap: 10px;
+  min-height: 180px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
+    var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.command-strip__card span {
+  color: var(--accent-2);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.command-strip__card strong {
+  line-height: 1.35;
+}
+
+.command-strip__card em {
+  color: var(--muted);
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.command-strip__card .ghost-button {
+  justify-self: start;
+  margin-top: auto;
+}
+
+.command-strip__card--priority {
   background:
     radial-gradient(circle at top right, rgba(241, 201, 95, 0.16), transparent 34%),
     linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.92)),
@@ -3191,6 +3242,7 @@ a {
   .feature-strip,
   .positioning-strip__grid,
   .return-strip,
+  .command-strip,
   .trust-strip,
   .onboarding-panel,
   .roadmap-strip {
@@ -3223,6 +3275,7 @@ a {
   .feature-strip,
   .positioning-strip__grid,
   .return-strip,
+  .command-strip,
   .trust-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3346,6 +3399,7 @@ a {
   }
 
   .return-strip,
+  .command-strip,
   .positioning-strip__grid,
   .feature-strip__proof {
     grid-template-columns: 1fr;
