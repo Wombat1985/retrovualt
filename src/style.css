@@ -757,6 +757,19 @@ a {
   padding: 18px;
 }
 
+.hero-stat-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 132px;
+}
+
+.hero-stat-card--rank {
+  grid-column: 1 / -1;
+  min-height: 124px;
+}
+
 .achievement-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1447,17 +1460,34 @@ a {
   font-weight: 800;
 }
 
-.hero-stats strong {
+.hero-stat-value {
   display: block;
-  margin: 10px 0 5px;
-  font-family: 'Press Start 2P', 'Courier New', monospace;
-  font-size: clamp(10px, 2vw, 15px);
-  line-height: 1.4;
+  margin: 8px 0 4px;
   color: #f1c95f;
   text-shadow:
     0 0 10px rgba(241, 201, 95, 0.6),
     0 0 28px rgba(241, 201, 95, 0.2);
+}
+
+.hero-stat-value--count {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: clamp(16px, 2.4vw, 26px);
+  line-height: 1.12;
+}
+
+.hero-stat-value--money {
+  font-family: 'Russo One', var(--display);
+  font-size: clamp(1.55rem, 2.7vw, 2.2rem);
+  line-height: 0.94;
+  letter-spacing: 0;
   word-break: break-word;
+}
+
+.hero-stat-value--rank {
+  font-family: 'Russo One', var(--display);
+  font-size: clamp(1.3rem, 2.3vw, 1.9rem);
+  line-height: 0.98;
+  letter-spacing: 0;
 }
 
 .toolbar,
@@ -4218,37 +4248,43 @@ a {
   }
 
   .hero-stats {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .hero-stats article:nth-child(n + 3) {
-    display: grid;
-  }
-
-  .hero-stats {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
+    gap: 10px;
   }
 
-  .hero-stats article {
+  .hero-stat-card {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     gap: 6px;
-    min-height: 112px;
+    min-height: 118px;
     padding: 14px 13px;
   }
 
-  .hero-stats strong {
-    font-size: clamp(22px, 6.2vw, 30px);
-    line-height: 0.95;
+  .hero-stat-card--rank {
+    min-height: 0;
+    grid-column: 1 / -1;
+  }
+
+  .hero-stat-value--count {
+    font-size: clamp(19px, 7vw, 28px);
+  }
+
+  .hero-stat-value--money {
+    font-size: clamp(1.35rem, 6vw, 1.9rem);
+    line-height: 0.92;
+  }
+
+  .hero-stat-value--rank {
+    font-size: clamp(1.15rem, 5vw, 1.5rem);
+    line-height: 0.96;
   }
 
   .hero-stats .stat-note {
     margin-top: 0;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     line-height: 1.35;
   }
 

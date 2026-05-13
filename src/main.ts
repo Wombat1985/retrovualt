@@ -7148,29 +7148,29 @@ function renderNow() {
           }</p>
         </div>
         <div class="hero-stats">
-          <article>
+          <article class="hero-stat-card hero-stat-card--count">
             <span class="stat-label">Owned</span>
-            <strong>${ownedGames.length}</strong>
+            <strong class="hero-stat-value hero-stat-value--count">${ownedGames.length}</strong>
             <span class="stat-note">${completionPercentage}% collection completion</span>
           </article>
-          <article>
+          <article class="hero-stat-card hero-stat-card--count">
             <span class="stat-label">Wishlist</span>
-            <strong>${wantedGames.length}</strong>
+            <strong class="hero-stat-value hero-stat-value--count">${wantedGames.length}</strong>
             <span class="stat-note">${formatPrice(wishlistValue)} target value</span>
           </article>
-          <article>
+          <article class="hero-stat-card hero-stat-card--money">
             <span class="stat-label">Estimated sell value</span>
-            <strong>${formatPrice(estimatedSellValue)}</strong>
+            <strong class="hero-stat-value hero-stat-value--money">${formatPrice(estimatedSellValue)}</strong>
             <span class="stat-note">Uses your loose/complete ownership choices in ${selectedCurrency.code}</span>
           </article>
-          <article>
+          <article class="hero-stat-card hero-stat-card--money">
             <span class="stat-label">Collection premium</span>
-            <strong>${formatPrice(ownedCompleteValue)}</strong>
+            <strong class="hero-stat-value hero-stat-value--money">${formatPrice(ownedCompleteValue)}</strong>
             <span class="stat-note">Complete market total in ${selectedCurrency.code}</span>
           </article>
-          <article>
+          <article class="hero-stat-card hero-stat-card--rank">
             <span class="stat-label">Collector rank</span>
-            <strong>${collectorRank.title}</strong>
+            <strong class="hero-stat-value hero-stat-value--rank">${collectorRank.title}</strong>
             <span class="stat-note">${collectorRank.detail}</span>
           </article>
         </div>
