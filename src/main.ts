@@ -1864,6 +1864,142 @@ function getConsoles() {
   return [LEGENDS_FILTER, 'All consoles', ...[...new Set([...metaNames, ...customNames])]]
 }
 
+function getConsoleFamilyLabel(consoleName: string) {
+  const name = consoleName.toLowerCase()
+
+  if (
+    name.includes('nintendo') ||
+    name.includes('famicom') ||
+    name.includes('game boy') ||
+    name.includes('gamecube') ||
+    name.includes('virtual boy') ||
+    name.includes('pokemon mini') ||
+    name === 'ds' ||
+    name === '3ds' ||
+    name.includes('satellaview')
+  ) {
+    return 'Nintendo'
+  }
+
+  if (
+    name.includes('sega') ||
+    name.includes('mega drive') ||
+    name.includes('genesis') ||
+    name.includes('dreamcast') ||
+    name.includes('saturn') ||
+    name.includes('game gear') ||
+    name.includes('master system') ||
+    name.includes('32x') ||
+    name.includes('sg-1000')
+  ) {
+    return 'Sega'
+  }
+
+  if (
+    name.includes('playstation') ||
+    name === 'ps1' ||
+    name === 'ps2' ||
+    name === 'ps3' ||
+    name === 'ps4' ||
+    name === 'ps5' ||
+    name.includes('psp') ||
+    name.includes('vita')
+  ) {
+    return 'Sony'
+  }
+
+  if (name.includes('xbox')) {
+    return 'Microsoft'
+  }
+
+  if (name.includes('atari') || name.includes('jaguar') || name.includes('lynx')) {
+    return 'Atari'
+  }
+
+  if (
+    name.includes('pc engine') ||
+    name.includes('turbografx') ||
+    name.includes('turbografx') ||
+    name.includes('supergrafx')
+  ) {
+    return 'NEC / Hudson'
+  }
+
+  if (name.includes('neo geo')) {
+    return 'SNK'
+  }
+
+  if (name.includes('wonderswan')) {
+    return 'Bandai'
+  }
+
+  if (
+    name.includes('amiga') ||
+    name.includes('commodore') ||
+    name.includes('msx') ||
+    name.includes('apple') ||
+    name.includes('mac') ||
+    name.includes('dos')
+  ) {
+    return 'Computers'
+  }
+
+  return 'Other systems'
+}
+
+function renderConsoleFilterOptions() {
+  const consoles = getConsoles()
+  const pinned = consoles.filter((consoleName) => consoleName === LEGENDS_FILTER || consoleName === 'All consoles')
+  const pinnedSet = new Set<string>(pinned)
+  const grouped = new Map<string, string[]>()
+
+  consoles
+    .filter((consoleName) => !pinnedSet.has(consoleName))
+    .forEach((consoleName) => {
+      const family = getConsoleFamilyLabel(consoleName)
+      const existing = grouped.get(family) ?? []
+      existing.push(consoleName)
+      grouped.set(family, existing)
+    })
+
+  const orderedFamilies = [
+    'Nintendo',
+    'Sega',
+    'Sony',
+    'Microsoft',
+    'Atari',
+    'NEC / Hudson',
+    'SNK',
+    'Bandai',
+    'Computers',
+    'Other systems',
+  ]
+
+  const pinnedOptions = pinned
+    .map(
+      (consoleName) =>
+        `<option value="${escapeHtml(consoleName)}" ${consoleName === state.consoleFilter ? 'selected' : ''}>${escapeHtml(getConsoleOptionLabel(consoleName))}</option>`,
+    )
+    .join('')
+
+  const groupedOptions = orderedFamilies
+    .filter((family) => (grouped.get(family) ?? []).length > 0)
+    .map((family) => {
+      const options = (grouped.get(family) ?? [])
+        .sort((left, right) => left.localeCompare(right))
+        .map(
+          (consoleName) =>
+            `<option value="${escapeHtml(consoleName)}" ${consoleName === state.consoleFilter ? 'selected' : ''}>${escapeHtml(getConsoleOptionLabel(consoleName))}</option>`,
+        )
+        .join('')
+
+      return `<optgroup label="${escapeHtml(family)}">${options}</optgroup>`
+    })
+    .join('')
+
+  return `${pinnedOptions}${groupedOptions}`
+}
+
 function getReleaseTypeOptions() {
   const available = new Set<ReleaseTypeFilter>(['All release types'])
 
@@ -7210,12 +7346,7 @@ function renderNow() {
         <label class="select-field">
           <span>Console</span>
           <select id="console-filter">
-            ${getConsoles()
-              .map(
-                (consoleName) =>
-                  `<option value="${escapeHtml(consoleName)}" ${consoleName === state.consoleFilter ? 'selected' : ''}>${escapeHtml(getConsoleOptionLabel(consoleName))}</option>`,
-              )
-              .join('')}
+            ${renderConsoleFilterOptions()}
           </select>
         </label>
         <label class="select-field">
