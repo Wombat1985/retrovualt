@@ -1453,6 +1453,8 @@ a {
 .return-strip,
 .command-strip,
 .account-unlock-strip,
+.alerts-strip,
+.showcase-strip,
 .activity-strip,
 .market-radar-strip,
 .vault-health-strip,
@@ -1636,6 +1638,134 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.alerts-strip,
+.showcase-strip {
+  display: grid;
+  gap: 14px;
+}
+
+.alerts-strip__intro,
+.showcase-strip__intro,
+.alerts-card,
+.showcase-strip__card {
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.alerts-strip__intro h2,
+.showcase-strip__intro h2 {
+  margin: 10px 0;
+  font-size: clamp(1.35rem, 2.7vw, 2rem);
+  line-height: 1.05;
+}
+
+.alerts-strip__grid,
+.showcase-strip__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.alerts-card,
+.showcase-strip__card {
+  display: grid;
+  gap: 10px;
+  min-height: 188px;
+}
+
+.alerts-card span,
+.showcase-strip__card span {
+  color: var(--accent-2);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.alerts-card strong,
+.showcase-strip__card strong {
+  line-height: 1.35;
+}
+
+.alerts-card p,
+.showcase-strip__card p {
+  margin: 0;
+}
+
+.alerts-card .ghost-button,
+.showcase-strip__card .ghost-button,
+.showcase-strip__card .install-button {
+  justify-self: start;
+  margin-top: auto;
+}
+
+.alerts-card--gold {
+  background:
+    radial-gradient(circle at top right, rgba(255, 214, 110, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  border-color: rgba(255, 214, 110, 0.2);
+}
+
+.alerts-card--teal {
+  background:
+    radial-gradient(circle at top right, rgba(88, 216, 170, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  border-color: rgba(88, 216, 170, 0.22);
+}
+
+.alerts-card--crimson {
+  background:
+    radial-gradient(circle at top right, rgba(255, 143, 143, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  border-color: rgba(255, 143, 143, 0.22);
+}
+
+.alerts-card--blue {
+  background:
+    radial-gradient(circle at top right, rgba(120, 180, 255, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  border-color: rgba(120, 180, 255, 0.22);
+}
+
+.showcase-strip__card--identity {
+  background:
+    radial-gradient(circle at top right, rgba(241, 201, 95, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+}
+
+.showcase-strip__card--actions {
+  background:
+    radial-gradient(circle at top right, rgba(88, 216, 170, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+}
+
+.showcase-strip__meta {
+  display: grid;
+  gap: 8px;
+}
+
+.showcase-strip__meta em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.showcase-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
 }
 
 .activity-strip {
@@ -3627,6 +3757,8 @@ a {
   .return-strip,
   .command-strip,
   .account-unlock-strip__grid,
+  .alerts-strip__grid,
+  .showcase-strip__grid,
   .activity-strip__grid,
   .market-radar-strip__grid,
   .vault-health-strip__grid,
@@ -3665,6 +3797,8 @@ a {
   .return-strip,
   .command-strip,
   .account-unlock-strip__grid,
+  .alerts-strip__grid,
+  .showcase-strip__grid,
   .activity-strip__grid,
   .market-radar-strip__grid,
   .vault-health-strip__grid,
@@ -3806,6 +3940,8 @@ a {
   .return-strip,
   .command-strip,
   .account-unlock-strip__grid,
+  .alerts-strip__grid,
+  .showcase-strip__grid,
   .activity-strip__grid,
   .market-radar-strip__grid,
   .vault-health-strip__grid,

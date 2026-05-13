@@ -372,6 +372,7 @@ let pendingSyncStatusRender = 0
 let pendingSearchRender = 0
 let pendingBarcodeSearchRender = 0
 let pendingTradeAvailabilityRefresh = 0
+let pendingCollectorInsightRefresh = 0
 let pendingTradePromptTimeout = 0
 let publicCommunityStatsFetchPromise: Promise<void> | null = null
 let tradeAvailabilityFetchSequence = 0
@@ -3857,12 +3858,15 @@ function getTradeAvailabilityCount(gameId: string) {
   return state.tradeAvailabilityByGameId[gameId] ?? 0
 }
 
-async function fetchTradeAvailabilityForGames(gameIds: string[]) {
+async function fetchTradeAvailabilityForGames(
+  gameIds: string[],
+  rerenderMode: 'catalog' | 'full' | 'none' = 'catalog',
+) {
   const uniqueIds = [...new Set(gameIds.map((gameId) => gameId.trim()).filter(Boolean))]
   const missingIds = uniqueIds.filter((gameId) => state.tradeAvailabilityByGameId[gameId] === undefined)
 
   if (!missingIds.length) {
-    return
+    return false
   }
 
   const fetchSequence = ++tradeAvailabilityFetchSequence
@@ -3871,7 +3875,7 @@ async function fetchTradeAvailabilityForGames(gameIds: string[]) {
     const result = await getTradeAvailability(missingIds, state.authToken ?? undefined)
 
     if (fetchSequence !== tradeAvailabilityFetchSequence) {
-      return
+      return false
     }
 
     const nextCounts = { ...state.tradeAvailabilityByGameId }
@@ -3897,46 +3901,71 @@ async function fetchTradeAvailabilityForGames(gameIds: string[]) {
     }
 
     if (!changed) {
-      return
+      return false
     }
 
     state.tradeAvailabilityByGameId = nextCounts
-    renderCatalogOnly()
+    if (rerenderMode === 'full') {
+      render()
+    } else if (rerenderMode === 'catalog') {
+      renderCatalogOnly()
+    }
+    return true
   } catch {
     // Trade hints should never interrupt browsing.
+    return false
   }
 }
 
-async function fetchTradeWantedDemandForGames(gameIds: string[]) {
+async function fetchTradeWantedDemandForGames(
+  gameIds: string[],
+  rerenderMode: 'details' | 'catalog' | 'full' | 'none' = 'details',
+) {
   const uniqueIds = [...new Set(gameIds.filter(Boolean))]
 
   if (!uniqueIds.length) {
-    return
+    return false
   }
 
   const missingIds = uniqueIds.filter((gameId) => state.tradeWantedByGameId[gameId] === undefined)
 
   if (!missingIds.length) {
-    return
+    return false
   }
 
   try {
     const result = await getTradeWantedDemand(missingIds, state.authToken ?? undefined)
     const nextCounts = { ...state.tradeWantedByGameId }
+    let changed = false
     for (const item of result.demand) {
-      nextCounts[item.gameId] = item.count
+      if (nextCounts[item.gameId] !== item.count) {
+        nextCounts[item.gameId] = item.count
+        changed = true
+      }
     }
     for (const gameId of missingIds) {
       if (nextCounts[gameId] === undefined) {
         nextCounts[gameId] = 0
+        changed = true
       }
     }
+
+    if (!changed) {
+      return false
+    }
+
     state.tradeWantedByGameId = nextCounts
-    if (state.selectedGameId && missingIds.includes(state.selectedGameId)) {
+    if (rerenderMode === 'full') {
+      render()
+    } else if (rerenderMode === 'catalog') {
+      renderCatalogOnly()
+    } else if (rerenderMode === 'details' && state.selectedGameId && missingIds.includes(state.selectedGameId)) {
       render()
     }
+    return true
   } catch {
     // Leave demand quiet if lookup fails.
+    return false
   }
 }
 
@@ -3977,6 +4006,35 @@ function scheduleTradeAvailabilityRefresh(games: CatalogEntry[]) {
     pendingTradeAvailabilityRefresh = 0
     void fetchTradeAvailabilityForGames(gameIds)
   }, 120)
+}
+
+function scheduleCollectorInsightRefresh() {
+  if (pendingCollectorInsightRefresh) {
+    window.clearTimeout(pendingCollectorInsightRefresh)
+  }
+
+  const ownedIds = getOwnedGames().map((game) => game.id).slice(0, 32)
+  const wantedIds = getWantedGames().map((game) => game.id).slice(0, 32)
+
+  if (!ownedIds.length && !wantedIds.length) {
+    return
+  }
+
+  pendingCollectorInsightRefresh = window.setTimeout(() => {
+    pendingCollectorInsightRefresh = 0
+    void Promise.all([
+      wantedIds.length
+        ? fetchTradeAvailabilityForGames(wantedIds, 'none')
+        : Promise.resolve(false),
+      ownedIds.length
+        ? fetchTradeWantedDemandForGames(ownedIds, 'none')
+        : Promise.resolve(false),
+    ]).then((results) => {
+      if (results.some(Boolean)) {
+        render()
+      }
+    })
+  }, 160)
 }
 
 async function openTradeRequestFlow(gameId: string) {
@@ -4672,6 +4730,99 @@ function renderAccountUnlockStrip() {
             ? '<button class="secondary-button" type="button" data-action="open-account-settings">Account Settings</button><button class="ghost-button" type="button" data-action="sync-now">Sync Now</button>'
             : '<button class="install-button" type="button" data-action="open-register">Create Free Vault</button><button class="secondary-button" type="button" data-action="open-login">Sign In</button>'
         }
+      </div>
+    </section>
+  `
+}
+
+function renderCollectorAlertsStrip() {
+  const wantedGames = getWantedGames()
+  const alertMatches = getAlertMatches()
+  const topAlert = alertMatches[0] ?? null
+  const wantedTradeHit =
+    wantedGames
+      .filter((game) => getTradeAvailabilityCount(game.id) > 0)
+      .sort((left, right) => getTradeAvailabilityCount(right.id) - getTradeAvailabilityCount(left.id))[0] ?? null
+  const demandOwned =
+    getOwnedGames()
+      .filter((game) => getTradeWantedCount(game.id) > 0)
+      .sort((left, right) => getTradeWantedCount(right.id) - getTradeWantedCount(left.id))[0] ?? null
+  const nearComplete = getNearCompleteConsoles()[0] ?? null
+
+  return `
+    <section class="alerts-strip" aria-label="Collector alerts and return hooks">
+      <div class="alerts-strip__intro">
+        <p class="kicker">Collector alerts</p>
+        <h2>${state.authToken ? 'Reasons to come back are now personal.' : 'The real hook is when the vault starts watching your collection for you.'}</h2>
+        <p class="subtle">${state.authToken ? 'Wanted games, trade openings, demand signals, and completion pressure should feel like active reasons to check in, not just static stats.' : 'Create a free vault to save wanted games, trade signals, targets, and collector momentum across devices.'}</p>
+      </div>
+      <div class="alerts-strip__grid">
+        <article class="alerts-card alerts-card--gold">
+          <span>Target hits</span>
+          <strong>${topAlert ? `${topAlert.title} is already at or below your target.` : 'Target prices turn the wanted list into a real watchlist.'}</strong>
+          <p class="subtle">${topAlert ? `Loose ${formatPrice(topAlert.priceLoose)}${getRecord(topAlert.id).targetPrice !== null ? ` / Target ${formatPrice(getRecord(topAlert.id).targetPrice!)}` : ''}` : 'Add a few wanted games and set one target price. That is when the site starts feeling active instead of static.'}</p>
+          <button class="ghost-button" type="button" data-action="${topAlert ? 'open-details' : state.authToken ? 'ownership-filter' : 'open-register'}"${topAlert ? ` data-id="${escapeHtml(topAlert.id)}"` : state.authToken ? ' data-filter="wanted"' : ''}>${topAlert ? 'Open Alert' : state.authToken ? 'Open Wanted List' : 'Create Free Vault'}</button>
+        </article>
+        <article class="alerts-card alerts-card--teal">
+          <span>Trade openings</span>
+          <strong>${wantedTradeHit ? `${getTradeAvailabilityCount(wantedTradeHit.id)} collectors can already trade ${wantedTradeHit.title}.` : 'Trade openings should surface without you hunting through the whole catalog.'}</strong>
+          <p class="subtle">${wantedTradeHit ? 'This is where a wanted list becomes useful: the vault can bring the right trade back to you.' : 'Mark wanted games now, then let Trade Inbox and Ready to Trade keep surfacing better matches.'}</p>
+          <button class="ghost-button" type="button" data-action="${wantedTradeHit ? 'open-trade-request' : 'browse-tradeable-now'}"${wantedTradeHit ? ` data-id="${escapeHtml(wantedTradeHit.id)}"` : ''}>${wantedTradeHit ? 'Request Trade' : 'Ready to Trade'}</button>
+        </article>
+        <article class="alerts-card alerts-card--crimson">
+          <span>Demand on your shelf</span>
+          <strong>${demandOwned ? `${demandOwned.title} is wanted by ${getTradeWantedCount(demandOwned.id)} collector${getTradeWantedCount(demandOwned.id) === 1 ? '' : 's'}.` : 'Owned games become much more useful when you can see what other collectors actually want.'}</strong>
+          <p class="subtle">${demandOwned ? 'This is the kind of signal that turns a duplicate into an actual trade move.' : 'Once your vault has more owned games, demand signals will help surface which copies are most worth listing for trade.'}</p>
+          <button class="ghost-button" type="button" data-action="${demandOwned ? 'open-details' : 'browse-owned-games'}"${demandOwned ? ` data-id="${escapeHtml(demandOwned.id)}"` : ''}>${demandOwned ? 'Review Game' : 'Browse Owned Games'}</button>
+        </article>
+        <article class="alerts-card alerts-card--blue">
+          <span>Completion pressure</span>
+          <strong>${nearComplete ? `${nearComplete.consoleName} is only ${nearComplete.total - nearComplete.owned} games away.` : 'Completion pressure is part of what makes collectors reopen a vault.'}</strong>
+          <p class="subtle">${nearComplete ? `${nearComplete.owned}/${nearComplete.total} owned / ${nearComplete.progress}% complete.` : 'The closer a system gets to complete, the more the site should feel like it knows exactly what you will want to do next.'}</p>
+          <button class="ghost-button" type="button" data-action="${nearComplete ? 'daily-console' : 'browse-library'}"${nearComplete ? ` data-console="${escapeHtml(nearComplete.consoleName)}"` : ''}>${nearComplete ? 'See Missing Games' : 'Browse Games Library'}</button>
+        </article>
+      </div>
+    </section>
+  `
+}
+
+function renderCollectorShowcaseStrip() {
+  const rank = getCollectorRank()
+  const dominantConsole = getDominantConsole()
+  const topShelf = getTopShelfGames()
+  const rarestOwned = getRarestOwnedGame()
+
+  return `
+    <section class="showcase-strip" aria-label="Collector identity and sharing">
+      <div class="showcase-strip__intro">
+        <p class="kicker">Collector showcase</p>
+        <h2>${state.authToken ? 'Your vault should feel like a collector profile, not just a spreadsheet replacement.' : 'Serious collectors stay when the vault starts to look like their own space.'}</h2>
+        <p class="subtle">${state.authToken ? 'Rank, strongest system, grails, and top shelf picks should all be easy to share once the collection starts taking shape.' : 'Create a free vault to save your collector identity, strongest system, top shelf, and progress in one place.'}</p>
+      </div>
+      <div class="showcase-strip__grid">
+        <article class="showcase-strip__card showcase-strip__card--identity">
+          <span>Collector rank</span>
+          <strong>${rank.title}</strong>
+          <p class="subtle">${rank.detail}</p>
+          <div class="showcase-strip__meta">
+            <em>${dominantConsole ? `${escapeHtml(dominantConsole.consoleName)} specialist` : 'Shelf still taking shape'}</em>
+            <em>${rarestOwned ? `Rarest flex: ${escapeHtml(rarestOwned.title)}` : 'Rarest flex still loading'}</em>
+          </div>
+        </article>
+        <article class="showcase-strip__card">
+          <span>Top shelf preview</span>
+          <strong>${topShelf.length ? topShelf.map((game) => game.title).slice(0, 3).join(' · ') : 'Favorite a few games to build your shelf.'}</strong>
+          <p class="subtle">${topShelf.length ? 'Favorites, grails, and standout owned copies make the vault feel personal fast.' : 'Top shelf picks are one of the fastest ways to turn a collection tracker into something worth sharing.'}</p>
+        </article>
+        <article class="showcase-strip__card showcase-strip__card--actions">
+          <span>Share the vault</span>
+          <strong>${state.authToken ? 'Turn progress into brag cards, weekly recaps, and collector challenge shares.' : 'Accounts make the vault worth coming back to and worth showing off.'}</strong>
+          <div class="showcase-strip__actions">
+            <button class="ghost-button" type="button" data-action="share-recap">Share Recap</button>
+            <button class="ghost-button" type="button" data-action="share-weekly-recap">Share Weekly Recap</button>
+            ${state.authToken ? '<button class="ghost-button" type="button" data-action="share-challenge">Share Collector Challenge</button>' : '<button class="install-button" type="button" data-action="open-register">Create Free Vault</button>'}
+          </div>
+        </article>
       </div>
     </section>
   `
@@ -6901,6 +7052,8 @@ function renderNow() {
       ${renderReturnStrip()}
       ${renderCollectorCommandStrip()}
       ${renderAccountUnlockStrip()}
+      ${renderCollectorAlertsStrip()}
+      ${renderCollectorShowcaseStrip()}
       ${renderCollectorActivityStrip()}
       ${renderMarketRadarStrip()}
       ${renderVaultHealthStrip()}
@@ -7082,6 +7235,7 @@ function renderNow() {
   restoreFocusSnapshot(focusSnapshot)
   void syncLiveBarcodeScan()
   scheduleTradeAvailabilityRefresh(visibleGames)
+  scheduleCollectorInsightRefresh()
 }
 
 function render() {
