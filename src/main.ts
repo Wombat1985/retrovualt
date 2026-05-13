@@ -4864,6 +4864,95 @@ function renderCollectorMigrationStrip() {
   `
 }
 
+function renderGuestSafeguardStrip() {
+  if (state.authToken) {
+    return ''
+  }
+
+  const ownedCount = getOwnedGames().length
+  const wantedCount = getWantedGames().length
+  const tradeCount = getOwnedGames().filter((game) => getRecord(game.id).forTrade).length
+  const trackedCount = ownedCount + wantedCount
+  const customCount = state.customCatalog.length
+
+  if (!trackedCount && !customCount) {
+    return ''
+  }
+
+  return `
+    <section class="guest-safeguard-strip" aria-label="Protect your guest vault">
+      <div class="guest-safeguard-strip__copy">
+        <p class="kicker">Protect this vault</p>
+        <h2>You already have real collector work saved on this device.</h2>
+        <p class="subtle">Create a free vault now to keep ${trackedCount.toLocaleString()} tracked game${trackedCount === 1 ? '' : 's'}, ${wantedCount.toLocaleString()} wanted, ${tradeCount.toLocaleString()} trade-ready, and ${customCount.toLocaleString()} custom entr${customCount === 1 ? 'y' : 'ies'} synced across devices.</p>
+      </div>
+      <div class="guest-safeguard-strip__stats">
+        <span>${ownedCount.toLocaleString()} owned</span>
+        <span>${wantedCount.toLocaleString()} wanted</span>
+        <span>${tradeCount.toLocaleString()} for trade</span>
+        <span>${customCount.toLocaleString()} custom</span>
+      </div>
+      <div class="guest-safeguard-strip__actions">
+        <button class="install-button" type="button" data-action="open-register">Create Free Vault</button>
+        <button class="secondary-button" type="button" data-action="open-login">Sign In</button>
+        <button class="ghost-button" type="button" data-action="export-catalog">Export Collection</button>
+      </div>
+    </section>
+  `
+}
+
+function renderWorkspaceRail() {
+  const ownedCount = getOwnedGames().length
+  const wantedCount = getWantedGames().length
+  const tradeCount = getOwnedGames().filter((game) => getRecord(game.id).forTrade).length
+  const alertCount = getAlertMatches().length
+  const setupScore = getCollectionCompletenessScore()
+
+  return `
+    <section class="workspace-rail" aria-label="Collector workspace">
+      <div class="workspace-rail__header">
+        <div>
+          <p class="kicker">Collector workspace</p>
+          <h2>Move around the vault like a real collection desk.</h2>
+        </div>
+        <p class="subtle">Jump between the full library, owned shelf, wanted hunt list, trade-ready copies, and collector setup work without losing your place.</p>
+      </div>
+      <div class="workspace-rail__grid">
+        <button class="workspace-chip ${state.ownershipFilter === 'all' ? 'is-active' : ''}" type="button" data-action="browse-library">
+          <span>Games library</span>
+          <strong>Browse everything</strong>
+          <em>Full vault search</em>
+        </button>
+        <button class="workspace-chip ${state.ownershipFilter === 'owned' ? 'is-active' : ''}" type="button" data-action="browse-owned-games">
+          <span>Owned shelf</span>
+          <strong>${ownedCount.toLocaleString()} tracked</strong>
+          <em>Review copies and upgrades</em>
+        </button>
+        <button class="workspace-chip ${state.ownershipFilter === 'wanted' ? 'is-active' : ''}" type="button" data-action="ownership-filter" data-filter="wanted">
+          <span>Wanted list</span>
+          <strong>${wantedCount.toLocaleString()} hunting</strong>
+          <em>${alertCount.toLocaleString()} active alerts</em>
+        </button>
+        <button class="workspace-chip ${state.ownershipFilter === 'tradeable-now' ? 'is-active' : ''}" type="button" data-action="browse-tradeable-now">
+          <span>Ready to trade</span>
+          <strong>${tradeCount.toLocaleString()} listed</strong>
+          <em>Collectors trading now</em>
+        </button>
+        <button class="workspace-chip workspace-chip--setup" type="button" data-action="import-collection">
+          <span>Move in faster</span>
+          <strong>Import collection</strong>
+          <em>Spreadsheet to vault</em>
+        </button>
+        <button class="workspace-chip workspace-chip--setup" type="button" data-action="open-scanner">
+          <span>Fast capture</span>
+          <strong>Scan barcode</strong>
+          <em>Setup score ${setupScore}%</em>
+        </button>
+      </div>
+    </section>
+  `
+}
+
 function getActivityActionMeta(event: ActivityEvent) {
   if (event.gameId) {
     return {
@@ -7093,6 +7182,7 @@ function renderNow() {
       ${renderReturnStrip()}
       ${renderCollectorCommandStrip()}
       ${renderAccountUnlockStrip()}
+      ${renderGuestSafeguardStrip()}
       ${renderCollectorMigrationStrip()}
       ${renderCollectorAlertsStrip()}
       ${renderCollectorShowcaseStrip()}
@@ -7100,6 +7190,7 @@ function renderNow() {
       ${renderMarketRadarStrip()}
       ${renderVaultHealthStrip()}
 
+      ${renderWorkspaceRail()}
       <section class="toolbar">
         <label class="search-field">
           <span>Search the vault</span>
