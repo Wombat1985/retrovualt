@@ -2501,7 +2501,7 @@ function getTodayHuntItems(): DailyHuntItem[] {
         ? 'Choose a system to chase next and your completion milestones will start surfacing here.'
         : 'Mark your first owned game to unlock completion goals and collector rank progress.',
       meta: ownedGames.length ? `${ownedGames.length} owned so far` : 'First pickup unlocks the hunt loop',
-      actionLabel: 'Browse library',
+      actionLabel: 'Browse Games Library',
       action: 'browse-library',
       tone: 'teal',
     })
@@ -2728,14 +2728,14 @@ function getOnboardingSteps(): OnboardingStep[] {
       detail: 'Protect the collection so it follows you across devices.',
       done: state.authToken !== '',
       action: state.authToken ? 'open-account-settings' : 'open-register',
-      actionLabel: state.authToken ? 'Account' : 'Create account',
+      actionLabel: state.authToken ? 'Account' : 'Create Free Vault',
     },
     {
       label: 'Mark your first owned game',
       detail: 'Unlock shelf value, completion progress, and collector rank.',
       done: getOwnedGames().length > 0,
       action: 'browse-library',
-      actionLabel: 'Browse games',
+      actionLabel: 'Browse Games Library',
     },
     {
       label: 'Add a wanted grail',
@@ -4319,6 +4319,74 @@ function renderTrustStrip() {
   `
 }
 
+function getHeroPreviewGames() {
+  const catalog = getCatalog()
+
+  return HERO_PREVIEW_SYSTEMS.map((system) => {
+    const withCover = [...catalog]
+      .filter((entry) => entry.console === system.consoleName && Boolean(entry.coverUrl))
+      .sort((left, right) => getReferencePrice(right) - getReferencePrice(left))
+    const fallback = [...catalog]
+      .filter((entry) => entry.console === system.consoleName)
+      .sort((left, right) => getReferencePrice(right) - getReferencePrice(left))
+
+    return {
+      ...system,
+      game: withCover[0] ?? fallback[0] ?? null,
+    }
+  })
+}
+
+function renderHeroTrustBadges() {
+  const badges = ['No Download Needed', 'Desktop & Mobile', 'Collector Built', 'Private Trading']
+
+  return `
+    <div class="hero-badges" aria-label="Trust signals">
+      ${badges.map((badge) => `<span class="hero-badge">${escapeHtml(badge)}</span>`).join('')}
+    </div>
+  `
+}
+
+function renderHeroPreviewStrip() {
+  const previews = getHeroPreviewGames()
+
+  return `
+    <section class="hero-preview" aria-label="Popular systems in the games library">
+      <div class="hero-preview__header">
+        <p class="kicker">Popular right now</p>
+        <p class="subtle">NES / SNES / Game Boy / PS2</p>
+      </div>
+      <div class="hero-preview__grid">
+        ${previews
+          .map(({ label, consoleName, game }) => {
+            const cover = game ? getCardCoverUrl(game) : getCoverFallbackDataUri(createCustomEntryPreviewGame(`${label} spotlight`, consoleName, 'North America'))
+            const title = game?.title ?? `${label} collector picks`
+
+            return `
+              <button class="hero-preview-card" type="button" data-action="${game ? 'open-details' : 'browse-console-library'}" ${game ? `data-id="${escapeHtml(game.id)}"` : `data-console="${escapeHtml(consoleName)}"`}>
+                <img class="hero-preview-card__cover" src="${escapeHtml(cover)}" alt="${escapeHtml(title)} cover art" loading="lazy" decoding="async" ${game ? getCoverFallbackAttributes(game) : ''} />
+                <span>${escapeHtml(label)}</span>
+                <strong>${escapeHtml(title)}</strong>
+              </button>
+            `
+          })
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderFeaturedSystemsStrip() {
+  return `
+    <section class="featured-systems" aria-label="Featured systems">
+      <p class="kicker">Featured systems</p>
+      <div class="featured-systems__list">
+        ${FEATURED_SYSTEMS.map((system) => `<button class="chip featured-systems__chip" type="button" data-action="browse-console-library" data-console="${escapeHtml(system.consoleName)}">${escapeHtml(system.label)}</button>`).join('')}
+      </div>
+    </section>
+  `
+}
+
 function renderFeatureStrip() {
   const liveTradeSignal = state.authToken
     ? state.tradeInboxFreshOpportunityIds.size > 0
@@ -4344,7 +4412,7 @@ function renderFeatureStrip() {
         ${
           state.authToken
             ? `<button class="ghost-button feature-strip__button" type="button" data-action="trade-open-inbox">Open Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ` <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>` : ''}</button>`
-            : '<button class="ghost-button feature-strip__button" type="button" data-action="browse-tradeable-now">See tradeable games</button>'
+            : '<button class="ghost-button feature-strip__button" type="button" data-action="browse-tradeable-now">Ready to Trade</button>'
         }
       </article>
       <article class="feature-strip__card">
@@ -4442,7 +4510,7 @@ function renderReturnStrip() {
         <span>Come back for trade movement</span>
         <strong>${liveTradeCount > 0 ? `${liveTradeCount} trade signal${liveTradeCount === 1 ? '' : 's'} waiting right now.` : 'Trade Inbox is where collectors return when wanted games surface.'}</strong>
         <p class="subtle">${state.authToken ? 'Private requests, accepted trades, and new matches all show up in one place.' : 'Create an account when you want duplicates, wanted games, and trade requests tied together.'}</p>
-        <button class="ghost-button" type="button" data-action="${state.authToken ? 'trade-open-inbox' : 'browse-tradeable-now'}">${state.authToken ? 'Open Trade Inbox' : 'See tradeable games'}</button>
+        <button class="ghost-button" type="button" data-action="${state.authToken ? 'trade-open-inbox' : 'browse-tradeable-now'}">${state.authToken ? 'Open Trade Inbox' : 'Ready to Trade'}</button>
       </article>
       <article class="return-strip__card return-strip__card--alert">
         <span>Come back for wanted hits</span>
@@ -4485,7 +4553,7 @@ function renderCollectorCommandStrip() {
     detail: 'Everything gets smarter once the vault knows what is already on your shelf.',
     meta: 'Unlock collector rank, completion, and trade tracking',
     action: 'browse-library',
-    actionLabel: 'Browse library',
+    actionLabel: 'Browse Games Library',
     gameId: '',
   }
 
@@ -4601,8 +4669,8 @@ function renderAccountUnlockStrip() {
       <div class="account-unlock-strip__actions">
         ${
           state.authToken
-            ? '<button class="secondary-button" type="button" data-action="open-account-settings">Open account settings</button><button class="ghost-button" type="button" data-action="sync-now">Sync now</button>'
-            : '<button class="install-button" type="button" data-action="open-register">Create account</button><button class="secondary-button" type="button" data-action="open-login">Sign in</button>'
+            ? '<button class="secondary-button" type="button" data-action="open-account-settings">Account Settings</button><button class="ghost-button" type="button" data-action="sync-now">Sync Now</button>'
+            : '<button class="install-button" type="button" data-action="open-register">Create Free Vault</button><button class="secondary-button" type="button" data-action="open-login">Sign In</button>'
         }
       </div>
     </section>
@@ -4666,7 +4734,7 @@ function renderCollectorActivityStrip() {
                 <strong>Add one owned game.</strong>
                 <p class="subtle">That unlocks activity tracking, progress, and a clearer next-best-move loop.</p>
                 <em>Everything starts with one shelf entry.</em>
-                <button class="ghost-button" type="button" data-action="browse-library">Browse library</button>
+                <button class="ghost-button" type="button" data-action="browse-library">Browse Games Library</button>
               </article>
               <article class="activity-card activity-card--empty">
                 <span>Build the hunt</span>
@@ -4710,7 +4778,7 @@ function renderMarketRadarStrip() {
           <span>Market mover</span>
           <strong>${mover ? mover.title : 'No mover surfaced yet'}</strong>
           <p class="subtle">${mover ? `${formatDelta(mover.trendDelta)} trend / Loose ${formatPrice(mover.priceLoose)} / Complete ${mover.priceComplete === null ? 'Listing only' : formatPrice(mover.priceComplete)}` : 'The vault will start surfacing notable movers as soon as the live catalog is in view.'}</p>
-          <button class="ghost-button" type="button" data-action="${mover ? 'open-details' : 'browse-library'}"${mover ? ` data-id="${escapeHtml(mover.id)}"` : ''}>${mover ? 'Inspect mover' : 'Browse library'}</button>
+          <button class="ghost-button" type="button" data-action="${mover ? 'open-details' : 'browse-library'}"${mover ? ` data-id="${escapeHtml(mover.id)}"` : ''}>${mover ? 'Inspect mover' : 'Browse Games Library'}</button>
         </article>
         <article class="market-radar-card">
           <span>Trade opening</span>
@@ -4793,6 +4861,8 @@ function renderOnboardingPanel() {
   const steps = getOnboardingSteps()
   const completed = steps.filter((step) => step.done).length
   const setupScore = getCollectionCompletenessScore()
+  const trackedCount = getOwnedGames().length + getWantedGames().length
+  const isFreshVault = trackedCount === 0
 
   if (state.onboardingDismissed) {
     return ''
@@ -4802,12 +4872,14 @@ function renderOnboardingPanel() {
     <section class="onboarding-panel">
       <div class="onboarding-copy">
         <p class="kicker">Collector setup</p>
-        <h2>${completed === steps.length ? 'Your vault is ready to show off.' : 'Build a collection people want to come back to.'}</h2>
-        <p class="subtle">${completed}/${steps.length} core setup steps complete. Vault readiness ${setupScore}%. Finish these to unlock stronger stats, better value tracking, and a more personal collector profile.</p>
+        <h2>${isFreshVault ? 'Your vault is waiting.' : completed === steps.length ? 'Your vault is ready to show off.' : 'Build a collection people want to come back to.'}</h2>
+        <p class="subtle">${isFreshVault ? 'Start by browsing the games library or scanning a barcode. Once a few real games are in the vault, everything else starts feeling personal.' : `${completed}/${steps.length} core setup steps complete. Vault readiness ${setupScore}%. Finish these to unlock stronger stats, better value tracking, and a more personal collector profile.`}</p>
         <div class="onboarding-tip">
-          <strong>New to trading?</strong>
-          <span>Mark one duplicate for trade to start getting matches in Trade Inbox.</span>
-          <button class="ghost-button" type="button" data-action="browse-owned-games">Browse owned games</button>
+          <strong>${isFreshVault ? 'Start here' : 'New to trading?'}</strong>
+          <span>${isFreshVault ? 'Add your first game, or jump straight to a barcode scan if you are cataloging quickly.' : 'Mark one duplicate for trade to start getting matches in Trade Inbox.'}</span>
+          ${isFreshVault
+            ? '<div class="onboarding-tip__actions"><button class="ghost-button" type="button" data-action="browse-library">Browse Games Library</button><button class="ghost-button" type="button" data-action="open-scanner">Scan Barcode</button></div>'
+            : '<button class="ghost-button" type="button" data-action="browse-owned-games">Browse owned games</button>'}
         </div>
       </div>
       <div class="onboarding-steps">
@@ -5756,13 +5828,34 @@ function renderAlphabetBar() {
   </div>`
 }
 
+function renderCatalogSkeleton() {
+  return `
+    <div class="catalog-grid catalog-grid--skeleton" aria-label="Loading games">
+      ${Array.from({ length: 12 }, () => `
+        <article class="game-card skeleton-card" aria-hidden="true">
+          <div class="cover-wrap skeleton-card__cover"></div>
+          <div class="game-copy skeleton-card__copy">
+            <span class="skeleton-line skeleton-line--short"></span>
+            <span class="skeleton-line"></span>
+            <span class="skeleton-line skeleton-line--tiny"></span>
+          </div>
+        </article>
+      `).join('')}
+    </div>
+  `
+}
+
 function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: CatalogEntry[]) {
   const isShelf = state.viewMode === 'shelf'
+  const trackedCount = getOwnedGames().length + getWantedGames().length
   const emptyState = state.ownershipFilter === 'tradeable-now'
     ? '<div class="empty-state"><h3>No tradeable games right now</h3><p>Nothing in this view is currently marked for trade by other collectors. Try widening the console or region filters, or check Trade Inbox for fresh matches.</p><button class="ghost-button" data-action="trade-open-inbox" type="button">Open Trade Inbox</button></div>'
     : state.ownershipFilter === 'wanted-now'
       ? '<div class="empty-state"><h3>No active wanted signals here</h3><p>No collectors in this view are currently looking for these games. Try another console, clear a filter, or mark more of your own games for trade.</p><button class="secondary-button" data-action="ownership-filter" data-filter="all" type="button">Show all games</button></div>'
-      : '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
+      : trackedCount === 0
+        ? '<div class="empty-state"><h3>Your vault is waiting</h3><p>Start by browsing the games library or scanning a barcode.</p><div class="empty-state__actions"><button class="toggle-button" data-action="browse-library" type="button">Browse Games Library</button><button class="ghost-button" data-action="open-scanner" type="button">Scan Barcode</button></div></div>'
+        : '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
+  const showSkeleton = state.isCatalogLoading && visibleGames.length === 0
   return `
     <section class="catalog-section">
       <div class="section-heading">
@@ -5780,12 +5873,14 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
           </div>
           ${state.consoleFilter === LEGENDS_FILTER
             ? `<h2>The games everyone knows</h2><p class="legends-sub">The must-haves, the grails, the ones that made you a collector. Switch to <em>All consoles</em> to see everything.</p>`
-            : `<h2>${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view</h2>`}
+            : `<h2>${showSkeleton ? 'Loading the Games Library' : `${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view`}</h2>`}
         </div>
       </div>
       ${renderAlphabetBar()}
       ${
-        isShelf
+        showSkeleton
+          ? renderCatalogSkeleton()
+          : isShelf
           ? renderShelfView(visibleGames)
           : `<div class="catalog-grid">${visibleGames.length ? visibleGames.map(renderCard).join('') : emptyState}</div>`
       }
@@ -6098,8 +6193,8 @@ function renderAccountCard() {
       </div>
       <div class="card-actions">
         ${state.authToken
-          ? '<button class="toggle-button" data-action="sync-now" type="button">Sync now</button><button class="ghost-button" data-action="open-account-settings" type="button">Account settings</button><button class="ghost-button" data-action="logout-account" type="button">Sign out</button>'
-          : '<button class="toggle-button" data-action="open-register" type="button">Create account</button><button class="ghost-button" data-action="open-login" type="button">Sign in</button>'}
+          ? '<button class="toggle-button" data-action="sync-now" type="button">Sync Now</button><button class="ghost-button" data-action="open-account-settings" type="button">Account Settings</button><button class="ghost-button" data-action="logout-account" type="button">Sign Out</button>'
+          : '<button class="toggle-button" data-action="open-register" type="button">Create Free Vault</button><button class="ghost-button" data-action="open-login" type="button">Sign In</button>'}
       </div>
     </article>
   `
@@ -6112,13 +6207,13 @@ function renderMobileAccountBar() {
     <section class="mobile-account-bar" aria-label="Account access">
       <div>
         <span>${state.authToken ? 'Signed in' : 'Account'}</span>
-        <strong>${state.authToken ? escapeHtml(accountIdentity) : 'Sign in to sync your vault'}</strong>
+        <strong>${state.authToken ? escapeHtml(accountIdentity) : 'Save your vault across devices'}</strong>
       </div>
       <div class="mobile-account-actions">
         ${
           state.authToken
             ? '<button class="install-button" type="button" data-action="open-account-settings">Account</button>'
-            : '<button class="install-button" type="button" data-action="open-login">Sign in</button><button class="ghost-button" type="button" data-action="open-register">Create</button>'
+            : '<button class="install-button" type="button" data-action="open-login">Sign In</button><button class="ghost-button" type="button" data-action="open-register">Create</button>'
         }
       </div>
     </section>
@@ -6132,9 +6227,9 @@ function renderAuthModal() {
 
   const titleByView: Record<Exclude<AuthView, 'none'>, string> = {
     register: 'Create your account',
-    login: 'Sign in',
+    login: 'Sign In',
     reset: 'Reset your password',
-    account: 'Account settings',
+    account: 'Account Settings',
     'confirm-reset': 'Choose a new password',
   }
   const title = titleByView[state.authView]
@@ -6183,7 +6278,7 @@ function renderAuthForm() {
         <label><span>Display name</span><input name="displayName" autocomplete="name" /><small>Display names must be unique. Your email must also be unique and protects the account.</small></label>
         <label><span>Email</span><input name="email" type="email" autocomplete="email" required value="${emailDraft}" /></label>
         <label><span>Password</span><input name="password" type="password" autocomplete="new-password" required minlength="8" /></label>
-        <button class="toggle-button" type="submit" ${disabled}>${buttonText('Create account')}</button>
+        <button class="toggle-button" type="submit" ${disabled}>${buttonText('Create Free Vault')}</button>
         <button class="ghost-button" type="button" data-action="open-login">Already have an account?</button>
       </form>
     `
@@ -6194,7 +6289,7 @@ function renderAuthForm() {
       <form class="auth-form" data-auth-form="login">
         <label><span>Email</span><input name="email" type="email" autocomplete="email" required value="${emailDraft}" /></label>
         <label><span>Password</span><input name="password" type="password" autocomplete="current-password" required /></label>
-        <button class="toggle-button" type="submit" ${disabled}>${buttonText('Sign in')}</button>
+        <button class="toggle-button" type="submit" ${disabled}>${buttonText('Sign In')}</button>
         <button class="ghost-button" type="button" data-action="open-reset">Forgot password?</button>
         <button class="ghost-button" type="button" data-action="open-register">Create or recover account</button>
       </form>
@@ -6748,18 +6843,23 @@ function renderNow() {
           <p class="hero-text">
             Retro Vault Elite helps you track what you own, what you still want, what you paid, and which extra copies are ready to trade, without juggling spreadsheets, notes, and price tabs.
           </p>
+          <p class="hero-authority">Built for serious collectors who track condition, paid price, wanted games, duplicates, and trade-ready copies.</p>
           <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 30 April 2026.</p>
           ${
             state.authToken
               ? `<p class="account-status-pill"><span>Signed in</span><strong>${escapeHtml(accountIdentity)}</strong></p>`
-              : '<p class="account-status-pill account-status-pill--guest"><span>Guest mode</span><strong>Sign in or create an account to sync across devices.</strong></p>'
+              : '<p class="account-status-pill account-status-pill--guest"><span>Guest Mode</span><strong>Save your vault across devices.</strong></p>'
           }
           <div class="hero-actions">
-            ${state.authToken ? `<button class="install-button trade-inbox-btn trade-inbox-btn--hero" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button><button class="secondary-button" type="button" data-action="open-account-settings">Account settings</button>` : '<button class="install-button" type="button" data-action="open-register">Create account</button><button class="secondary-button" type="button" data-action="open-login">Sign in</button>'}
-            <button class="secondary-button" type="button" data-action="browse-library">Browse library</button>
-            <button class="secondary-button" type="button" data-action="browse-tradeable-now">Tradeable now</button>
-            <button class="secondary-button" type="button" data-action="open-scanner">Scan barcode</button>
+            <button class="install-button" type="button" data-action="browse-library">Browse Games Library</button>
+            ${state.authToken ? `<button class="secondary-button trade-inbox-btn trade-inbox-btn--hero" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button><button class="secondary-button" type="button" data-action="open-account-settings">Account Settings</button>` : '<button class="secondary-button" type="button" data-action="open-register">Create Free Vault</button><button class="secondary-button" type="button" data-action="open-login">Sign In</button>'}
+            <button class="secondary-button" type="button" data-action="open-scanner">Scan Barcode</button>
+            <button class="secondary-button" type="button" data-action="browse-tradeable-now">Ready to Trade</button>
           </div>
+          <p class="hero-action-note">No account needed &mdash; jump straight to the games.</p>
+          ${renderHeroTrustBadges()}
+          ${renderHeroPreviewStrip()}
+          ${renderFeaturedSystemsStrip()}
           <p class="hero-text hero-text--trade">${
             state.authToken
               ? 'Trade Inbox shows collectors trading games you want, good matches, and private trade requests once both sides accept.'
@@ -6884,11 +6984,11 @@ function renderNow() {
         <div class="toolbar-action toolbar-action--desktop">
           <span>Trading</span>
           <div class="toolbar-action__buttons">
-            <button class="secondary-button" data-action="browse-tradeable-now" type="button">Tradeable now</button>
+            <button class="secondary-button" data-action="browse-tradeable-now" type="button">Ready to Trade</button>
             ${
               state.authToken
                 ? `<button class="secondary-button trade-inbox-btn" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button>`
-                : '<button class="secondary-button" data-action="open-register" type="button">Start trading</button>'
+                : '<button class="secondary-button" data-action="open-register" type="button">Create Free Vault</button>'
             }
           </div>
         </div>
@@ -7796,6 +7896,23 @@ async function handleAction(element: HTMLElement) {
       render()
       document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       break
+    case 'browse-console-library': {
+      const consoleName = element.dataset.console
+
+      if (!consoleName) {
+        return
+      }
+
+      state.consoleFilter = consoleName
+      state.regionFilter = 'All regions'
+      state.ownershipFilter = 'all'
+      state.search = ''
+      resetVisibleGameCount()
+      await ensureConsoleCatalogLoaded(consoleName)
+      render()
+      document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      break
+    }
     case 'daily-console': {
       const consoleName = element.dataset.console
 
@@ -9772,6 +9889,24 @@ const POPULAR_CONSOLE_ORDER = [
   'Game Boy Color', 'Dreamcast', 'Nintendo DS', 'Sega Saturn',
   'Atari 2600', 'Sega Master System', 'PSP', 'GameCube',
 ]
+
+const HERO_PREVIEW_SYSTEMS = [
+  { label: 'NES', consoleName: 'NES' },
+  { label: 'SNES', consoleName: 'Super Nintendo' },
+  { label: 'Game Boy', consoleName: 'Game Boy' },
+  { label: 'PS2', consoleName: 'PlayStation 2' },
+] as const
+
+const FEATURED_SYSTEMS = [
+  { label: 'NES', consoleName: 'NES' },
+  { label: 'SNES', consoleName: 'Super Nintendo' },
+  { label: 'N64', consoleName: 'Nintendo 64' },
+  { label: 'Game Boy', consoleName: 'Game Boy' },
+  { label: 'Mega Drive', consoleName: 'Sega Genesis' },
+  { label: 'PS1', consoleName: 'PlayStation' },
+  { label: 'PS2', consoleName: 'PlayStation 2' },
+  { label: 'GameCube', consoleName: 'GameCube' },
+] as const
 
 async function ensureAllConsoleCatalogsLoaded(rerenderAfterBatch: boolean) {
   const remaining = state.catalogMeta

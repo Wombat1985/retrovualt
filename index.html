@@ -244,6 +244,14 @@
         line-height: 1.5;
       }
 
+      .app-shell__authority {
+        margin: 14px 0 0;
+        max-width: 720px;
+        color: rgba(245, 247, 251, 0.92);
+        font-size: 1rem;
+        line-height: 1.55;
+      }
+
       .app-shell__proof {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -331,6 +339,100 @@
         flex-wrap: wrap;
         gap: 14px;
         margin-top: 28px;
+      }
+
+      .app-shell__action-note {
+        margin: 14px 0 0;
+        color: #f1c95f;
+        font-size: 0.95rem;
+      }
+
+      .app-shell__trust {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .app-shell__trust-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.045);
+        color: #d2dae8;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .app-shell__mini-preview {
+        display: grid;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .app-shell__mini-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .app-shell__mini-card {
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .app-shell__mini-card-art {
+        aspect-ratio: 3 / 4;
+        border-radius: 12px;
+        background:
+          linear-gradient(160deg, rgba(255, 214, 110, 0.18), rgba(108, 148, 255, 0.16)),
+          rgba(8, 12, 18, 0.92);
+      }
+
+      .app-shell__mini-card span {
+        color: #f1c95f;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .app-shell__mini-card strong {
+        font-size: 0.86rem;
+        line-height: 1.35;
+      }
+
+      .app-shell__systems {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .app-shell__systems-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .app-shell__chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #f5f7fb;
+        text-decoration: none;
+        background: rgba(255, 255, 255, 0.05);
       }
 
       .app-shell__button {
@@ -433,6 +535,10 @@
         .app-shell__button {
           width: 100%;
         }
+
+        .app-shell__mini-preview-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
     </style>
     <title>Retro Vault Elite - Retro Games Collection Tracker</title>
@@ -448,6 +554,7 @@
           <p class="app-shell__lead">
             Retro Vault Elite keeps your collection, wanted list, paid prices, duplicates, and tradeable copies together in one place that feels built for collectors instead of spreadsheets and price-only lookups.
           </p>
+          <p class="app-shell__authority">Built for serious collectors who track condition, paid price, wanted games, duplicates, and trade-ready copies.</p>
           <div class="app-shell__proof" aria-label="Product highlights">
             <div class="app-shell__proof-item">
               <strong>Track what you own</strong>
@@ -499,10 +606,44 @@
             </div>
           </section>
           <div class="app-shell__actions">
-            <a class="app-shell__button app-shell__button--primary" href="/">Open the app</a>
-            <a class="app-shell__button" href="/retro-console-collection-tracker.html">Browse console pages</a>
-            <a class="app-shell__button" href="/">See trading tools</a>
+            <a class="app-shell__button app-shell__button--primary" href="/">Browse Games Library</a>
+            <a class="app-shell__button" href="/">Create Free Vault</a>
+            <a class="app-shell__button" href="/">Sign In</a>
+            <a class="app-shell__button" href="/">Scan Barcode</a>
+            <a class="app-shell__button" href="/">Ready to Trade</a>
           </div>
+          <p class="app-shell__action-note">No account needed &mdash; jump straight to the games.</p>
+          <div class="app-shell__trust" aria-label="Trust badges">
+            <span class="app-shell__trust-badge">No Download Needed</span>
+            <span class="app-shell__trust-badge">Desktop &amp; Mobile</span>
+            <span class="app-shell__trust-badge">Collector Built</span>
+            <span class="app-shell__trust-badge">Private Trading</span>
+          </div>
+          <section class="app-shell__mini-preview" aria-label="Popular systems">
+            <div>
+              <p class="app-shell__eyebrow">Popular right now</p>
+              <p class="app-shell__action-note" style="margin-top:0;color:#d2dae8;">NES / SNES / Game Boy / PS2</p>
+            </div>
+            <div class="app-shell__mini-preview-grid">
+              <article class="app-shell__mini-card"><div class="app-shell__mini-card-art" aria-hidden="true"></div><span>NES</span><strong>Fast library browsing</strong></article>
+              <article class="app-shell__mini-card"><div class="app-shell__mini-card-art" aria-hidden="true"></div><span>SNES</span><strong>Wanted games and upgrades</strong></article>
+              <article class="app-shell__mini-card"><div class="app-shell__mini-card-art" aria-hidden="true"></div><span>Game Boy</span><strong>Condition and paid price tracking</strong></article>
+              <article class="app-shell__mini-card"><div class="app-shell__mini-card-art" aria-hidden="true"></div><span>PS2</span><strong>Duplicates ready for trade</strong></article>
+            </div>
+          </section>
+          <section class="app-shell__systems" aria-label="Featured systems">
+            <p class="app-shell__eyebrow">Featured systems</p>
+            <div class="app-shell__systems-list">
+              <a class="app-shell__chip" href="/nes-collection-tracker.html">NES</a>
+              <a class="app-shell__chip" href="/snes-collection-tracker.html">SNES</a>
+              <a class="app-shell__chip" href="/nintendo-64-collection-tracker.html">N64</a>
+              <a class="app-shell__chip" href="/game-boy-collection-tracker.html">Game Boy</a>
+              <a class="app-shell__chip" href="/sega-genesis-collection-tracker.html">Mega Drive</a>
+              <a class="app-shell__chip" href="/playstation-collection-tracker.html">PS1</a>
+              <a class="app-shell__chip" href="/playstation-2-collection-tracker.html">PS2</a>
+              <a class="app-shell__chip" href="/gamecube-collection-tracker.html">GameCube</a>
+            </div>
+          </section>
           <nav class="app-shell__link-groups" aria-label="Popular retro collector pages">
             <section class="app-shell__group" aria-labelledby="app-shell-core">
               <h2 id="app-shell-core">Collector tools</h2>
