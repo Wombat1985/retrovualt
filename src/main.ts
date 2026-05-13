@@ -7241,11 +7241,77 @@ function renderNow() {
   const nearCompleteConsoles = dashboard.nearCompleteConsoles
   const collectorRank = dashboard.collectorRank
   const accountIdentity = getAccountIdentityLabel()
+  const compactCatalogWindow = useCompactCatalogWindow()
   const catalogStatusText = state.isCatalogLoading
     ? `Loading the library. ${loadedConsoleCount} of ${totalConsoleCount} console lists are ready so far.`
     : state.catalogLoadError
       ? `Using the latest reference snapshot from ${priceSnapshotDate} while the rest of the catalog catches up.`
       : `${catalog.length} games across ${consoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
+
+  const preCatalogCollectorMarkup = `
+      ${renderFeatureStrip()}
+      ${renderCollectorPositioningStrip()}
+      ${renderTrustStrip()}
+      ${renderReturnStrip()}
+      ${renderCollectorCommandStrip()}
+      ${renderAccountUnlockStrip()}
+      ${renderGuestSafeguardStrip()}
+      ${renderCollectorMigrationStrip()}
+      ${renderCollectorAlertsStrip()}
+      ${renderCollectorShowcaseStrip()}
+      ${renderCollectorActivityStrip()}
+      ${renderMarketRadarStrip()}
+      ${renderVaultHealthStrip()}
+
+      ${renderWorkspaceRail()}
+  `
+
+  const postCatalogCollectorMarkup = `
+      ${renderOnboardingPanel()}
+
+      <section class="smart-grid">
+        ${renderSmartList('Top grails still missing', getMissingGrails(), 'You already own every seeded grail.')}
+        ${renderAccountCard()}
+        ${renderConsoleCompletionCard()}
+      </section>
+
+      <section class="showcase-grid">
+        ${renderSpotlight(spotlight)}
+        <div class="insight-grid">
+          ${renderInsightCard('Shelf prestige', prestigeScore.toString(), 'Weighted by rarity, market heat, CIB, and top-shelf picks.')}
+          ${renderInsightCard('Market edge', formatPrice(collectionDelta), `Tracked owned value minus paid value in ${selectedCurrency.code}.`)}
+          ${renderInsightCard('Price alerts', alertMatches.length.toString(), 'Wanted games currently at or below your target price.')}
+          ${renderInsightCard('Top shelf', getTopShelfGames().length.toString(), 'Favorites and standout owned games that deserve a hero row.')}
+        </div>
+      </section>
+
+      ${renderCollectionIdentityCard()}
+      ${renderFinishLineBanner()}
+
+      <section class="smart-grid smart-grid--secondary">
+        ${renderSmartList('Top shelf', getTopShelfGames(), 'Favorite or own some games to build your brag shelf.')}
+        ${renderSmartList('Price alert hits', alertMatches, 'Set a target price on wanted games to surface deals here.')}
+        ${renderConsolePush('Close to completion', nearCompleteConsoles, 'Own some games on a console and this will surface the easiest set to finish next.')}
+      </section>
+
+      ${renderHuntCard()}
+      ${renderAchievementStrip()}
+      ${renderTodayHunt()}
+      ${renderRetentionRecap()}
+      ${renderBadgePreview()}
+      ${renderNewsletterCapture()}
+
+      <section class="roadmap-strip">
+        <article class="roadmap-card">
+          <h3>Collector-first browsing</h3>
+          <p>Browse clean cover grids, jump between console libraries, and see owned, wanted, favorite, loose, CIB, sealed, graded, paid-price, and alert states without losing the thread of the hunt.</p>
+        </article>
+        <article class="roadmap-card">
+          <h3>Account-backed collection sync</h3>
+          <p>Sign in to protect your collection, wishlist, paid prices, favorites, alerts, barcode links, notes, profile details, and regional library progress across devices.</p>
+        </article>
+      </section>
+  `
 
   app.innerHTML = `
     ${renderBackdropWall(visibleGames, catalog)}
@@ -7312,21 +7378,7 @@ function renderNow() {
         </div>
       </header>
 
-      ${renderFeatureStrip()}
-      ${renderCollectorPositioningStrip()}
-      ${renderTrustStrip()}
-      ${renderReturnStrip()}
-      ${renderCollectorCommandStrip()}
-      ${renderAccountUnlockStrip()}
-      ${renderGuestSafeguardStrip()}
-      ${renderCollectorMigrationStrip()}
-      ${renderCollectorAlertsStrip()}
-      ${renderCollectorShowcaseStrip()}
-      ${renderCollectorActivityStrip()}
-      ${renderMarketRadarStrip()}
-      ${renderVaultHealthStrip()}
-
-      ${renderWorkspaceRail()}
+      ${compactCatalogWindow ? '' : preCatalogCollectorMarkup}
       <section class="toolbar">
         <label class="search-field">
           <span>Search the vault</span>
@@ -7416,50 +7468,7 @@ function renderNow() {
       ${renderFiltersSection()}
       ${renderCatalogSection(filteredGames, visibleGames)}
 
-      ${renderOnboardingPanel()}
-
-      <section class="smart-grid">
-        ${renderSmartList('Top grails still missing', getMissingGrails(), 'You already own every seeded grail.')}
-        ${renderAccountCard()}
-        ${renderConsoleCompletionCard()}
-      </section>
-
-      <section class="showcase-grid">
-        ${renderSpotlight(spotlight)}
-        <div class="insight-grid">
-          ${renderInsightCard('Shelf prestige', prestigeScore.toString(), 'Weighted by rarity, market heat, CIB, and top-shelf picks.')}
-          ${renderInsightCard('Market edge', formatPrice(collectionDelta), `Tracked owned value minus paid value in ${selectedCurrency.code}.`)}
-          ${renderInsightCard('Price alerts', alertMatches.length.toString(), 'Wanted games currently at or below your target price.')}
-          ${renderInsightCard('Top shelf', getTopShelfGames().length.toString(), 'Favorites and standout owned games that deserve a hero row.')}
-        </div>
-      </section>
-
-      ${renderCollectionIdentityCard()}
-      ${renderFinishLineBanner()}
-
-      <section class="smart-grid smart-grid--secondary">
-        ${renderSmartList('Top shelf', getTopShelfGames(), 'Favorite or own some games to build your brag shelf.')}
-        ${renderSmartList('Price alert hits', alertMatches, 'Set a target price on wanted games to surface deals here.')}
-        ${renderConsolePush('Close to completion', nearCompleteConsoles, 'Own some games on a console and this will surface the easiest set to finish next.')}
-      </section>
-
-      ${renderHuntCard()}
-      ${renderAchievementStrip()}
-      ${renderTodayHunt()}
-      ${renderRetentionRecap()}
-      ${renderBadgePreview()}
-      ${renderNewsletterCapture()}
-
-      <section class="roadmap-strip">
-        <article class="roadmap-card">
-          <h3>Collector-first browsing</h3>
-          <p>Browse clean cover grids, jump between console libraries, and see owned, wanted, favorite, loose, CIB, sealed, graded, paid-price, and alert states without losing the thread of the hunt.</p>
-        </article>
-        <article class="roadmap-card">
-          <h3>Account-backed collection sync</h3>
-          <p>Sign in to protect your collection, wishlist, paid prices, favorites, alerts, barcode links, notes, profile details, and regional library progress across devices.</p>
-        </article>
-      </section>
+      ${compactCatalogWindow ? `${preCatalogCollectorMarkup}${postCatalogCollectorMarkup}` : postCatalogCollectorMarkup}
       <footer class="app-footer">
         <a href="${appConfig.supportUrl}" target="_blank" rel="noreferrer">Support</a>
         <a href="${appConfig.privacyUrl}" target="_blank" rel="noreferrer">Privacy</a>
