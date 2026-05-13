@@ -1406,6 +1406,22 @@ a {
   line-height: 0.95;
 }
 
+.newsletter-benefits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.newsletter-benefits span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .newsletter-form {
   display: grid;
   gap: 12px;
@@ -1453,6 +1469,7 @@ a {
 .return-strip,
 .command-strip,
 .account-unlock-strip,
+.migration-strip,
 .alerts-strip,
 .showcase-strip,
 .activity-strip,
@@ -1640,10 +1657,82 @@ a {
   gap: 10px;
 }
 
+.migration-strip,
 .alerts-strip,
 .showcase-strip {
   display: grid;
   gap: 14px;
+}
+
+.migration-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.migration-card {
+  display: grid;
+  gap: 12px;
+  min-height: 220px;
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.migration-card span {
+  color: var(--accent-2);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.migration-card strong {
+  line-height: 1.35;
+}
+
+.migration-card p {
+  margin: 0;
+}
+
+.migration-card--import {
+  background:
+    radial-gradient(circle at top right, rgba(120, 180, 255, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  border-color: rgba(120, 180, 255, 0.22);
+}
+
+.migration-card--pulse {
+  background:
+    radial-gradient(circle at top right, rgba(255, 214, 110, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  border-color: rgba(255, 214, 110, 0.22);
+}
+
+.migration-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.migration-card__meta em {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.82rem;
+}
+
+.migration-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
 }
 
 .alerts-strip__intro,
@@ -3756,6 +3845,7 @@ a {
   .positioning-strip__grid,
   .return-strip,
   .command-strip,
+  .migration-strip,
   .account-unlock-strip__grid,
   .alerts-strip__grid,
   .showcase-strip__grid,
@@ -3796,6 +3886,7 @@ a {
   .positioning-strip__grid,
   .return-strip,
   .command-strip,
+  .migration-strip,
   .account-unlock-strip__grid,
   .alerts-strip__grid,
   .showcase-strip__grid,
@@ -3939,6 +4030,7 @@ a {
 
   .return-strip,
   .command-strip,
+  .migration-strip,
   .account-unlock-strip__grid,
   .alerts-strip__grid,
   .showcase-strip__grid,

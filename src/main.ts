@@ -4828,6 +4828,42 @@ function renderCollectorShowcaseStrip() {
   `
 }
 
+function renderCollectorMigrationStrip() {
+  return `
+    <section class="migration-strip" aria-label="Move your collection into Retro Vault Elite">
+      <article class="migration-card migration-card--import">
+        <span>Move in without starting over</span>
+        <strong>Bring over spreadsheet rows, checklist exports, and CSV collections without rebuilding the vault by hand.</strong>
+        <p class="subtle">Serious collectors should be able to carry over owned games, editions, and progress fast. Import first, then clean up the edge cases inside the vault.</p>
+        <div class="migration-card__meta">
+          <em>CSV import ready</em>
+          <em>Review matches before saving</em>
+          <em>Works on desktop and mobile</em>
+        </div>
+        <div class="migration-card__actions">
+          <button class="toggle-button" type="button" data-action="import-collection">Import Collection</button>
+          <button class="ghost-button" type="button" data-action="browse-library">Browse Games Library</button>
+        </div>
+      </article>
+      <article class="migration-card migration-card--pulse">
+        <span>Weekly collector pulse</span>
+        <strong>${state.authToken ? 'Your account is what turns the vault into a weekly collector companion.' : 'Create a free vault to save wanted hits, trade movement, weekly progress, and collector updates.'}</strong>
+        <p class="subtle">${state.authToken ? 'Members get the full loop: saved vault progress across devices, private trade inbox activity, target price hits, and weekly site updates worth checking.' : 'This is the difference between a one-time browse and a collection home that keeps working for you after you leave.'}</p>
+        <div class="migration-card__meta">
+          <em>Wanted game alerts</em>
+          <em>Trade inbox movement</em>
+          <em>Weekly Retro Vault updates</em>
+        </div>
+        <div class="migration-card__actions">
+          ${state.authToken
+            ? '<button class="toggle-button" type="button" data-action="open-account-settings">Open Account Settings</button><button class="ghost-button" type="button" data-action="share-weekly-recap">Share Weekly Recap</button>'
+            : '<button class="install-button" type="button" data-action="open-register">Create Free Vault</button><button class="ghost-button" type="button" data-action="open-login">Sign In</button>'}
+        </div>
+      </article>
+    </section>
+  `
+}
+
 function getActivityActionMeta(event: ActivityEvent) {
   if (event.gameId) {
     return {
@@ -6671,8 +6707,13 @@ function renderNewsletterCapture() {
     <section class="newsletter-card" aria-label="Weekly retro market movers email">
       <div>
         <p class="kicker">Collector market notes</p>
-        <h2>Get the weekly retro watchlist.</h2>
-        <p class="subtle">A short collector email with notable market movers, grail alerts, checklist ideas, and Retro Vault updates worth knowing about.</p>
+        <h2>Get the weekly collector pulse.</h2>
+        <p class="subtle">A short collector email with market movers, wanted-list hits, trade openings, checklist ideas, and Retro Vault updates worth knowing about.</p>
+        <div class="newsletter-benefits">
+          <span>Short weekly watchlist</span>
+          <span>Collector-built updates</span>
+          <span>No paid API fluff</span>
+        </div>
         ${state.newsletterStatus ? `<p class="newsletter-status">${escapeHtml(state.newsletterStatus)}</p>` : ''}
       </div>
       <form class="newsletter-form" data-newsletter-form>
@@ -6680,7 +6721,7 @@ function renderNewsletterCapture() {
           <span>Email</span>
           <input name="email" type="email" autocomplete="email" required value="${escapeHtml(state.accountEmail)}" />
         </label>
-        <button class="toggle-button" type="submit">Join the watchlist</button>
+        <button class="toggle-button" type="submit">Join the Weekly Pulse</button>
       </form>
     </section>
   `
@@ -7052,6 +7093,7 @@ function renderNow() {
       ${renderReturnStrip()}
       ${renderCollectorCommandStrip()}
       ${renderAccountUnlockStrip()}
+      ${renderCollectorMigrationStrip()}
       ${renderCollectorAlertsStrip()}
       ${renderCollectorShowcaseStrip()}
       ${renderCollectorActivityStrip()}
