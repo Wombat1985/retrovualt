@@ -4229,15 +4229,27 @@ a {
   .hero-stats {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
   }
 
   .hero-stats article {
-    min-height: 0;
-    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 6px;
+    min-height: 112px;
+    padding: 14px 13px;
   }
 
   .hero-stats strong {
-    font-size: clamp(9px, 3vw, 13px);
+    font-size: clamp(22px, 6.2vw, 30px);
+    line-height: 0.95;
+  }
+
+  .hero-stats .stat-note {
+    margin-top: 0;
+    font-size: 0.9rem;
+    line-height: 1.35;
   }
 
   .account-status-pill {
