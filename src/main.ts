@@ -4519,55 +4519,26 @@ function renderInsightCard(title: string, value: string, note: string) {
 }
 
 function renderTrustStrip() {
-  const syncCopy = state.authToken
-    ? state.syncStatus
-    : 'Device-only until you create an account'
-  const ownershipMode = getOwnedGames().some((game) => isCompleteEdition(getRecord(game.id)))
-    ? 'Loose and complete values active'
-    : 'Loose values active'
-
   return `
     <section class="trust-strip" aria-label="Collector setup and trading overview">
       <article>
-        <span>Wanted list</span>
-        <strong>Keep your hunt list ready for shelves, swaps, and trade matches.</strong>
+        <span>Private vault</span>
+        <strong>Your collection stays tied to your own vault, not a public marketplace profile.</strong>
       </article>
       <article>
-        <span>Trading</span>
-        <strong>Mark duplicates for trade and use Trade Inbox to find collector matches.</strong>
+        <span>No payment handling</span>
+        <strong>Retro Vault Elite does not process money, escrow, or shipping.</strong>
       </article>
       <article>
-        <span>Collection pricing</span>
-        <strong>${ownershipMode} from the latest ${priceSnapshotDate} snapshot.</strong>
+        <span>Collector-to-collector trading</span>
+        <strong>Trade discovery and messaging stay between collectors once both sides accept.</strong>
       </article>
       <article>
-        <span>Sync</span>
-        <strong>${escapeHtml(syncCopy)}</strong>
-      </article>
-      <article>
-        <span>Your data</span>
-        <strong>Owned by you, exportable anytime</strong>
+        <span>Your data stays yours</span>
+        <strong>Track it, sync it, export it, and keep building without getting trapped.</strong>
       </article>
     </section>
   `
-}
-
-function getHeroPreviewGames() {
-  const catalog = getCatalog()
-
-  return HERO_PREVIEW_SYSTEMS.map((system) => {
-    const withCover = [...catalog]
-      .filter((entry) => entry.console === system.consoleName && Boolean(entry.coverUrl))
-      .sort((left, right) => getReferencePrice(right) - getReferencePrice(left))
-    const fallback = [...catalog]
-      .filter((entry) => entry.console === system.consoleName)
-      .sort((left, right) => getReferencePrice(right) - getReferencePrice(left))
-
-    return {
-      ...system,
-      game: withCover[0] ?? fallback[0] ?? null,
-    }
-  })
 }
 
 function renderHeroTrustBadges() {
@@ -4580,30 +4551,106 @@ function renderHeroTrustBadges() {
   `
 }
 
+function renderHeroSearchBlock() {
+  return `
+    <section class="hero-search" aria-label="Search the games library">
+      <div class="hero-search__header">
+        <p class="kicker">Search the games library</p>
+        <p class="subtle">Find games, consoles, variants, values, and tradeable copies.</p>
+      </div>
+      <div class="hero-search__controls">
+        <label class="hero-search__field" for="hero-search-input">
+          <span class="sr-only">Search the games library</span>
+          <input
+            id="hero-search-input"
+            type="search"
+            value="${escapeHtml(state.search)}"
+            placeholder="Search Mario, Zelda, Pokémon, Sonic..."
+            autocomplete="off"
+          />
+        </label>
+        <button class="install-button hero-search__button" type="button" data-action="submit-hero-search">Search Games</button>
+      </div>
+    </section>
+  `
+}
+
 function renderHeroPreviewStrip() {
-  const previews = getHeroPreviewGames()
+  const searchTerms = [
+    'super mario world',
+    'pokemon red',
+    'sonic the hedgehog 2',
+    'the legend of zelda',
+    'final fantasy vii',
+    'metal gear solid',
+  ]
+  const catalog = getCatalog()
+  const previews = searchTerms
+    .map((term) => catalog.find((game) => game.title.toLowerCase().includes(term) && Boolean(game.coverUrl)))
+    .filter((game): game is CatalogEntry => game !== undefined)
+    .slice(0, 6)
 
   return `
-    <section class="hero-preview" aria-label="Popular systems in the games library">
+    <section class="hero-preview" aria-label="Popular games collectors are tracking">
       <div class="hero-preview__header">
-        <p class="kicker">Popular right now</p>
-        <p class="subtle">NES / SNES / Game Boy / PS2</p>
+        <p class="kicker">Popular games collectors are tracking</p>
+        <p class="subtle">Real covers, real titles, real value context.</p>
       </div>
       <div class="hero-preview__grid">
-        ${previews
-          .map(({ label, consoleName, game }) => {
-            const cover = game ? getCardCoverUrl(game) : getCoverFallbackDataUri(createCustomEntryPreviewGame(`${label} spotlight`, consoleName, 'North America'))
-            const title = game?.title ?? `${label} collector picks`
+        ${previews.map((game) => `
+          <button class="hero-preview-card" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
+            <img class="hero-preview-card__cover" src="${escapeHtml(getCardCoverUrl(game))}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" ${getCoverFallbackAttributes(game)} />
+            <span>${escapeHtml(game.console)}</span>
+            <strong>${escapeHtml(game.title)}</strong>
+            <em>Loose ${formatPrice(game.priceLoose)} / CiB ${formatPrice(game.priceComplete ?? game.priceLoose ?? 0)}</em>
+          </button>
+        `).join('')}
+      </div>
+    </section>
+  `
+}
 
-            return `
-              <button class="hero-preview-card" type="button" data-action="${game ? 'open-details' : 'browse-console-library'}" ${game ? `data-id="${escapeHtml(game.id)}"` : `data-console="${escapeHtml(consoleName)}"`}>
-                <img class="hero-preview-card__cover" src="${escapeHtml(cover)}" alt="${escapeHtml(title)} cover art" loading="lazy" decoding="async" ${game ? getCoverFallbackAttributes(game) : ''} />
-                <span>${escapeHtml(label)}</span>
-                <strong>${escapeHtml(title)}</strong>
-              </button>
-            `
-          })
-          .join('')}
+function renderPlatformProofStrip() {
+  const desktopGames = getCatalogRunwayGames(getCatalog(), 3)
+  const mobileGames = getCatalogRunwayGames(getCatalog().slice().reverse(), 2)
+
+  return `
+    <section class="platform-proof" aria-label="Built for desktop and mobile">
+      <div class="platform-proof__intro">
+        <p class="kicker">Built for desktop and mobile</p>
+        <h2>Use it at home, at a market, in a game shop, or while checking your shelf.</h2>
+      </div>
+      <div class="platform-proof__grid">
+        <article class="platform-proof__card">
+          <span class="stat-label">Desktop view</span>
+          <div class="platform-proof__frame platform-proof__frame--desktop">
+            <div class="platform-proof__bar"></div>
+            <div class="platform-proof__cards">
+              ${desktopGames.map((game) => `
+                <div class="platform-proof__mini-card">
+                  <img src="${escapeHtml(getCardCoverUrl(game))}" alt="" loading="lazy" decoding="async" ${getCoverFallbackAttributes(game)} />
+                  <strong>${escapeHtml(game.title)}</strong>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </article>
+        <article class="platform-proof__card">
+          <span class="stat-label">Phone view</span>
+          <div class="platform-proof__frame platform-proof__frame--phone">
+            <div class="platform-proof__stack">
+              ${mobileGames.map((game) => `
+                <div class="platform-proof__mini-row">
+                  <img src="${escapeHtml(getCardCoverUrl(game))}" alt="" loading="lazy" decoding="async" ${getCoverFallbackAttributes(game)} />
+                  <div>
+                    <strong>${escapeHtml(game.title)}</strong>
+                    <span>${escapeHtml(game.console)}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </article>
       </div>
     </section>
   `
@@ -6491,6 +6538,9 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
             ? `<h2>The games everyone knows</h2><p class="legends-sub">The must-haves, the grails, the ones that made you a collector. Switch to <em>All consoles</em> to see everything.</p>`
             : `<h2>${showSkeleton ? 'Loading the Games Library' : `${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view`}</h2>`}
         </div>
+        <div class="catalog-section__actions">
+          <button class="ghost-button" data-action="open-custom-entry" type="button">Report Missing Game</button>
+        </div>
       </div>
       ${renderAlphabetBar()}
       ${
@@ -7456,6 +7506,7 @@ function renderNow() {
       ${renderFeatureStrip()}
       ${renderCollectorPositioningStrip()}
       ${renderTrustStrip()}
+      ${renderPlatformProofStrip()}
       ${renderReturnStrip()}
       ${renderCollectorCommandStrip()}
       ${renderAccountUnlockStrip()}
@@ -7543,7 +7594,8 @@ function renderNow() {
             <button class="secondary-button" type="button" data-action="open-scanner">Scan Barcode</button>
             <button class="secondary-button" type="button" data-action="browse-tradeable-now">Ready to Trade</button>
           </div>
-          <p class="hero-action-note">No account needed &mdash; jump straight to the games.</p>
+          <p class="hero-action-note">No account needed &mdash; search games before creating a vault.</p>
+          ${renderHeroSearchBlock()}
           ${renderHeroTrustBadges()}
           ${renderHeroPreviewStrip()}
           ${renderFeaturedSystemsStrip()}
@@ -8015,11 +8067,26 @@ function bindEvents() {
   }, { capture: true })
 
   app.addEventListener('keydown', (event) => {
+    const target = event.target as HTMLElement
+
+    if (event.key === 'Enter' && target instanceof HTMLInputElement && target.id === 'hero-search-input') {
+      event.preventDefault()
+      const query = target.value.trim()
+      state.search = query
+      state.consoleFilter = 'All consoles'
+      state.regionFilter = 'All regions'
+      state.ownershipFilter = 'all'
+      state.letterFilter = ''
+      resetVisibleGameCount()
+      render()
+      document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
     if (event.key !== 'Enter' && event.key !== ' ') {
       return
     }
 
-    const target = event.target as HTMLElement
     const card = target.closest<HTMLElement>('.game-card[data-id]')
 
     if (!card || target.closest('.card-actions')) {
@@ -8522,8 +8589,27 @@ async function handleAction(element: HTMLElement) {
       render()
       break
     case 'browse-library':
+      state.consoleFilter = 'All consoles'
+      state.regionFilter = 'All regions'
+      state.ownershipFilter = 'all'
+      state.letterFilter = ''
+      resetVisibleGameCount()
+      render()
       document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       break
+    case 'submit-hero-search': {
+      const heroSearchInput = document.querySelector<HTMLInputElement>('#hero-search-input')
+      const query = heroSearchInput?.value.trim() ?? ''
+      state.search = query
+      state.consoleFilter = 'All consoles'
+      state.regionFilter = 'All regions'
+      state.ownershipFilter = 'all'
+      state.letterFilter = ''
+      resetVisibleGameCount()
+      render()
+      document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      break
+    }
     case 'browse-owned-games':
       state.ownershipFilter = 'owned'
       resetVisibleGameCount()
@@ -10542,13 +10628,6 @@ const POPULAR_CONSOLE_ORDER = [
   'Game Boy Color', 'Dreamcast', 'Nintendo DS', 'Sega Saturn',
   'Atari 2600', 'Sega Master System', 'PSP', 'GameCube',
 ]
-
-const HERO_PREVIEW_SYSTEMS = [
-  { label: 'NES', consoleName: 'NES' },
-  { label: 'SNES', consoleName: 'Super Nintendo' },
-  { label: 'Game Boy', consoleName: 'Game Boy' },
-  { label: 'PS2', consoleName: 'PlayStation 2' },
-] as const
 
 const FEATURED_SYSTEMS = [
   { label: 'NES', consoleName: 'NES' },
