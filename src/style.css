@@ -437,6 +437,100 @@ a {
   min-width: 148px;
 }
 
+.hero-search__suggestions {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.hero-search__suggestions--quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hero-search__chip {
+  padding-inline: 14px;
+}
+
+.hero-search-result {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  text-align: left;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.hero-search-result:hover,
+.hero-search-result:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(255, 214, 110, 0.3);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hero-search-result__cover {
+  width: 58px;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  object-fit: cover;
+  background: rgba(8, 13, 22, 0.92);
+}
+
+.hero-search-result__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hero-search-result__copy span {
+  color: var(--accent-2);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-search-result__copy strong {
+  font-size: 0.92rem;
+  line-height: 1.28;
+}
+
+.hero-search-result__copy em {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-style: normal;
+  line-height: 1.3;
+}
+
+.hero-search__view-all {
+  justify-self: start;
+}
+
+.hero-search__empty {
+  display: grid;
+  gap: 10px;
+  padding: 12px 0 2px;
+}
+
+.hero-search__empty p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.hero-search__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .hero-badges {
   display: flex;
   flex-wrap: wrap;
@@ -4600,6 +4694,21 @@ a {
   .hero-search__button {
     width: 100%;
     min-width: 0;
+    justify-content: center;
+  }
+
+  .hero-search-result {
+    grid-template-columns: 50px minmax(0, 1fr);
+    gap: 10px;
+    padding: 9px;
+  }
+
+  .hero-search-result__cover {
+    width: 50px;
+  }
+
+  .hero-search__view-all {
+    width: 100%;
     justify-content: center;
   }
 

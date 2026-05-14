@@ -434,6 +434,7 @@ const currencyOptions = [
 
 const state = {
   search: '',
+  heroSearchDraft: '',
   consoleFilter: LEGENDS_FILTER,
   regionFilter: 'All regions',
   yearFilter: 'All years',
@@ -4552,6 +4553,7 @@ function renderHeroTrustBadges() {
 }
 
 function renderHeroSearchBlock() {
+  const heroSearchValue = state.heroSearchDraft || state.search
   return `
     <section class="hero-search" aria-label="Search the games library">
       <div class="hero-search__header">
@@ -4564,18 +4566,117 @@ function renderHeroSearchBlock() {
           <input
             id="hero-search-input"
             type="search"
-            value="${escapeHtml(state.search)}"
-            placeholder="Search Mario, Zelda, Pokémon, Sonic..."
+            value="${escapeHtml(heroSearchValue)}"
+            placeholder="Search Mario, Zelda, Pokemon, Sonic..."
             autocomplete="off"
           />
         </label>
         <button class="install-button hero-search__button" type="button" data-action="submit-hero-search">Search Games</button>
       </div>
+      <div id="hero-search-suggestions">
+        ${renderHeroSearchSuggestions(heroSearchValue)}
+      </div>
     </section>
   `
 }
 
-function renderHeroPreviewStrip() {
+function getHeroSearchSuggestions(query: string) {
+  const trimmed = query.trim()
+
+  if (trimmed.length < 2) {
+    return [] as CatalogEntry[]
+  }
+
+  return getCatalog()
+    .filter((game) => matchesSearchValue(game, trimmed, true))
+    .slice(0, 5)
+}
+
+function renderHeroSearchSuggestions(query: string) {
+  const trimmed = query.trim()
+
+  if (trimmed.length < 2) {
+    const quickSearches = ['Super Mario', 'Pokemon', 'Zelda', 'Sonic']
+    return `
+      <div class="hero-search__suggestions hero-search__suggestions--quick" aria-label="Quick searches">
+        ${quickSearches.map((term) => `<button class="chip hero-search__chip" type="button" data-action="hero-search-fill" data-query="${escapeHtml(term)}">${escapeHtml(term)}</button>`).join('')}
+      </div>
+    `
+  }
+
+  const suggestions = getHeroSearchSuggestions(trimmed)
+
+  if (suggestions.length === 0) {
+    return `
+      <div class="hero-search__empty">
+        <p>No instant match for <strong>${escapeHtml(trimmed)}</strong> yet.</p>
+        <div class="hero-search__empty-actions">
+          <button class="ghost-button" type="button" data-action="submit-hero-search">Search full library</button>
+          <button class="ghost-button" type="button" data-action="open-custom-entry">Report missing game</button>
+        </div>
+      </div>
+    `
+  }
+
+  return `
+    <div class="hero-search__suggestions" aria-label="Instant game results">
+      ${suggestions.map((game) => `
+        <button class="hero-search-result" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
+          <img class="hero-search-result__cover" src="${escapeHtml(getCardCoverUrl(game))}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" ${getCoverFallbackAttributes(game)} />
+          <div class="hero-search-result__copy">
+            <span>${escapeHtml(game.console)}</span>
+            <strong>${escapeHtml(game.title)}</strong>
+            <em>Loose ${formatPrice(game.priceLoose)} / CiB ${formatPrice(game.priceComplete ?? game.priceLoose ?? 0)}</em>
+          </div>
+        </button>
+      `).join('')}
+      <button class="ghost-button hero-search__view-all" type="button" data-action="submit-hero-search">Search full library for "${escapeHtml(trimmed)}"</button>
+    </div>
+  `
+}
+
+function getHeroPreviewEntries() {
+  const catalog = getCatalog()
+  const items: Array<{ game: CatalogEntry; label: string; detail: string }> = []
+  const seen = new Set<string>()
+  const push = (game: CatalogEntry | null | undefined, label: string, detail: string) => {
+    if (!game || seen.has(game.id)) {
+      return
+    }
+
+    seen.add(game.id)
+    items.push({ game, label, detail })
+  }
+
+  const recentGames = state.recentViewedGameIds
+    .map((id) => catalog.find((game) => game.id === id) ?? null)
+    .filter((game): game is CatalogEntry => game !== null)
+
+  const wantedGames = [...getWantedGames()].sort((left, right) => getReferencePrice(right) - getReferencePrice(left))
+  const ownedGames = [...getOwnedGames()].sort((left, right) => getOwnedMarketPrice(right) - getOwnedMarketPrice(left))
+
+  for (const game of wantedGames) {
+    const record = getRecord(game.id)
+    const targetValue = typeof record.targetPrice === 'number' ? formatPrice(record.targetPrice) : formatPrice(getReferencePrice(game))
+    push(game, `Wanted - ${game.console}`, `Target ${targetValue}`)
+  }
+
+  for (const game of recentGames) {
+    push(game, `Continue hunting - ${game.console}`, `Loose ${formatPrice(game.priceLoose)} / CiB ${formatPrice(game.priceComplete ?? game.priceLoose ?? 0)}`)
+  }
+
+  for (const game of ownedGames) {
+    push(game, `Owned - ${game.console}`, getOwnedValueLabel(game))
+  }
+
+  if (items.length >= 4) {
+    return {
+      title: 'Picked from your vault',
+      subtitle: 'Wanted games, recent views, and owned highlights from your collector workflow.',
+      items,
+    }
+  }
+
   const searchTerms = [
     'super mario world',
     'pokemon red',
@@ -4584,30 +4685,55 @@ function renderHeroPreviewStrip() {
     'final fantasy vii',
     'metal gear solid',
   ]
-  const catalog = getCatalog()
   const previews = searchTerms
     .map((term) => catalog.find((game) => game.title.toLowerCase().includes(term) && Boolean(game.coverUrl)))
     .filter((game): game is CatalogEntry => game !== undefined)
     .slice(0, 6)
+    .map((game) => ({
+      game,
+      label: game.console,
+      detail: `Loose ${formatPrice(game.priceLoose)} / CiB ${formatPrice(game.priceComplete ?? game.priceLoose ?? 0)}`,
+    }))
+
+  return {
+    title: 'Popular games collectors are tracking',
+    subtitle: 'Real covers, real titles, real value context.',
+    items: previews,
+  }
+}
+
+function renderHeroPreviewStrip() {
+  const preview = getHeroPreviewEntries()
 
   return `
-    <section class="hero-preview" aria-label="Popular games collectors are tracking">
+    <section class="hero-preview" aria-label="${escapeHtml(preview.title)}">
       <div class="hero-preview__header">
-        <p class="kicker">Popular games collectors are tracking</p>
-        <p class="subtle">Real covers, real titles, real value context.</p>
+        <p class="kicker">${escapeHtml(preview.title)}</p>
+        <p class="subtle">${escapeHtml(preview.subtitle)}</p>
       </div>
       <div class="hero-preview__grid">
-        ${previews.map((game) => `
+        ${preview.items.slice(0, 6).map(({ game, label, detail }) => `
           <button class="hero-preview-card" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
             <img class="hero-preview-card__cover" src="${escapeHtml(getCardCoverUrl(game))}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" ${getCoverFallbackAttributes(game)} />
-            <span>${escapeHtml(game.console)}</span>
+            <span>${escapeHtml(label)}</span>
             <strong>${escapeHtml(game.title)}</strong>
-            <em>Loose ${formatPrice(game.priceLoose)} / CiB ${formatPrice(game.priceComplete ?? game.priceLoose ?? 0)}</em>
+            <em>${escapeHtml(detail)}</em>
           </button>
         `).join('')}
       </div>
     </section>
   `
+}
+
+function syncHeroSearchSuggestions() {
+  const suggestionsRoot = document.querySelector<HTMLElement>('#hero-search-suggestions')
+  const input = document.querySelector<HTMLInputElement>('#hero-search-input')
+
+  if (!suggestionsRoot || !input) {
+    return
+  }
+
+  suggestionsRoot.innerHTML = renderHeroSearchSuggestions(input.value)
 }
 
 function renderPlatformProofStrip() {
@@ -7968,6 +8094,9 @@ function bindEvents() {
     if (target.id === 'search-input') {
       rememberInputFocus(target)
       scheduleSearchRender(target.value)
+    } else if (target.id === 'hero-search-input') {
+      state.heroSearchDraft = target.value
+      syncHeroSearchSuggestions()
     } else if (target.id === 'barcode-search') {
       rememberInputFocus(target)
       scheduleBarcodeSearchRender(target.value)
@@ -8072,6 +8201,7 @@ function bindEvents() {
     if (event.key === 'Enter' && target instanceof HTMLInputElement && target.id === 'hero-search-input') {
       event.preventDefault()
       const query = target.value.trim()
+      state.heroSearchDraft = query
       state.search = query
       state.consoleFilter = 'All consoles'
       state.regionFilter = 'All regions'
@@ -8589,6 +8719,7 @@ async function handleAction(element: HTMLElement) {
       render()
       break
     case 'browse-library':
+      state.heroSearchDraft = ''
       state.consoleFilter = 'All consoles'
       state.regionFilter = 'All regions'
       state.ownershipFilter = 'all'
@@ -8600,6 +8731,7 @@ async function handleAction(element: HTMLElement) {
     case 'submit-hero-search': {
       const heroSearchInput = document.querySelector<HTMLInputElement>('#hero-search-input')
       const query = heroSearchInput?.value.trim() ?? ''
+      state.heroSearchDraft = query
       state.search = query
       state.consoleFilter = 'All consoles'
       state.regionFilter = 'All regions'
@@ -8608,6 +8740,17 @@ async function handleAction(element: HTMLElement) {
       resetVisibleGameCount()
       render()
       document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      break
+    }
+    case 'hero-search-fill': {
+      const query = element.dataset.query ?? ''
+      state.heroSearchDraft = query
+      const heroSearchInput = document.querySelector<HTMLInputElement>('#hero-search-input')
+      if (heroSearchInput) {
+        heroSearchInput.value = query
+        heroSearchInput.focus()
+      }
+      syncHeroSearchSuggestions()
       break
     }
     case 'browse-owned-games':
@@ -10780,5 +10923,6 @@ if ('requestIdleCallback' in window) {
   }, 1200)
 }
 setTimeout(() => { void hydrateAccount() }, 1500)
+
 
 
