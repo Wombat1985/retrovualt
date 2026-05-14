@@ -7619,7 +7619,6 @@ function renderNow() {
   const selectedCurrency = getSelectedCurrency()
   const alertMatches = dashboard.alertMatches
   const nearCompleteConsoles = dashboard.nearCompleteConsoles
-  const collectorRank = dashboard.collectorRank
   const accountIdentity = getAccountIdentityLabel()
   const compactCatalogWindow = useCompactCatalogWindow()
   const catalogStatusText = state.isCatalogLoading
@@ -7751,11 +7750,6 @@ function renderNow() {
             <span class="stat-label">Collection premium</span>
             <strong class="hero-stat-value hero-stat-value--money">${formatPrice(ownedCompleteValue)}</strong>
             <span class="stat-note">Complete market total in ${selectedCurrency.code}</span>
-          </article>
-          <article class="hero-stat-card hero-stat-card--rank">
-            <span class="stat-label">Collector rank</span>
-            <strong class="hero-stat-value hero-stat-value--rank">${collectorRank.title}</strong>
-            <span class="stat-note">${collectorRank.detail}</span>
           </article>
         </div>
       </header>
