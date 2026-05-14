@@ -4233,6 +4233,35 @@ a {
   justify-content: center;
   padding: 18px;
   overflow: hidden;
+  position: relative;
+}
+
+.game-modal-media--fallback::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.08) 20%, transparent 40%),
+    linear-gradient(180deg, rgba(255, 214, 110, 0.08), rgba(75, 121, 182, 0.05));
+  background-size: 220% 100%, 100% 100%;
+  animation: shimmer 2.2s ease-in-out infinite;
+}
+
+.game-modal-media--fallback::after {
+  content: 'Cover pending';
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 1;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(9, 16, 24, 0.72);
+  border: 1px solid rgba(255, 214, 110, 0.28);
+  color: var(--accent-2);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .game-modal-cover {
@@ -4241,6 +4270,8 @@ a {
   object-fit: contain;
   display: block;
   transition: opacity 180ms ease, transform 180ms ease;
+  position: relative;
+  z-index: 1;
 }
 
 .game-modal-cover.is-upgrading-cover {

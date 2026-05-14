@@ -378,11 +378,13 @@ let pendingTradePromptTimeout = 0
 let publicCommunityStatsFetchPromise: Promise<void> | null = null
 let tradeAvailabilityFetchSequence = 0
 let libraryRevision = 0
+let detailCoverPrewarmObserver: IntersectionObserver | null = null
 let appEventsBound = false
 let lastInputFocusSnapshot: FocusSnapshot | null = null
 let bodyScrollLocked = false
 let bodyScrollLockY = 0
 let selectedGameModalRenderedId: string | null = null
+const prewarmedDetailCoverUrls = new Set<string>()
 
 type FocusSnapshot = {
   id: string
@@ -4334,6 +4336,7 @@ function renderSelectedGameModal() {
   const identifierRows = getGameIdentifierRows(game)
   const coverUrl = getCardCoverUrl(game)
   const detailCoverUpgradeUrl = getDetailCoverUpgradeUrl(game)
+  const hasLinkedCover = Boolean(game.coverUrl)
   const tradeAvailabilityCount = getTradeAvailabilityCount(game.id)
   const marketCoverage = getMarketCoverageSummary(game)
   const valueGap =
@@ -4343,7 +4346,7 @@ function renderSelectedGameModal() {
     <div class="game-modal-backdrop" data-action="close-details">
       <section class="game-modal" role="dialog" aria-modal="true" aria-labelledby="game-modal-title">
         <button class="modal-close" type="button" data-action="close-details" aria-label="Close details">Close</button>
-        <div class="game-modal-media">
+        <div class="game-modal-media ${hasLinkedCover ? '' : 'game-modal-media--fallback'}">
           <img
             class="game-modal-cover"
             src="${coverUrl}"
@@ -7921,6 +7924,7 @@ function renderNow() {
 
   bindEvents()
   hydrateSelectedGameCover()
+  setupDetailCoverPrewarmObserver()
   const nextModal = app.querySelector<HTMLElement>('.game-modal')
   if (nextModal && state.selectedGameId) {
     nextModal.scrollTop = state.selectedGameId === selectedGameModalRenderedId ? state.selectedGameModalScrollTop : 0
@@ -7978,6 +7982,66 @@ function hydrateSelectedGameCover() {
   )
 
   image.src = detailSrc
+}
+
+function prewarmDetailCoverForGameId(gameId: string | null | undefined) {
+  if (!gameId) {
+    return
+  }
+
+  const game = getGameById(gameId)
+
+  if (!game) {
+    return
+  }
+
+  const detailSrc = getDetailCoverUpgradeUrl(game) || getCardCoverUrl(game)
+
+  if (!detailSrc || prewarmedDetailCoverUrls.has(detailSrc)) {
+    return
+  }
+
+  prewarmedDetailCoverUrls.add(detailSrc)
+
+  const image = new Image()
+  image.decoding = 'async'
+  image.referrerPolicy = 'no-referrer'
+  image.src = detailSrc
+}
+
+function setupDetailCoverPrewarmObserver() {
+  if (detailCoverPrewarmObserver) {
+    detailCoverPrewarmObserver.disconnect()
+    detailCoverPrewarmObserver = null
+  }
+
+  if (typeof IntersectionObserver === 'undefined') {
+    return
+  }
+
+  detailCoverPrewarmObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) {
+          continue
+        }
+
+        const target = entry.target as HTMLElement
+        prewarmDetailCoverForGameId(target.dataset.id)
+        detailCoverPrewarmObserver?.unobserve(target)
+      }
+    },
+    {
+      rootMargin: '280px 0px',
+      threshold: 0.12,
+    },
+  )
+
+  const prewarmTargets = app.querySelectorAll<HTMLElement>(
+    '.game-card[data-id], .catalog-rail-card[data-id], .hero-preview-card[data-id], .hero-search-result[data-id]',
+  )
+
+  prewarmTargets.forEach((target) => detailCoverPrewarmObserver?.observe(target))
 }
 
 function render() {
@@ -8190,6 +8254,36 @@ function bindEvents() {
       updateCustomEntryCoverPreview(target.form)
     }
   })
+
+  app.addEventListener(
+    'mouseover',
+    (event) => {
+      const target = event.target as HTMLElement
+      const hoverTarget = target.closest<HTMLElement>('.game-card[data-id], .catalog-rail-card[data-id], .hero-preview-card[data-id], .hero-search-result[data-id]')
+
+      if (!hoverTarget) {
+        return
+      }
+
+      prewarmDetailCoverForGameId(hoverTarget.dataset.id)
+    },
+    true,
+  )
+
+  app.addEventListener(
+    'focusin',
+    (event) => {
+      const target = event.target as HTMLElement
+      const focusTarget = target.closest<HTMLElement>('.game-card[data-id], .catalog-rail-card[data-id], .hero-preview-card[data-id], .hero-search-result[data-id]')
+
+      if (!focusTarget) {
+        return
+      }
+
+      prewarmDetailCoverForGameId(focusTarget.dataset.id)
+    },
+    true,
+  )
 
   app.addEventListener(
     'error',
