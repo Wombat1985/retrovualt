@@ -3254,6 +3254,16 @@ function getDetailCoverUrl(game: CatalogEntry) {
   return game.coverUrl ? game.coverUrl.replace('/240.jpg', '/1600.jpg') : getCoverFallbackDataUri(game)
 }
 
+function getDetailCoverUpgradeUrl(game: CatalogEntry) {
+  if (!game.coverUrl) {
+    return ''
+  }
+
+  const immediateCoverUrl = getCardCoverUrl(game)
+  const detailCoverUrl = getDetailCoverUrl(game)
+  return detailCoverUrl !== immediateCoverUrl ? detailCoverUrl : ''
+}
+
 function getBackdropGames(visibleGames: CatalogEntry[], catalog: CatalogEntry[]) {
   const picks: CatalogEntry[] = []
   const seen = new Set<string>()
@@ -4322,6 +4332,8 @@ function renderSelectedGameModal() {
   const safeCoverSourceUrl = escapeHtml(game.coverSourceUrl)
   const variantSummary = getVariantSummary(game)
   const identifierRows = getGameIdentifierRows(game)
+  const coverUrl = getCardCoverUrl(game)
+  const detailCoverUpgradeUrl = getDetailCoverUpgradeUrl(game)
   const tradeAvailabilityCount = getTradeAvailabilityCount(game.id)
   const marketCoverage = getMarketCoverageSummary(game)
   const valueGap =
@@ -4334,11 +4346,12 @@ function renderSelectedGameModal() {
         <div class="game-modal-media">
           <img
             class="game-modal-cover"
-            src="${getDetailCoverUrl(game)}"
+            src="${coverUrl}"
             alt="${escapeHtml(game.title)} cover art"
             loading="eager"
             decoding="async"
             referrerpolicy="no-referrer"
+            ${detailCoverUpgradeUrl ? `data-detail-src="${escapeHtml(detailCoverUpgradeUrl)}"` : ''}
             ${getCoverFallbackAttributes(game)}
           />
         </div>
@@ -7907,6 +7920,7 @@ function renderNow() {
   `
 
   bindEvents()
+  hydrateSelectedGameCover()
   const nextModal = app.querySelector<HTMLElement>('.game-modal')
   if (nextModal && state.selectedGameId) {
     nextModal.scrollTop = state.selectedGameId === selectedGameModalRenderedId ? state.selectedGameModalScrollTop : 0
@@ -7917,6 +7931,53 @@ function renderNow() {
   void syncLiveBarcodeScan()
   scheduleTradeAvailabilityRefresh(visibleGames)
   scheduleCollectorInsightRefresh()
+}
+
+function hydrateSelectedGameCover() {
+  const modalCover = app.querySelector<HTMLImageElement>('.game-modal-cover[data-detail-src]')
+
+  if (!modalCover) {
+    return
+  }
+
+  const detailSrc = modalCover.dataset.detailSrc
+
+  if (!detailSrc || modalCover.src === detailSrc || modalCover.dataset.detailStatus === 'loading' || modalCover.dataset.detailStatus === 'ready') {
+    return
+  }
+
+  modalCover.dataset.detailStatus = 'loading'
+  modalCover.classList.add('is-upgrading-cover')
+
+  const image = new Image()
+  image.decoding = 'async'
+  image.referrerPolicy = 'no-referrer'
+
+  const finalizeUpgrade = () => {
+    if (!modalCover.isConnected || modalCover.dataset.detailSrc !== detailSrc) {
+      return
+    }
+
+    modalCover.src = detailSrc
+    modalCover.dataset.detailStatus = 'ready'
+    modalCover.classList.remove('is-upgrading-cover')
+  }
+
+  image.addEventListener('load', finalizeUpgrade, { once: true })
+  image.addEventListener(
+    'error',
+    () => {
+      if (!modalCover.isConnected || modalCover.dataset.detailSrc !== detailSrc) {
+        return
+      }
+
+      modalCover.dataset.detailStatus = 'failed'
+      modalCover.classList.remove('is-upgrading-cover')
+    },
+    { once: true },
+  )
+
+  image.src = detailSrc
 }
 
 function render() {

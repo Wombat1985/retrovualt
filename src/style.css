@@ -4232,6 +4232,7 @@ a {
   align-items: center;
   justify-content: center;
   padding: 18px;
+  overflow: hidden;
 }
 
 .game-modal-cover {
@@ -4239,6 +4240,12 @@ a {
   max-height: 72vh;
   object-fit: contain;
   display: block;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.game-modal-cover.is-upgrading-cover {
+  opacity: 0.98;
+  transform: scale(1.01);
 }
 
 .game-modal-copy {
