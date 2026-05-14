@@ -2763,6 +2763,93 @@ a {
   gap: 18px;
 }
 
+.catalog-rail {
+  display: grid;
+  gap: 12px;
+}
+
+.catalog-rail__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: end;
+  gap: 8px 16px;
+}
+
+.catalog-rail__header .kicker,
+.catalog-rail__header .subtle,
+.catalog-rail__header h3 {
+  margin: 0;
+}
+
+.catalog-rail__header h3 {
+  font-size: clamp(1.2rem, 2.6vw, 1.7rem);
+  line-height: 1.08;
+}
+
+.catalog-rail__track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.catalog-rail-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.catalog-rail-card:hover,
+.catalog-rail-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(255, 214, 110, 0.34);
+}
+
+.catalog-rail-card__cover {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 16px;
+  object-fit: cover;
+  background: rgba(10, 18, 27, 0.9);
+}
+
+.catalog-rail-card__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.catalog-rail-card__copy span {
+  color: var(--accent-2);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.catalog-rail-card__copy strong {
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.catalog-rail-card__copy em {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-style: normal;
+}
+
 .view-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2878,6 +2965,11 @@ a {
   border-radius: 26px;
   overflow: hidden;
   position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(10, 18, 27, 0.96)),
+    var(--panel);
+  box-shadow: var(--shadow);
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -2923,6 +3015,16 @@ a {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.game-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 214, 110, 0.09), transparent 22%, transparent 100%);
+  opacity: 0.8;
 }
 
 .game-card.just-owned {
@@ -3113,14 +3215,31 @@ a {
   padding: 14px;
 }
 
+.game-meta {
+  display: grid;
+  gap: 5px;
+}
+
 .game-copy h3 {
-  font-size: 1.45rem;
+  font-size: 1.3rem;
+  line-height: 1.02;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .collector-line {
   margin: 0;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.collector-signal {
+  margin: 2px 0 0;
+  color: rgba(255, 233, 164, 0.92);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .price-grid {
@@ -3131,9 +3250,12 @@ a {
 }
 
 .price-grid div {
-  background: var(--panel-strong);
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.04), rgba(10, 18, 27, 0.98)),
+    var(--panel-strong);
   border-radius: 16px;
   padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .price-grid dd {
@@ -4084,6 +4206,7 @@ a {
   .vault-health-strip__grid,
   .workspace-rail__grid,
   .vault-lanes__list,
+  .catalog-rail__track,
   .trust-strip,
   .onboarding-panel,
   .hero-preview__grid,
@@ -4128,6 +4251,7 @@ a {
   .vault-health-strip__grid,
   .workspace-rail__grid,
   .vault-lanes__list,
+  .catalog-rail__track,
   .trust-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4298,6 +4422,20 @@ a {
   }
 
   .vault-lane {
+    scroll-snap-align: start;
+  }
+
+  .catalog-rail__track {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(188px, 82%);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
+  }
+
+  .catalog-rail-card {
     scroll-snap-align: start;
   }
 

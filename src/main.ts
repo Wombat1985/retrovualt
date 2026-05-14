@@ -279,6 +279,7 @@ const ACTIVITY_STORAGE_KEY = 'retro-game-collector-activity-events'
 const TRADE_OPPORTUNITY_SEEN_KEY = 'retro-game-collector-trade-opportunities-seen'
 const TRADE_HIDE_ARCHIVED_KEY = 'retro-game-collector-trade-hide-archived'
 const PUBLIC_COMMUNITY_STATS_STORAGE_KEY = 'retro-game-collector-community-stats'
+const RECENT_VIEWED_STORAGE_KEY = 'retro-game-collector-recent-viewed'
 const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
@@ -462,6 +463,7 @@ const state = {
   onboardingDismissed: loadOnboardingDismissed(),
   hideArchivedTrades: loadHideArchivedTrades(),
   publicCommunityStats: loadPublicCommunityStatsCache(),
+  recentViewedGameIds: loadRecentViewedGameIds(),
   visitStreak: recordDailyVisit(),
   activityEvents: loadActivityEvents(),
   cachedOwnedGames: [] as CatalogEntry[],
@@ -603,6 +605,32 @@ function savePublicCommunityStatsCache(stats: PublicCommunityStats) {
   } catch {
     // Social proof cache should never block the app.
   }
+}
+
+function loadRecentViewedGameIds() {
+  try {
+    const raw = localStorage.getItem(RECENT_VIEWED_STORAGE_KEY)
+    if (!raw) return [] as string[]
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === 'string' && value.length > 0).slice(0, 24)
+      : []
+  } catch {
+    return [] as string[]
+  }
+}
+
+function saveRecentViewedGameIds() {
+  try {
+    localStorage.setItem(RECENT_VIEWED_STORAGE_KEY, JSON.stringify(state.recentViewedGameIds.slice(0, 24)))
+  } catch {
+    // Continue-hunting memory should never block the vault.
+  }
+}
+
+function rememberRecentViewedGame(gameId: string) {
+  state.recentViewedGameIds = [gameId, ...state.recentViewedGameIds.filter((id) => id !== gameId)].slice(0, 24)
+  saveRecentViewedGameIds()
 }
 
 async function ensurePublicCommunityStatsLoaded() {
@@ -4213,7 +4241,17 @@ function renderCard(game: CatalogEntry) {
   const ownedPulseClass = state.justOwnedGameId === game.id ? 'just-owned' : ''
   const safeGameId = escapeHtml(game.id)
   const tradeAvailabilityCount = getTradeAvailabilityCount(game.id)
+  const tradeWantedCount = getTradeWantedCount(game.id)
   const showTradeAvailability = tradeAvailabilityCount > 0 && record.status !== 'owned'
+  const collectorSignal = showTradeAvailability
+    ? (tradeAvailabilityCount === 1 ? '1 collector ready to trade' : `${tradeAvailabilityCount} collectors ready to trade`)
+    : isOwned && tradeWantedCount > 0
+      ? (tradeWantedCount === 1 ? 'Wanted by 1 collector' : `Wanted by ${tradeWantedCount} collectors`)
+      : game.trendDelta > 0.12
+        ? `Market moving +${Math.round(game.trendDelta * 100)}%`
+        : game.rarity === 'Grail'
+          ? 'Collector grail'
+          : 'Track value, condition, and notes'
 
   return `
     <article class="game-card ${isOwned ? 'is-owned' : ''} ${ownedPulseClass}" data-game-card="true" data-id="${safeGameId}" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(game.title)}">
@@ -4242,6 +4280,7 @@ function renderCard(game: CatalogEntry) {
           <p class="subtle">${yearText}</p>
           ${variantSummary ? `<p class="subtle">${escapeHtml(variantSummary)}</p>` : ''}
           <p class="collector-line">${escapeHtml(ownedEditionText)} / ${getConditionLabel(record.condition)}</p>
+          <p class="collector-signal">${escapeHtml(collectorSignal)}</p>
         </div>
         <dl class="price-grid">
           <div>
@@ -5127,6 +5166,126 @@ function renderVaultLanesStrip() {
           <strong>${alertCount.toLocaleString()} Live</strong>
           <em>Wanted games in play</em>
         </button>
+      </div>
+    </section>
+  `
+}
+
+function getCatalogRunwayGames(filteredGames: CatalogEntry[], limit = 4) {
+  const rarityWeight: Record<RarityTier, number> = { Grail: 30, Classic: 18, Common: 10 }
+  const base = filteredGames.slice(0, 180)
+  return [...base]
+    .sort((left, right) => {
+      const leftScore =
+        (getTradeAvailabilityCount(left.id) > 0 ? 24 : 0) +
+        getTradeWantedCount(left.id) * 5 +
+        (Math.max(left.trendDelta, 0) * 100) +
+        (left.priceComplete ?? left.priceLoose) / 22 +
+        rarityWeight[left.rarity]
+      const rightScore =
+        (getTradeAvailabilityCount(right.id) > 0 ? 24 : 0) +
+        getTradeWantedCount(right.id) * 5 +
+        (Math.max(right.trendDelta, 0) * 100) +
+        (right.priceComplete ?? right.priceLoose) / 22 +
+        rarityWeight[right.rarity]
+      return rightScore - leftScore
+    })
+    .slice(0, limit)
+}
+
+function getCatalogRunwayReason(game: CatalogEntry) {
+  const tradeCount = getTradeAvailabilityCount(game.id)
+  const wantedCount = getTradeWantedCount(game.id)
+
+  if (tradeCount > 0) {
+    return tradeCount === 1 ? 'Collector offering it now' : `${tradeCount} collectors trading now`
+  }
+
+  if (wantedCount > 0) {
+    return wantedCount === 1 ? 'Wanted by 1 collector' : `Wanted by ${wantedCount} collectors`
+  }
+
+  if (game.rarity === 'Grail') {
+    return 'Collector grail territory'
+  }
+
+  if (game.trendDelta > 0.12) {
+    return `Market moving +${Math.round(game.trendDelta * 100)}%`
+  }
+
+  return 'Worth opening next'
+}
+
+function renderCatalogRunway(filteredGames: CatalogEntry[]) {
+  const games = getCatalogRunwayGames(filteredGames)
+
+  if (!games.length) {
+    return ''
+  }
+
+  return `
+    <section class="catalog-rail catalog-rail--runway" aria-label="Picked for you">
+      <div class="catalog-rail__header">
+        <div>
+          <p class="kicker">Picked for you</p>
+          <h3>Popular right now</h3>
+        </div>
+        <p class="subtle">A premium first pass through the library before you drop into the full grid.</p>
+      </div>
+      <div class="catalog-rail__track">
+        ${games.map((game) => `
+          <button class="catalog-rail-card" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
+            <img class="catalog-rail-card__cover" src="${getCardCoverUrl(game)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${getCoverFallbackAttributes(game)} />
+            <div class="catalog-rail-card__copy">
+              <span>${escapeHtml(game.console)}</span>
+              <strong>${escapeHtml(game.title)}</strong>
+              <em>${escapeHtml(getCatalogRunwayReason(game))}</em>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </section>
+  `
+}
+
+function getRecentlyViewedGames(limit = 5) {
+  return state.recentViewedGameIds
+    .map((id) => getGameById(id))
+    .filter((game): game is CatalogEntry => game !== undefined)
+    .slice(0, limit)
+}
+
+function renderContinueHuntingStrip() {
+  if (!state.authToken) {
+    return ''
+  }
+
+  const games = getRecentlyViewedGames()
+
+  if (!games.length) {
+    return ''
+  }
+
+  return `
+    <section class="catalog-rail catalog-rail--recent" aria-label="Continue hunting">
+      <div class="catalog-rail__header">
+        <div>
+          <p class="kicker">Continue hunting</p>
+          <h3>Your recently viewed games</h3>
+        </div>
+        <p class="subtle">The vault remembers where your attention was last.</p>
+      </div>
+      <div class="catalog-rail__track">
+        ${games.map((game) => `
+          <button class="catalog-rail-card catalog-rail-card--recent" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
+            <img class="catalog-rail-card__cover" src="${getCardCoverUrl(game)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${getCoverFallbackAttributes(game)} />
+            <div class="catalog-rail-card__copy">
+              <span>${escapeHtml(game.console)} / ${escapeHtml(game.region)}</span>
+              <strong>${escapeHtml(game.title)}</strong>
+              <em>${formatPrice(getReferencePrice(game))} reference market</em>
+            </div>
+          </button>
+        `).join('')}
       </div>
     </section>
   `
@@ -6313,6 +6472,8 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
   const showSkeleton = state.isCatalogLoading && visibleGames.length === 0
   return `
     <section class="catalog-section">
+      ${renderCatalogRunway(filteredGames)}
+      ${renderContinueHuntingStrip()}
       <div class="section-heading">
         <div>
           <div class="catalog-kicker-row">
@@ -7845,7 +8006,11 @@ function bindEvents() {
       return
     }
 
-    state.selectedGameId = resolveGameId(card.dataset.id) ?? null
+    const gameId = resolveGameId(card.dataset.id) ?? null
+    if (gameId) {
+      rememberRecentViewedGame(gameId)
+    }
+    state.selectedGameId = gameId
     render()
   }, { capture: true })
 
@@ -7862,7 +8027,11 @@ function bindEvents() {
     }
 
     event.preventDefault()
-    state.selectedGameId = resolveGameId(card.dataset.id) ?? null
+    const gameId = resolveGameId(card.dataset.id) ?? null
+    if (gameId) {
+      rememberRecentViewedGame(gameId)
+    }
+    state.selectedGameId = gameId
     render()
   })
 }
@@ -8602,6 +8771,7 @@ async function handleAction(element: HTMLElement) {
         return
       }
 
+      rememberRecentViewedGame(id)
       state.selectedGameId = id
       state.ownershipConfirmId = null
       render()
