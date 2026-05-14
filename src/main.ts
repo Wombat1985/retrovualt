@@ -4552,6 +4552,34 @@ function renderHeroTrustBadges() {
   `
 }
 
+function renderHeroValueStrip() {
+  const items = [
+    {
+      title: 'Track exact copies',
+      detail: 'Loose, boxed, manual, CiB, sealed, graded, and duplicates stay separate.',
+    },
+    {
+      title: 'Build a wanted list',
+      detail: 'Keep your hunt list, target prices, and next upgrades tied to the same vault.',
+    },
+    {
+      title: 'Trade duplicates',
+      detail: 'Mark spare copies for trade and surface collector matches without leaving the vault.',
+    },
+  ]
+
+  return `
+    <section class="hero-value-strip" aria-label="What Retro Vault Elite helps collectors do">
+      ${items.map((item) => `
+        <article class="hero-value-card">
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.detail)}</span>
+        </article>
+      `).join('')}
+    </section>
+  `
+}
+
 function renderHeroSearchBlock() {
   const heroSearchValue = state.heroSearchDraft || state.search
   return `
@@ -7720,15 +7748,6 @@ function renderNow() {
             <button class="secondary-button" type="button" data-action="browse-tradeable-now">Ready to Trade</button>
           </div>
           <p class="hero-action-note">No account needed &mdash; search games before creating a vault.</p>
-          ${renderHeroSearchBlock()}
-          ${renderHeroTrustBadges()}
-          ${renderHeroPreviewStrip()}
-          ${renderFeaturedSystemsStrip()}
-          <p class="hero-text hero-text--trade">${
-            state.authToken
-              ? 'Trade Inbox shows collectors trading games you want, good matches, and private trade requests once both sides accept.'
-              : 'You can browse tradeable games right away. Create an account when you want to mark duplicates for trade and start sending requests.'
-          }</p>
         </div>
         <div class="hero-stats">
           <article class="hero-stat-card hero-stat-card--count">
@@ -7751,6 +7770,18 @@ function renderNow() {
             <strong class="hero-stat-value hero-stat-value--money">${formatPrice(ownedCompleteValue)}</strong>
             <span class="stat-note">Complete market total in ${selectedCurrency.code}</span>
           </article>
+        </div>
+        <div class="hero-bottom">
+          ${renderHeroTrustBadges()}
+          ${renderHeroValueStrip()}
+          ${renderHeroSearchBlock()}
+          ${renderHeroPreviewStrip()}
+          ${renderFeaturedSystemsStrip()}
+          <p class="hero-text hero-text--trade">${
+            state.authToken
+              ? 'Trade Inbox shows collectors trading games you want, good matches, and private trade requests once both sides accept.'
+              : 'You can browse tradeable games right away. Create an account when you want to mark duplicates for trade and start sending requests.'
+          }</p>
         </div>
       </header>
 
