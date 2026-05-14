@@ -5089,6 +5089,49 @@ function renderWorkspaceRail() {
   `
 }
 
+function renderVaultLanesStrip() {
+  const ownedCount = getOwnedGames().length
+  const wantedCount = getWantedGames().length
+  const tradeCount = getOwnedGames().filter((game) => getRecord(game.id).forTrade).length
+  const alertCount = getAlertMatches().length
+
+  return `
+    <section class="vault-lanes" aria-label="Vault quick lanes">
+      <div class="vault-lanes__header">
+        <p class="kicker">Start here</p>
+        <p class="subtle">Jump straight into the part of the vault that matters right now.</p>
+      </div>
+      <div class="vault-lanes__list">
+        <button class="vault-lane ${state.ownershipFilter === 'all' ? 'is-active' : ''}" type="button" data-action="browse-library">
+          <span>Games Library</span>
+          <strong>Browse Everything</strong>
+          <em>${getCatalog().length.toLocaleString()} games</em>
+        </button>
+        <button class="vault-lane ${state.ownershipFilter === 'owned' ? 'is-active' : ''}" type="button" data-action="browse-owned-games">
+          <span>Owned Shelf</span>
+          <strong>${ownedCount.toLocaleString()} Tracked</strong>
+          <em>Review copies</em>
+        </button>
+        <button class="vault-lane ${state.ownershipFilter === 'wanted' ? 'is-active' : ''}" type="button" data-action="browse-wanted-games">
+          <span>Wanted List</span>
+          <strong>${wantedCount.toLocaleString()} Hunting</strong>
+          <em>Build the chase</em>
+        </button>
+        <button class="vault-lane ${state.ownershipFilter === 'tradeable-now' ? 'is-active' : ''}" type="button" data-action="browse-tradeable-now">
+          <span>Ready To Trade</span>
+          <strong>${tradeCount.toLocaleString()} Listed</strong>
+          <em>Collectors trading now</em>
+        </button>
+        <button class="vault-lane ${state.ownershipFilter === 'wanted-now' ? 'is-active' : ''}" type="button" data-action="browse-alert-hits">
+          <span>Price Alerts</span>
+          <strong>${alertCount.toLocaleString()} Live</strong>
+          <em>Wanted games in play</em>
+        </button>
+      </div>
+    </section>
+  `
+}
+
 function getActivityActionMeta(event: ActivityEvent) {
   if (event.gameId) {
     return {
@@ -7379,6 +7422,7 @@ function renderNow() {
       </header>
 
       ${compactCatalogWindow ? '' : preCatalogCollectorMarkup}
+      ${renderVaultLanesStrip()}
       <section class="toolbar">
         <label class="search-field">
           <span>Search the vault</span>
@@ -8317,8 +8361,20 @@ async function handleAction(element: HTMLElement) {
       render()
       document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       break
+    case 'browse-wanted-games':
+      state.ownershipFilter = 'wanted'
+      resetVisibleGameCount()
+      render()
+      document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      break
     case 'browse-tradeable-now':
       state.ownershipFilter = 'tradeable-now'
+      resetVisibleGameCount()
+      render()
+      document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      break
+    case 'browse-alert-hits':
+      state.ownershipFilter = 'wanted-now'
       resetVisibleGameCount()
       render()
       document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })

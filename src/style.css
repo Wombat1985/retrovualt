@@ -1884,6 +1884,86 @@ a {
     var(--panel);
 }
 
+.vault-lanes {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.vault-lanes__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: end;
+  gap: 8px 16px;
+}
+
+.vault-lanes__header .kicker,
+.vault-lanes__header .subtle {
+  margin: 0;
+}
+
+.vault-lanes__list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.vault-lane {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.06), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.vault-lane:hover,
+.vault-lane:focus-visible,
+.vault-lane.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(255, 214, 110, 0.34);
+  background:
+    linear-gradient(150deg, rgba(255, 222, 128, 0.12), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+}
+
+.vault-lane span,
+.vault-lane em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-lane span {
+  color: var(--accent-2);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.vault-lane strong {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.vault-lane em {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: normal;
+}
+
 .alerts-strip__intro,
 .showcase-strip__intro,
 .alerts-card,
@@ -4003,6 +4083,7 @@ a {
   .market-radar-strip__grid,
   .vault-health-strip__grid,
   .workspace-rail__grid,
+  .vault-lanes__list,
   .trust-strip,
   .onboarding-panel,
   .hero-preview__grid,
@@ -4046,6 +4127,7 @@ a {
   .market-radar-strip__grid,
   .vault-health-strip__grid,
   .workspace-rail__grid,
+  .vault-lanes__list,
   .trust-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4201,7 +4283,30 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .vault-lanes {
+    gap: 10px;
+  }
+
+  .vault-lanes__list {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(188px, 82%);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
+  }
+
+  .vault-lane {
+    scroll-snap-align: start;
+  }
+
   .workspace-rail__header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .vault-lanes__header {
     align-items: start;
     flex-direction: column;
   }
