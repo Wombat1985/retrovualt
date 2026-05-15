@@ -4886,8 +4886,10 @@ a {
 
   .vault-lanes__list {
     display: grid;
+    grid-template-columns: none;
     grid-auto-flow: column;
     grid-auto-columns: minmax(220px, 84%);
+    grid-auto-rows: 1fr;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scroll-snap-type: x proximity;
@@ -4895,6 +4897,7 @@ a {
   }
 
   .vault-lane {
+    min-width: 220px;
     scroll-snap-align: start;
   }
 
