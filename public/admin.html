@@ -166,6 +166,24 @@
         font-weight: 800;
       }
 
+      .warn {
+        color: var(--gold);
+        font-weight: 800;
+      }
+
+      .health-panel {
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .health-panel ul {
+        margin: 8px 0 0;
+        padding-left: 20px;
+      }
+
       .card-heading-row {
         display: flex;
         flex-wrap: wrap;
@@ -353,6 +371,113 @@
           .join('')
       }
 
+      function renderEmailHealth(health) {
+        if (!health) {
+          return `
+            <div class="health-panel">
+              <p class="warn" style="margin:0">Email delivery status is not available yet.</p>
+            </div>
+          `
+        }
+
+        const warnings = Array.isArray(health.warnings) ? health.warnings : []
+        const statusClass = health.ready ? 'ok' : 'error'
+        const statusText = health.ready ? 'Email delivery looks ready.' : 'Email delivery needs attention before sending.'
+
+        return `
+          <div class="health-panel">
+            <p class="${statusClass}" style="margin:0 0 8px">${statusText}</p>
+            <p style="margin:0">
+              Provider: <strong>${escapeHtml(health.provider || 'Unknown')}</strong><br />
+              Sender: <strong>${escapeHtml(health.from || 'Not configured')}</strong>
+            </p>
+            ${warnings.length
+              ? `<ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>`
+              : '<p style="margin:8px 0 0">Backend sender config is in place.</p>'}
+          </div>
+        `
+      }
+
+      function applyBroadcastDraft(draft) {
+        const campaignTypeInput = document.querySelector('#broadcast-campaign-type')
+        const audienceInput = document.querySelector('#broadcast-audience')
+        const subjectInput = document.querySelector('#broadcast-subject')
+        const ctaInput = document.querySelector('#broadcast-cta')
+        const introInput = document.querySelector('#broadcast-intro')
+        const addedInput = document.querySelector('#broadcast-added')
+        const fixedInput = document.querySelector('#broadcast-fixed')
+        const testingInput = document.querySelector('#broadcast-testing')
+        const closingInput = document.querySelector('#broadcast-closing')
+        const draftMeta = document.querySelector('#broadcast-draft-meta')
+
+        if (
+          !campaignTypeInput ||
+          !audienceInput ||
+          !subjectInput ||
+          !ctaInput ||
+          !introInput ||
+          !addedInput ||
+          !fixedInput ||
+          !testingInput ||
+          !closingInput
+        ) {
+          return
+        }
+
+        campaignTypeInput.value = draft.campaignType || 'site_update'
+        audienceInput.value = draft.audience || 'members'
+        subjectInput.value = draft.subject || ''
+        ctaInput.value = draft.ctaLabel || 'Open Retro Vault Elite'
+        introInput.value = draft.intro || ''
+        addedInput.value = Array.isArray(draft.added) ? draft.added.join('\n') : ''
+        fixedInput.value = Array.isArray(draft.fixed) ? draft.fixed.join('\n') : ''
+        testingInput.value = Array.isArray(draft.testing) ? draft.testing.join('\n') : ''
+        closingInput.value = draft.closing || ''
+
+        if (draftMeta) {
+          draftMeta.innerHTML = `
+            <p class="ok" style="margin:0">
+              Auto-filled from recent site changes${draft.sourceCount ? ` (${Number(draft.sourceCount).toLocaleString()} commits scanned)` : ''}.
+            </p>
+          `
+        }
+      }
+
+      async function loadBroadcastDraft(type, quiet = false) {
+        const key = keyInput.value.trim()
+
+        if (!key) {
+          return false
+        }
+
+        const response = await fetchWithTimeout(
+          `${API_BASE_URL}/admin/email-draft?campaignType=${encodeURIComponent(type)}`,
+          {
+            headers: {
+              'X-Admin-Key': key,
+            },
+          },
+          20000,
+        )
+        const payload = await response.json()
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Could not build email draft.')
+        }
+
+        applyBroadcastDraft(payload)
+
+        if (!quiet) {
+          statusEl.className = 'ok'
+          statusEl.textContent =
+            type === 'newsletter'
+              ? 'Loaded weekly newsletter from recent shipped changes.'
+              : 'Loaded weekly member update from recent shipped changes.'
+        }
+
+        return true
+      }
+
       function renderStats(stats) {
         const backendLifetimeViews = Number(stats.analytics.lifetimePageViews || stats.analytics.totalPageViews || 0)
         const cachedLifetimeViews = Number(localStorage.getItem(lifetimeViewsKey) || 0)
@@ -360,6 +485,7 @@
         const storage = stats.storage || {}
         const storageOk = storage.ok !== false
         const storageLabel = storage.mode === 'supabase' ? 'Supabase' : 'Local mode'
+        const emailHealth = stats.emailHealth || null
 
         if (displayedLifetimeViews > cachedLifetimeViews) {
           localStorage.setItem(lifetimeViewsKey, String(displayedLifetimeViews))
@@ -460,6 +586,7 @@
               </div>
               <span class="ok">${Number(stats.userCount || 0).toLocaleString()} members / ${Number(stats.newsletterSubscriberCount || 0).toLocaleString()} subscribers</span>
             </div>
+            ${renderEmailHealth(emailHealth)}
             <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 14px">
               <label>
                 Campaign type
@@ -481,6 +608,7 @@
               <button class="small-button" type="button" data-action="preset-site-update">Load weekly member update</button>
               <button class="small-button" type="button" data-action="preset-newsletter">Load weekly newsletter</button>
             </div>
+            <div id="broadcast-draft-meta" style="margin-bottom: 14px"></div>
             <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 14px">
               <label>
                 Subject
@@ -744,52 +872,38 @@
       }
 
       function loadBroadcastPreset(type) {
-        const campaignTypeInput = document.querySelector('#broadcast-campaign-type')
-        const audienceInput = document.querySelector('#broadcast-audience')
-        const subjectInput = document.querySelector('#broadcast-subject')
-        const ctaInput = document.querySelector('#broadcast-cta')
-        const introInput = document.querySelector('#broadcast-intro')
-        const addedInput = document.querySelector('#broadcast-added')
-        const fixedInput = document.querySelector('#broadcast-fixed')
-        const testingInput = document.querySelector('#broadcast-testing')
-        const closingInput = document.querySelector('#broadcast-closing')
-
-        if (
-          !campaignTypeInput ||
-          !audienceInput ||
-          !subjectInput ||
-          !ctaInput ||
-          !introInput ||
-          !addedInput ||
-          !fixedInput ||
-          !testingInput ||
-          !closingInput
-        ) {
-          return
-        }
-
         if (type === 'newsletter') {
-          campaignTypeInput.value = 'newsletter'
-          audienceInput.value = 'newsletter'
-          subjectInput.value = 'Retro Vault Elite weekly collector watchlist'
-          ctaInput.value = 'Open the vault'
-          introInput.value = 'Here is this week\'s Retro Vault Elite collector watchlist: a quick note on what changed in the vault, what collectors should keep an eye on, and what is worth checking this week.'
-          addedInput.value = 'Add one collector watchlist item per line.'
-          fixedInput.value = 'Add one vault update per line.'
-          testingInput.value = 'Add one thing worth checking or testing this week per line.'
-          closingInput.value = 'Thanks for following along. If anything feels off, rough, or missing, reach out through the site support page and let me know.'
+          applyBroadcastDraft({
+            campaignType: 'newsletter',
+            audience: 'newsletter',
+            subject: 'Retro Vault Elite weekly collector watchlist',
+            ctaLabel: 'Open the vault',
+            intro:
+              'Here is this week\'s Retro Vault Elite collector watchlist: a quick note on what changed in the vault, what collectors should keep an eye on, and what is worth checking this week.',
+            added: ['Add one collector watchlist item per line.'],
+            fixed: ['Add one vault update per line.'],
+            testing: ['Add one thing worth checking or testing this week per line.'],
+            closing:
+              'Thanks for following along. If anything feels off, rough, or missing, reach out through the site support page and let me know.',
+            sourceCount: 0,
+          })
           return
         }
 
-        campaignTypeInput.value = 'site_update'
-        audienceInput.value = 'members'
-        subjectInput.value = 'Retro Vault Elite weekly member update'
-        ctaInput.value = 'Open Retro Vault Elite'
-        introInput.value = 'Quick update from Retro Vault Elite. Thank you for signing up and helping shape the vault with your feedback. Here is what has been added, fixed, and what would still be useful to test.'
-        addedInput.value = 'Add one update per line.'
-        fixedInput.value = 'Add one fix per line.'
-        testingInput.value = 'Add one testing request per line.'
-        closingInput.value = 'If you have a minute, please jump back in and let me know what still feels rough, confusing, or missing. Collector feedback is driving what gets improved next.'
+        applyBroadcastDraft({
+          campaignType: 'site_update',
+          audience: 'members',
+          subject: 'Retro Vault Elite weekly member update',
+          ctaLabel: 'Open Retro Vault Elite',
+          intro:
+            'Quick update from Retro Vault Elite. Thank you for signing up and helping shape the vault with your feedback. Here is what has been added, fixed, and what would still be useful to test.',
+          added: ['Add one update per line.'],
+          fixed: ['Add one fix per line.'],
+          testing: ['Add one testing request per line.'],
+          closing:
+            'If you have a minute, please jump back in and let me know what still feels rough, confusing, or missing. Collector feedback is driving what gets improved next.',
+          sourceCount: 0,
+        })
       }
 
       function renderBroadcastResult(payload) {
@@ -876,6 +990,10 @@
           statusEl.textContent = `Loaded. Last updated ${stats.generatedAt}.`
           refreshBtn.style.display = ''
           renderStats(stats)
+          await loadBroadcastDraft(
+            document.querySelector('#broadcast-campaign-type')?.value?.trim() || 'site_update',
+            true,
+          ).catch(() => {})
         } catch (error) {
           const isTimeout = error instanceof Error && error.name === 'AbortError'
           statusEl.className = 'error'
@@ -935,16 +1053,34 @@
         }
 
         if (sitePresetButton) {
-          loadBroadcastPreset('site_update')
-          statusEl.className = 'ok'
-          statusEl.textContent = 'Loaded weekly member update preset.'
+          try {
+            const loaded = await loadBroadcastDraft('site_update')
+            if (!loaded) {
+              loadBroadcastPreset('site_update')
+              statusEl.className = 'ok'
+              statusEl.textContent = 'Loaded weekly member update preset.'
+            }
+          } catch {
+            loadBroadcastPreset('site_update')
+            statusEl.className = 'ok'
+            statusEl.textContent = 'Loaded weekly member update preset.'
+          }
           return
         }
 
         if (newsletterPresetButton) {
-          loadBroadcastPreset('newsletter')
-          statusEl.className = 'ok'
-          statusEl.textContent = 'Loaded weekly newsletter preset.'
+          try {
+            const loaded = await loadBroadcastDraft('newsletter')
+            if (!loaded) {
+              loadBroadcastPreset('newsletter')
+              statusEl.className = 'ok'
+              statusEl.textContent = 'Loaded weekly newsletter preset.'
+            }
+          } catch {
+            loadBroadcastPreset('newsletter')
+            statusEl.className = 'ok'
+            statusEl.textContent = 'Loaded weekly newsletter preset.'
+          }
           return
         }
 
@@ -1006,6 +1142,23 @@
         statusEl.textContent = `Copied ${emailList.length} account email address${emailList.length === 1 ? '' : 'es'}.`
       })
 
+      resultsEl.addEventListener('change', async (event) => {
+        const campaignTypeInput = event.target.closest('#broadcast-campaign-type')
+
+        if (!campaignTypeInput) {
+          return
+        }
+
+        try {
+          const loaded = await loadBroadcastDraft(campaignTypeInput.value, true)
+          if (!loaded) {
+            loadBroadcastPreset(campaignTypeInput.value)
+          }
+        } catch {
+          loadBroadcastPreset(campaignTypeInput.value)
+        }
+      })
+
       refreshBtn.addEventListener('click', () => loadStats())
 
       if (keyInput.value.trim()) {
@@ -1019,6 +1172,7 @@
           refreshBtn.style.display = ''
           statusEl.className = 'ok'
           statusEl.textContent = `Showing cached stats. Click Refresh for latest data.`
+          loadBroadcastDraft('site_update', true).catch(() => {})
         }
         loadStats()
       }

@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import { execFileSync } from 'node:child_process'
 import { setDefaultResultOrder } from 'node:dns'
 import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs'
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
@@ -698,6 +699,7 @@ function getAdminStats(db) {
     signupConversionRate: viewsToday ? Number(((signupsToday / viewsToday) * 100).toFixed(2)) : 0,
     users,
     recentEmailCampaigns,
+    emailHealth: getEmailDeliveryHealth(),
     newsletterSubscribers: db.newsletterSubscribers
       .slice()
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
@@ -837,6 +839,162 @@ function resolveCampaignRecipients(db, audience = 'members') {
   return memberEmails
 }
 
+const blockedSenderDomains = new Set([
+  'gmail.com',
+  'googlemail.com',
+  'hotmail.com',
+  'outlook.com',
+  'live.com',
+  'msn.com',
+  'yahoo.com',
+  'icloud.com',
+  'me.com',
+  'aol.com',
+  'protonmail.com',
+])
+
+function extractSenderEmail(from) {
+  const match = String(from ?? '').match(/<([^>]+)>/)
+  return String(match?.[1] ?? from ?? '').trim().toLowerCase()
+}
+
+function getEmailDeliveryHealth() {
+  const apiKey = String(process.env.RESEND_API_KEY ?? '').trim()
+  const from = String(process.env.RESET_FROM_EMAIL ?? '').trim()
+  const senderEmail = extractSenderEmail(from)
+  const senderDomain = senderEmail.includes('@') ? senderEmail.split('@').pop() : ''
+  const warnings = []
+
+  if (!apiKey) {
+    warnings.push('RESEND_API_KEY is missing on the backend.')
+  }
+
+  if (!from) {
+    warnings.push('RESET_FROM_EMAIL is missing on the backend.')
+  }
+
+  if (senderDomain && blockedSenderDomains.has(senderDomain)) {
+    warnings.push(`The sender domain ${senderDomain} is a mailbox domain. Resend usually requires a verified custom domain sender.`)
+  }
+
+  return {
+    provider: 'Resend',
+    ready: warnings.length === 0,
+    apiKeyConfigured: Boolean(apiKey),
+    fromConfigured: Boolean(from),
+    from,
+    senderEmail,
+    senderDomain,
+    warnings,
+  }
+}
+
+function getRecentCommitSubjects(limit = 18) {
+  try {
+    const raw = execFileSync('git', ['log', '-n', String(limit), '--pretty=%s'], {
+      cwd: process.cwd(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+      .toString('utf8')
+      .split(/\r?\n/g)
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    return raw
+  } catch {
+    return []
+  }
+}
+
+function pushUniqueLine(lines, line, limit = 6) {
+  if (!line || lines.includes(line) || lines.length >= limit) {
+    return
+  }
+
+  lines.push(line)
+}
+
+function getAdminEmailDraft(campaignType = 'site_update') {
+  const subjects = getRecentCommitSubjects(18)
+  const added = []
+  const fixed = []
+  const testing = []
+
+  for (const subject of subjects) {
+    const clean = String(subject).replace(/^\s+|\s+$/g, '')
+
+    if (!clean) {
+      continue
+    }
+
+    if (/^(fix|repair|tighten|refine|prewarm|show)\b/i.test(clean)) {
+      pushUniqueLine(fixed, clean)
+    } else {
+      pushUniqueLine(added, clean)
+    }
+
+    if (/mobile|homepage|layout|hero/i.test(clean)) {
+      pushUniqueLine(testing, 'Please test the homepage and mobile layout on phone and desktop.')
+    }
+
+    if (/cover|detail modal|details/i.test(clean)) {
+      pushUniqueLine(testing, 'Please open a few game details and make sure cover art loads cleanly.')
+    }
+
+    if (/admin|newsletter|email/i.test(clean)) {
+      pushUniqueLine(testing, 'Please test admin email sending and confirm updates arrive correctly.')
+    }
+
+    if (/trade|collector/i.test(clean)) {
+      pushUniqueLine(testing, 'Please test trade discovery, inbox flow, and collector browsing again.')
+    }
+  }
+
+  if (!added.length) {
+    pushUniqueLine(added, 'Collector experience improvements are continuing across the vault.')
+  }
+
+  if (!fixed.length) {
+    pushUniqueLine(fixed, 'Small polish and stability fixes were shipped across the site.')
+  }
+
+  if (!testing.length) {
+    pushUniqueLine(testing, 'Please jump back in on desktop and mobile and let me know what still feels rough.')
+  }
+
+  if (campaignType === 'newsletter') {
+    return {
+      campaignType: 'newsletter',
+      audience: 'newsletter',
+      subject: 'Retro Vault Elite weekly collector watchlist',
+      ctaLabel: 'Open the vault',
+      intro:
+        'Here is this week\'s Retro Vault Elite collector watchlist: a quick note on what changed in the vault, what collectors should keep an eye on, and what is worth checking this week.',
+      added,
+      fixed,
+      testing,
+      closing:
+        'Thanks for following along. If anything feels off, rough, or missing, reach out through the site support page and let me know.',
+      sourceCount: subjects.length,
+    }
+  }
+
+  return {
+    campaignType: 'site_update',
+    audience: 'members',
+    subject: 'Retro Vault Elite weekly member update',
+    ctaLabel: 'Open Retro Vault Elite',
+    intro:
+      'Quick update from Retro Vault Elite. Thank you for signing up and helping shape the vault with your feedback. Here is what has been added, fixed, and what would still be useful to test.',
+    added,
+    fixed,
+    testing,
+    closing:
+      'If you have a minute, please jump back in and let me know what still feels rough, confusing, or missing. Collector feedback is driving what gets improved next.',
+    sourceCount: subjects.length,
+  }
+}
+
 async function sendTradeNotificationEmail(email, subject, intro, ctaLabel = 'Open Trade Inbox') {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
@@ -854,7 +1012,7 @@ async function sendTradeNotificationEmail(email, subject, intro, ctaLabel = 'Ope
       body: JSON.stringify({
         from,
         to: email,
-        subject: `Retro Vault Elite — ${subject}`,
+        subject: `Retro Vault Elite Â— ${subject}`,
         html: `<p>${intro}</p><p><a href="${appUrl}">${ctaLabel}</a></p><p>Do not reply. Never share personal details over this system.</p>`,
       }),
     })
@@ -937,7 +1095,7 @@ async function sendAdminBroadcastEmail(email, payload) {
     body: JSON.stringify({
       from,
       to: email,
-      subject: `Retro Vault Elite ? ${subject}`,
+      subject: `Retro Vault Elite - ${subject}`,
       html,
     }),
   })
@@ -1003,6 +1161,7 @@ const server = createServer(async (request, response) => {
       request.method === 'PUT' && url.pathname.startsWith('/barcode/') ||
       url.pathname.startsWith('/admin/barcodes') ||
       url.pathname === '/admin/stats' ||
+      url.pathname === '/admin/email-draft' ||
       url.pathname === '/admin/broadcast-email' ||
       url.pathname.startsWith('/trade/')
     const db = await loadDb({ required: accountRoute })
@@ -1071,6 +1230,25 @@ const server = createServer(async (request, response) => {
       }
 
       json(request, response, 200, getAdminStats(db))
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/admin/email-draft') {
+      if (!getAdminKey()) {
+        json(request, response, 503, { error: 'Admin reporting is not configured.' })
+        return
+      }
+
+      if (!isAdminRequest(request, url)) {
+        json(request, response, 401, { error: 'Admin key required.' })
+        return
+      }
+
+      const campaignType = ['site_update', 'newsletter'].includes(String(url.searchParams.get('campaignType') ?? 'site_update'))
+        ? String(url.searchParams.get('campaignType') ?? 'site_update')
+        : 'site_update'
+
+      json(request, response, 200, getAdminEmailDraft(campaignType))
       return
     }
 
@@ -1998,7 +2176,7 @@ const server = createServer(async (request, response) => {
 
       await saveDb(db, { required: true })
 
-      // Email notification — no personal details
+      // Email notification Â— no personal details
       await sendTradeNotificationEmail(toUser.email, 'New trade request waiting in Retro Vault Elite', 'Another collector sent you a trade request. Please check your Trade Inbox to respond.').catch(() => {})
 
       json(request, response, 201, { tradeRequest: sanitizeTradeRequest(tradeRequest, user.id, db) })
@@ -2133,7 +2311,7 @@ const server = createServer(async (request, response) => {
     // -- Trade: send message ---------------------------------
     if (request.method === 'POST' && url.pathname.match(/^\/trade\/requests\/[^/]+\/messages$/)) {
       if (!rateLimit(request, 'trade-msg', 60, 60 * 1000)) {
-        json(request, response, 429, { error: 'Slow down — too many messages.' }); return
+        json(request, response, 429, { error: 'Slow down Â— too many messages.' }); return
       }
 
       const user = await getSessionUser(request, db)
