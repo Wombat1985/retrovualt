@@ -4569,6 +4569,12 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .hero-copy,
+  .hero-stats,
+  .hero-bottom {
+    grid-column: 1;
+  }
+
   .view-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4723,10 +4729,49 @@ a {
     padding: 16px;
   }
 
+  .hero-panel {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .hero-copy,
+  .hero-stats,
+  .hero-bottom {
+    grid-column: 1;
+  }
+
+  .hero-copy {
+    order: 1;
+  }
+
+  .hero-stats {
+    order: 2;
+  }
+
+  .hero-bottom {
+    order: 3;
+    gap: 12px;
+  }
+
+  .site-logo {
+    margin-bottom: 8px;
+  }
+
+  .site-logo__image {
+    width: min(164px, 44vw);
+  }
+
   .hero-copy h1 {
     max-width: none;
     font-size: clamp(1.5rem, 6.9vw, 2.15rem);
     line-height: 0.98;
+  }
+
+  .hero-text,
+  .hero-authority,
+  .hero-text--trade {
+    max-width: none;
   }
 
   .feature-strip {
@@ -4735,6 +4780,11 @@ a {
 
   .hero-badges {
     gap: 6px;
+    order: 4;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 4px;
   }
 
   .hero-badge {
@@ -4759,16 +4809,39 @@ a {
   }
 
   .trust-strip {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(200px, 82%);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
+  }
+
+  .trust-strip article {
+    scroll-snap-align: start;
   }
 
   .hero-value-strip {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(220px, 84%);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
+    order: 6;
+  }
+
+  .hero-value-card {
+    scroll-snap-align: start;
   }
 
   .hero-search {
     padding: 12px;
     border-radius: 18px;
+    order: 1;
+    margin-top: 0;
   }
 
   .hero-search__controls {
@@ -4796,6 +4869,17 @@ a {
     justify-content: center;
   }
 
+  .hero-search__suggestions--quick {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 4px;
+  }
+
+  .hero-search__chip {
+    flex: 0 0 auto;
+  }
+
   .vault-lanes {
     gap: 10px;
   }
@@ -4803,7 +4887,7 @@ a {
   .vault-lanes__list {
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(188px, 82%);
+    grid-auto-columns: minmax(220px, 84%);
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scroll-snap-type: x proximity;
@@ -4817,7 +4901,7 @@ a {
   .catalog-rail__track {
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(188px, 82%);
+    grid-auto-columns: minmax(168px, 78%);
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scroll-snap-type: x proximity;
@@ -4839,7 +4923,23 @@ a {
   }
 
   .hero-preview__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(168px, 78%);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
+  }
+
+  .hero-preview {
+    order: 2;
+    margin-top: 0;
+  }
+
+  .hero-preview-card {
+    padding: 8px;
+    scroll-snap-align: start;
   }
 
   .platform-proof__grid {
@@ -4885,12 +4985,8 @@ a {
 
   .hero-actions .secondary-button,
   .hero-actions .install-button {
-    flex: 1 1 145px;
+    flex: 1 1 100%;
     justify-content: center;
-  }
-
-  .hero-preview-card {
-    padding: 8px;
   }
 
   .hero-preview-card strong {
@@ -4923,13 +5019,20 @@ a {
     grid-column: 1 / -1;
   }
 
+  .hero-stat-card--money {
+    grid-column: 1 / -1;
+    min-height: 0;
+  }
+
   .hero-stat-value--count {
     font-size: clamp(19px, 7vw, 28px);
   }
 
   .hero-stat-value--money {
-    font-size: clamp(1.35rem, 6vw, 1.9rem);
-    line-height: 0.92;
+    font-size: clamp(1.3rem, 5.9vw, 1.75rem);
+    line-height: 0.96;
+    word-break: normal;
+    overflow-wrap: anywhere;
   }
 
   .hero-stat-value--rank {
@@ -4955,6 +5058,27 @@ a {
   .toolbar,
   .filters {
     margin-top: 10px;
+  }
+
+  .featured-systems {
+    order: 3;
+    margin-top: 0;
+  }
+
+  .featured-systems__list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 4px;
+  }
+
+  .featured-systems__chip {
+    flex: 0 0 auto;
+  }
+
+  .hero-text--trade {
+    order: 5;
+    margin-top: 0;
   }
 
   .toolbar {
