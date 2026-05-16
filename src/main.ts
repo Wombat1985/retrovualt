@@ -4265,6 +4265,20 @@ function renderCard(game: CatalogEntry) {
         : game.rarity === 'Grail'
           ? 'Collector grail'
           : 'Track value, condition, and notes'
+  const editorialLabel = isOwned
+    ? (record.forTrade ? 'Vault edge' : 'Collection note')
+    : isWanted
+      ? 'Hunt status'
+      : 'Collector read'
+  const editorialCopy = isOwned
+    ? (record.forTrade
+        ? 'This copy is live for trade and ready for collector messages.'
+        : `${getCopiesSummary(record) || 'Tracked in your vault'} with ${getOwnedEditionSummary(record).toLowerCase()} detail kept intact.`)
+    : isWanted
+      ? `Wanted at ${record.targetPrice === null ? 'your next pickup stage' : `${formatPrice(record.targetPrice)} target`} with room to track variants and paid price later.`
+      : (showTradeAvailability
+          ? `${tradeAvailabilityCount === 1 ? 'One collector has this ready to trade now.' : `${tradeAvailabilityCount} collectors already have this trade-ready.`}`
+          : `${game.rarity === 'Grail' ? 'A grail-tier title with real shelf presence.' : 'Open it to track condition, value, variants, and collector notes.'}`)
 
   return `
     <article class="game-card ${isOwned ? 'is-owned' : ''} ${ownedPulseClass}" data-game-card="true" data-id="${safeGameId}" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(game.title)}">
@@ -4305,6 +4319,10 @@ function renderCard(game: CatalogEntry) {
             <dd>${isOwned ? formatPrice(getOwnedMarketPrice(game)) : completeText}</dd>
           </div>
         </dl>
+        <div class="card-editorial-row">
+          <span class="card-editorial-chip">${escapeHtml(editorialLabel)}</span>
+          <p class="card-editorial-text">${escapeHtml(editorialCopy)}</p>
+        </div>
         ${isOwned && record.notes.trim() ? `<div class="card-note-preview"><p class="card-note-text">${escapeHtml(record.notes)}</p></div>` : ''}
         <div class="card-actions">
           <button class="toggle-button ${isOwned ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${escapeHtml(getOwnedButtonLabel(record))}</button>
@@ -4341,6 +4359,7 @@ function renderSelectedGameModal() {
   const marketCoverage = getMarketCoverageSummary(game)
   const valueGap =
     record.pricePaid === null ? null : getOwnedMarketPrice(game) - record.pricePaid
+  const tradeDemandCount = getTradeWantedCount(game.id)
 
   return `
     <div class="game-modal-backdrop" data-action="close-details">
@@ -4407,6 +4426,23 @@ function renderSelectedGameModal() {
               <button class="ghost-button trade-availability-panel__button" data-action="open-trade-request" data-id="${safeGameId}" type="button">${state.authToken ? 'Request trade' : 'Sign in to request trade'}</button>
             </div>
           ` : ''}
+          <div class="modal-summary-strip">
+            <article class="modal-summary-card">
+              <span>Collector stance</span>
+              <strong>${escapeHtml(getOwnershipLabel(record.status, record))}</strong>
+              <p>${escapeHtml(record.status === 'owned' ? `${getCopiesSummary(record) || 'Single copy tracked'} with ${getOwnedEditionSummary(record).toLowerCase()} detail saved.` : record.status === 'wanted' ? 'Wanted in your vault and ready for target prices, notes, and collector alerts.' : 'Open for tracking when this becomes part of the collection or hunt list.')}</p>
+            </article>
+            <article class="modal-summary-card">
+              <span>Market snapshot</span>
+              <strong>${escapeHtml(game.priceComplete === null ? formatPrice(game.priceLoose) : formatPrice(game.priceComplete))}</strong>
+              <p>${escapeHtml(game.priceComplete === null ? 'Loose/listing reference currently has the strongest sourced market signal.' : `Loose ${formatPrice(game.priceLoose)} and complete ${formatPrice(game.priceComplete)} are both visible right away.`)}</p>
+            </article>
+            <article class="modal-summary-card">
+              <span>Trade pulse</span>
+              <strong>${escapeHtml(tradeAvailabilityCount > 0 ? `${tradeAvailabilityCount} live` : tradeDemandCount > 0 ? `${tradeDemandCount} hunting` : 'Quiet now')}</strong>
+              <p>${escapeHtml(tradeAvailabilityCount > 0 ? 'Collectors already have this marked for trade, so it is worth opening with intent.' : tradeDemandCount > 0 ? 'Other collectors already want this title, which makes owned copies more interesting.' : 'Still worth tracking here for variants, value, and the next collector move.')}</p>
+            </article>
+          </div>
           <p class="modal-description">
             This collector view keeps the market snapshot, ownership state, and source art together in one place so the title feels like a real piece of your collection.
           </p>
@@ -5500,6 +5536,106 @@ function renderContinueHuntingStrip() {
               <span>${escapeHtml(game.console)} / ${escapeHtml(game.region)}</span>
               <strong>${escapeHtml(game.title)}</strong>
               <em>${formatPrice(getReferencePrice(game))} reference market</em>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </section>
+  `
+}
+
+function getBecauseYouCollectGames(limit = 6) {
+  if (!state.authToken) {
+    return []
+  }
+
+  const wantedGames = getWantedGames()
+  const ownedGames = getOwnedGames()
+  const priorityConsoles = Array.from(
+    new Set([
+      ...wantedGames.map((game) => game.console),
+      ...ownedGames.slice(0, 8).map((game) => game.console),
+    ]),
+  )
+
+  if (!priorityConsoles.length) {
+    return []
+  }
+
+  const excluded = new Set([
+    ...wantedGames.map((game) => game.id),
+    ...ownedGames.map((game) => game.id),
+    ...state.recentViewedGameIds,
+  ])
+
+  return getCatalog()
+    .filter((game) => priorityConsoles.includes(game.console) && !excluded.has(game.id))
+    .sort((a, b) => {
+      const aConsoleRank = priorityConsoles.indexOf(a.console)
+      const bConsoleRank = priorityConsoles.indexOf(b.console)
+      if (aConsoleRank !== bConsoleRank) {
+        return aConsoleRank - bConsoleRank
+      }
+
+      const aTrade = getTradeAvailabilityCount(a.id) + getTradeWantedCount(a.id)
+      const bTrade = getTradeAvailabilityCount(b.id) + getTradeWantedCount(b.id)
+      if (aTrade !== bTrade) {
+        return bTrade - aTrade
+      }
+
+      if (a.rarity !== b.rarity) {
+        const rarityRank: Record<string, number> = { Grail: 0, Classic: 1, Common: 2 }
+        return (rarityRank[a.rarity] ?? 2) - (rarityRank[b.rarity] ?? 2)
+      }
+
+      return (b.priceLoose ?? 0) - (a.priceLoose ?? 0)
+    })
+    .slice(0, limit)
+}
+
+function getBecauseYouCollectReason(game: CatalogEntry) {
+  const tradeCount = getTradeAvailabilityCount(game.id)
+  const demandCount = getTradeWantedCount(game.id)
+
+  if (tradeCount > 0) {
+    return tradeCount === 1 ? 'Trade-ready in your collector lane' : `${tradeCount} collectors trading it now`
+  }
+
+  if (demandCount > 0) {
+    return demandCount === 1 ? 'Wanted by 1 collector right now' : `Wanted by ${demandCount} collectors`
+  }
+
+  if (game.rarity === 'Grail') {
+    return 'Fits the grail taste already in your vault'
+  }
+
+  return `${game.console} keeps showing up in your collector pattern`
+}
+
+function renderBecauseYouCollectStrip() {
+  const games = getBecauseYouCollectGames()
+
+  if (!games.length) {
+    return ''
+  }
+
+  return `
+    <section class="catalog-rail catalog-rail--because" aria-label="Because you collect">
+      <div class="catalog-rail__header">
+        <div>
+          <p class="kicker">Because you collect</p>
+          <h3>More games that fit your shelf</h3>
+        </div>
+        <p class="subtle">Picked from the systems, hunt patterns, and collector signals already showing up in your vault.</p>
+      </div>
+      <div class="catalog-rail__track">
+        ${games.map((game) => `
+          <button class="catalog-rail-card catalog-rail-card--because" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
+            <img class="catalog-rail-card__cover" src="${getCardCoverUrl(game)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${getCoverFallbackAttributes(game)} />
+            <div class="catalog-rail-card__copy">
+              <span>${escapeHtml(game.console)} / ${escapeHtml(game.region)}</span>
+              <strong>${escapeHtml(game.title)}</strong>
+              <em>${escapeHtml(getBecauseYouCollectReason(game))}</em>
             </div>
           </button>
         `).join('')}
@@ -6691,6 +6827,7 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
     <section class="catalog-section">
       ${renderCatalogRunway(filteredGames)}
       ${renderContinueHuntingStrip()}
+      ${renderBecauseYouCollectStrip()}
       <div class="section-heading">
         <div>
           <div class="catalog-kicker-row">

@@ -3186,6 +3186,12 @@ a {
   font-style: normal;
 }
 
+.catalog-rail-card--because {
+  background:
+    linear-gradient(160deg, rgba(255, 214, 110, 0.08), rgba(10, 18, 27, 0.94)),
+    var(--panel);
+}
+
 .view-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3618,6 +3624,37 @@ a {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.card-editorial-row {
+  display: grid;
+  gap: 7px;
+  margin-top: -2px;
+  padding: 12px 12px 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.92));
+}
+
+.card-editorial-chip {
+  display: inline-flex;
+  justify-self: start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 214, 110, 0.1);
+  border: 1px solid rgba(255, 214, 110, 0.2);
+  color: var(--accent-2);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.card-editorial-text {
+  margin: 0;
+  color: rgba(235, 241, 250, 0.86);
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .card-actions {
@@ -4346,6 +4383,41 @@ a {
 .modal-primary-actions .ghost-button {
   flex: 1 1 120px;
   justify-content: center;
+}
+
+.modal-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.modal-summary-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.05), rgba(10, 18, 27, 0.92));
+}
+
+.modal-summary-card span {
+  color: var(--accent-2);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.modal-summary-card strong {
+  font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.modal-summary-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.42;
 }
 
 .ghost-button.danger-ghost {
@@ -5260,6 +5332,10 @@ a {
   }
 
   .modal-market-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-summary-strip {
     grid-template-columns: 1fr;
   }
 
