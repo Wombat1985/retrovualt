@@ -10973,7 +10973,11 @@ function unregisterServiceWorker() {
 
 async function loadGeneratedCatalog() {
   const cachedSnapshot = await readCatalogSnapshot()
-  const shouldFetchLiteCatalog = !cachedSnapshot?.generatedCatalog.length
+  const hasCompleteCachedCatalog =
+    Boolean(cachedSnapshot?.generatedCatalog.length) &&
+    Boolean(cachedSnapshot?.catalogMeta.length) &&
+    (cachedSnapshot?.loadedConsoles.length ?? 0) >= (cachedSnapshot?.catalogMeta.length ?? 0)
+  const shouldFetchLiteCatalog = !hasCompleteCachedCatalog
 
   if (cachedSnapshot) {
     state.generatedCatalog = cachedSnapshot.generatedCatalog
@@ -10986,22 +10990,40 @@ async function loadGeneratedCatalog() {
   }
 
   try {
-    const [metaResponse, liteResponse] = await Promise.all([
-      fetch('/catalogs/retro-catalog-meta.json'),
-      shouldFetchLiteCatalog ? fetch('/catalogs/retro-catalog-lite.json') : Promise.resolve<Response | null>(null),
-    ])
+    const metaPromise = fetch('/catalogs/retro-catalog-meta.json')
+    const startupPromise = shouldFetchLiteCatalog
+      ? fetch('/catalogs/retro-catalog-startup.json')
+      : Promise.resolve<Response | null>(null)
+
+    const startupResponse = await startupPromise
+
+    if (startupResponse?.ok) {
+      const startupText = await startupResponse.text()
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      const parsedStartup = startupText ? JSON.parse(startupText) as unknown : []
+      const startupCatalog = Array.isArray(parsedStartup)
+        ? parsedStartup.map(normalizeCatalogEntry).filter(isCatalogEntry)
+        : normalizePackedLiteCatalog(parsedStartup)
+
+      if (startupCatalog.length && !cachedSnapshot?.generatedCatalog.length) {
+        state.generatedCatalog = dedupeCatalog(startupCatalog)
+        state.loadedConsoles = [...new Set(state.generatedCatalog.map((entry) => entry.console))]
+        state.catalogLoadError = false
+        state.isCatalogLoading = false
+        invalidateCatalogCache()
+        render()
+      }
+    }
+
+    const metaResponse = await metaPromise
 
     if (!metaResponse.ok) {
       throw new Error(`Catalog request failed: ${metaResponse.status}`)
     }
 
-    const [metaText, liteText] = await Promise.all([
-      metaResponse.text(),
-      liteResponse ? liteResponse.text() : Promise.resolve(''),
-    ])
+    const metaText = await metaResponse.text()
     await new Promise<void>((resolve) => setTimeout(resolve, 0))
     const parsed = JSON.parse(metaText) as unknown
-    const parsedLite = liteText ? JSON.parse(liteText) as unknown : []
 
     if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { consoles?: unknown }).consoles)) {
       throw new Error('Catalog metadata payload was invalid.')
@@ -11036,10 +11058,6 @@ async function loadGeneratedCatalog() {
         ]
       })
 
-    const liteCatalog = Array.isArray(parsedLite)
-      ? parsedLite.map(normalizeCatalogEntry).filter(isCatalogEntry)
-      : normalizePackedLiteCatalog(parsedLite)
-
     const nextMetaSignature = getCatalogMetaSignature(parsedMeta)
     const hasCompleteWarmCatalog =
       Boolean(cachedSnapshot?.generatedCatalog.length) &&
@@ -11048,10 +11066,25 @@ async function loadGeneratedCatalog() {
 
     state.catalogMeta = parsedMeta
 
-    if (liteCatalog.length) {
-      state.generatedCatalog = dedupeCatalog(liteCatalog)
-      state.loadedConsoles = [...new Set(parsedMeta.map((entry) => entry.console))]
-      invalidateCatalogCache()
+    if (shouldFetchLiteCatalog) {
+      const liteResponse = await fetch('/catalogs/retro-catalog-lite.json')
+
+      if (!liteResponse?.ok) {
+        throw new Error(`Catalog request failed: ${liteResponse?.status ?? 'unknown'}`)
+      }
+
+      const liteText = await liteResponse.text()
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      const parsedLite = liteText ? JSON.parse(liteText) as unknown : []
+      const liteCatalog = Array.isArray(parsedLite)
+        ? parsedLite.map(normalizeCatalogEntry).filter(isCatalogEntry)
+        : normalizePackedLiteCatalog(parsedLite)
+
+      if (liteCatalog.length) {
+        state.generatedCatalog = dedupeCatalog(liteCatalog)
+        state.loadedConsoles = [...new Set(parsedMeta.map((entry) => entry.console))]
+        invalidateCatalogCache()
+      }
     } else if (!hasCompleteWarmCatalog) {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
