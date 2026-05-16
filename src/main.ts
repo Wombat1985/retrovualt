@@ -7789,15 +7789,21 @@ function renderNow() {
         </div>
         <div class="hero-bottom">
           ${renderHeroTrustBadges()}
+          <div class="hero-proof-grid">
+            <div class="hero-proof-main">
+              ${renderHeroSearchBlock()}
+              <p class="hero-text hero-text--trade">${
+                state.authToken
+                  ? 'Trade Inbox shows collectors trading games you want, good matches, and private trade requests once both sides accept.'
+                  : 'You can browse tradeable games right away. Create an account when you want to mark duplicates for trade and start sending requests.'
+              }</p>
+            </div>
+            <div class="hero-proof-side">
+              ${renderHeroPreviewStrip()}
+              ${renderFeaturedSystemsStrip()}
+            </div>
+          </div>
           ${renderHeroValueStrip()}
-          ${renderHeroSearchBlock()}
-          ${renderHeroPreviewStrip()}
-          ${renderFeaturedSystemsStrip()}
-          <p class="hero-text hero-text--trade">${
-            state.authToken
-              ? 'Trade Inbox shows collectors trading games you want, good matches, and private trade requests once both sides accept.'
-              : 'You can browse tradeable games right away. Create an account when you want to mark duplicates for trade and start sending requests.'
-          }</p>
         </div>
       </header>
 
