@@ -6306,17 +6306,21 @@ function renderImportModal(): string {
 function renderFiltersSection() {
   return `
     <section class="filters">
-      ${renderFilterChip('all', 'All')}
-      ${renderFilterChip('owned', 'Owned')}
-      ${renderFilterChip('wanted', 'Wanted')}
-      ${renderFilterChip('missing', 'Missing')}
-      ${renderFilterChip('tradeable-now', 'Tradeable now')}
-      ${renderFilterChip('wanted-now', 'Wanted now')}
-      <button class="secondary-button mobile-only-action" data-action="open-custom-entry" type="button">Add your own game</button>
-      <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
-      <button class="secondary-button" data-action="import-collection" type="button">Import collection</button>
-      <button class="secondary-button" data-action="import-catalog" type="button">Import JSON catalog</button>
-      <button class="secondary-button" data-action="export-catalog" type="button">Export collection</button>
+      <div class="filters__primary">
+        ${renderFilterChip('all', 'All')}
+        ${renderFilterChip('owned', 'Owned')}
+        ${renderFilterChip('wanted', 'Wanted')}
+        ${renderFilterChip('missing', 'Missing')}
+        ${renderFilterChip('tradeable-now', 'Tradeable now')}
+        ${renderFilterChip('wanted-now', 'Wanted now')}
+        <button class="secondary-button mobile-only-action" data-action="open-custom-entry" type="button">Add your own game</button>
+      </div>
+      <div class="filters__utility">
+        <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
+        <button class="secondary-button" data-action="import-collection" type="button">Import collection</button>
+        <button class="secondary-button" data-action="import-catalog" type="button">Import JSON catalog</button>
+        <button class="secondary-button" data-action="export-catalog" type="button">Export collection</button>
+      </div>
       <input id="catalog-import" type="file" accept=".json,application/json" hidden />
       <input id="collection-import-input" type="file" accept=".csv,text/csv" hidden />
     </section>
