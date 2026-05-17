@@ -4547,34 +4547,6 @@ function renderSelectedGameModal() {
   `
 }
 
-function renderSmartList(title: string, games: CatalogEntry[], emptyText: string) {
-  return `
-    <article class="smart-card">
-      <h3>${title}</h3>
-      ${
-        games.length
-          ? `<ul class="smart-list">${games
-              .map(
-                (game) =>
-                  `<li><strong>${escapeHtml(game.title)}</strong><span>${escapeHtml(game.console)} / ${formatPrice(getReferencePrice(game))}</span></li>`,
-              )
-              .join('')}</ul>`
-          : `<p class="subtle">${emptyText}</p>`
-      }
-    </article>
-  `
-}
-
-function renderInsightCard(title: string, value: string, note: string) {
-  return `
-    <article class="insight-card">
-      <span class="stat-label">${title}</span>
-      <strong>${value}</strong>
-      <span class="stat-note">${note}</span>
-    </article>
-  `
-}
-
 function renderTrustStrip() {
   return `
     <section class="trust-strip" aria-label="Collector setup and trading overview">
@@ -4866,6 +4838,391 @@ function renderPlatformProofStrip() {
   `
 }
 
+function getCatalogRunwayGames(games: CatalogEntry[], limit = 4) {
+  return [...games]
+    .filter((game) => Boolean(game.coverUrl))
+    .sort((left, right) => {
+      const ownedDelta = Number(getRecord(right.id).status === 'owned') - Number(getRecord(left.id).status === 'owned')
+      if (ownedDelta !== 0) return ownedDelta
+
+      const wantedDelta = Number(getRecord(right.id).status === 'wanted') - Number(getRecord(left.id).status === 'wanted')
+      if (wantedDelta !== 0) return wantedDelta
+
+      const tradeDelta = getTradeAvailabilityCount(right.id) - getTradeAvailabilityCount(left.id)
+      if (tradeDelta !== 0) return tradeDelta
+
+      return getReferencePrice(right) - getReferencePrice(left)
+    })
+    .slice(0, limit)
+}
+
+function getCatalogRunwayLabel(game: CatalogEntry) {
+  const record = getRecord(game.id)
+  if (record.status === 'owned') {
+    return `Owned - ${game.console}`
+  }
+  if (record.status === 'wanted') {
+    return `Wanted - ${game.console}`
+  }
+  if (getTradeAvailabilityCount(game.id) > 0) {
+    return `Trade live - ${game.console}`
+  }
+  return game.console
+}
+
+function getCatalogRunwayDetail(game: CatalogEntry) {
+  const record = getRecord(game.id)
+  if (record.status === 'owned') {
+    return getOwnedValueLabel(game)
+  }
+  if (record.status === 'wanted') {
+    return record.targetPrice === null ? `Loose ${formatPrice(game.priceLoose)}` : `Target ${formatPrice(record.targetPrice)}`
+  }
+  if (getTradeAvailabilityCount(game.id) > 0) {
+    const count = getTradeAvailabilityCount(game.id)
+    return `${count} live trader${count === 1 ? '' : 's'}`
+  }
+  return `Loose ${formatPrice(game.priceLoose)} / CiB ${formatPrice(game.priceComplete ?? game.priceLoose ?? 0)}`
+}
+
+function renderCatalogRunway(filteredGames: CatalogEntry[]) {
+  const railGames = getCatalogRunwayGames(filteredGames, 4)
+
+  if (!railGames.length) {
+    return ''
+  }
+
+  const title = state.authToken ? 'Quick picks' : 'Library highlights'
+  const subtitle = state.authToken
+    ? 'A few clean starting points before you drop into the full grid.'
+    : 'A quick sample from the library before the full grid.'
+
+  return `
+    <section class="catalog-rail" aria-label="${escapeHtml(title)}">
+      <div class="catalog-rail__header">
+        <div>
+          <p class="kicker">${escapeHtml(title)}</p>
+          <h3>${state.authToken ? 'Open a game and keep moving.' : 'A few good places to start.'}</h3>
+        </div>
+        <p class="subtle">${escapeHtml(subtitle)}</p>
+      </div>
+      <div class="catalog-rail__track">
+        ${railGames
+          .map(
+            (game) => `
+              <button class="catalog-rail-card" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
+                <img class="catalog-rail-card__cover" src="${escapeHtml(getCardCoverUrl(game))}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" ${getCoverFallbackAttributes(game)} />
+                <div class="catalog-rail-card__copy">
+                  <span>${escapeHtml(getCatalogRunwayLabel(game))}</span>
+                  <strong>${escapeHtml(game.title)}</strong>
+                  <em>${escapeHtml(getCatalogRunwayDetail(game))}</em>
+                </div>
+              </button>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderContinueHuntingStrip() {
+  if (!state.authToken) {
+    return ''
+  }
+
+  const games = state.recentViewedGameIds
+    .map((id) => getGameById(id))
+    .filter((game): game is CatalogEntry => game !== null)
+    .slice(0, 4)
+
+  if (!games.length) {
+    return ''
+  }
+
+  return `
+    <section class="catalog-rail" aria-label="Continue where you left off">
+      <div class="catalog-rail__header">
+        <div>
+          <p class="kicker">Continue where you left off</p>
+          <h3>Recent games you already opened</h3>
+        </div>
+        <p class="subtle">Pick up from the last titles you were checking.</p>
+      </div>
+      <div class="catalog-rail__track">
+        ${games
+          .map(
+            (game) => `
+              <button class="catalog-rail-card" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
+                <img class="catalog-rail-card__cover" src="${escapeHtml(getCardCoverUrl(game))}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" ${getCoverFallbackAttributes(game)} />
+                <div class="catalog-rail-card__copy">
+                  <span>${escapeHtml(game.console)}</span>
+                  <strong>${escapeHtml(game.title)}</strong>
+                  <em>${escapeHtml(getCatalogRunwayDetail(game))}</em>
+                </div>
+              </button>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderBecauseYouCollectStrip() {
+  if (!state.authToken) {
+    return ''
+  }
+
+  const dominantConsole = getDominantConsole()
+
+  if (!dominantConsole) {
+    return ''
+  }
+
+  const suggestions = getMissingGamesForConsole(dominantConsole.consoleName, 4)
+
+  if (!suggestions.length) {
+    return ''
+  }
+
+  return `
+    <section class="catalog-rail" aria-label="Because you collect ${escapeHtml(dominantConsole.consoleName)}">
+      <div class="catalog-rail__header">
+        <div>
+          <p class="kicker">Because you collect ${escapeHtml(dominantConsole.consoleName)}</p>
+          <h3>More of that shelf to check next</h3>
+        </div>
+        <p class="subtle">${dominantConsole.owned}/${dominantConsole.total} tracked on this console.</p>
+      </div>
+      <div class="catalog-rail__track">
+        ${suggestions
+          .map(
+            (game) => `
+              <button class="catalog-rail-card catalog-rail-card--because" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
+                <img class="catalog-rail-card__cover" src="${escapeHtml(getCardCoverUrl(game))}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" ${getCoverFallbackAttributes(game)} />
+                <div class="catalog-rail-card__copy">
+                  <span>${escapeHtml(game.rarity)} - ${escapeHtml(game.console)}</span>
+                  <strong>${escapeHtml(game.title)}</strong>
+                  <em>Loose ${formatPrice(game.priceLoose)} / CiB ${formatPrice(game.priceComplete ?? game.priceLoose ?? 0)}</em>
+                </div>
+              </button>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderWorkspaceRail() {
+  const items = [
+    {
+      label: 'Browse games',
+      title: 'Search the full library right away.',
+      detail: `${getCatalog().length.toLocaleString()} games ready to open.`,
+      action: 'browse-library',
+      tone: '',
+    },
+    {
+      label: 'Track collection',
+      title: 'Mark owned copies and keep the shelf clean.',
+      detail: 'Loose, boxed, CiB, sealed, graded, and duplicates stay separate.',
+      action: 'browse-library',
+      tone: '',
+    },
+    {
+      label: 'Wanted list',
+      title: 'Keep the hunt list in the same place.',
+      detail: 'Targets, notes, and next upgrades stay tied to the game.',
+      action: 'browse-library',
+      tone: '',
+    },
+    {
+      label: 'Trade live',
+      title: 'Browse copies collectors have listed for trade.',
+      detail: 'Request private trades once you create an account.',
+      action: 'browse-tradeable-now',
+      tone: '',
+    },
+    {
+      label: 'Scan barcode',
+      title: 'Catalog faster when you already have games in hand.',
+      detail: 'Use the built-in camera flow on desktop or phone.',
+      action: 'open-scanner',
+      tone: '',
+    },
+    {
+      label: 'Save your vault',
+      title: 'Create an account when you want sync and trade inbox.',
+      detail: 'No rebuild needed later.',
+      action: 'open-register',
+      tone: ' workspace-chip--setup',
+    },
+  ]
+
+  return `
+    <section class="workspace-rail" aria-label="What you can do here">
+      <div class="workspace-rail__header">
+        <div>
+          <p class="kicker">What you can do here</p>
+          <h2>Use the library first. Save the vault when you are ready.</h2>
+        </div>
+        <p class="subtle">Track what you own, keep a wanted list, and move into trade only when it helps.</p>
+      </div>
+      <div class="workspace-rail__grid">
+        ${items
+          .map(
+            (item) => `
+              <button class="workspace-chip${item.tone}" type="button" data-action="${item.action}">
+                <span>${escapeHtml(item.label)}</span>
+                <strong>${escapeHtml(item.title)}</strong>
+                <em>${escapeHtml(item.detail)}</em>
+              </button>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderCollectorActivityStrip() {
+  const events = state.activityEvents.slice(0, 3)
+
+  if (!events.length) {
+    return ''
+  }
+
+  return `
+    <section class="activity-strip" aria-label="Recent vault changes">
+      <div class="activity-strip__intro">
+        <p class="kicker">Recent vault changes</p>
+        <h2>Your latest tracked changes</h2>
+        <p class="subtle">A quick read on what you actually changed, without burying the catalog under more promo.</p>
+      </div>
+      <div class="activity-strip__grid">
+        ${events
+          .map((event) => {
+            const target = event.gameId ? ` data-id="${escapeHtml(event.gameId)}"` : ''
+            const action = event.gameId ? 'open-details' : 'browse-library'
+            return `
+              <article class="activity-card">
+                <span>${escapeHtml(event.type.replace(/_/g, ' '))}</span>
+                <strong>${escapeHtml(event.title)}</strong>
+                <em>${escapeHtml(event.detail)}</em>
+                <p class="subtle">${escapeHtml(formatRelativeTime(event.createdAt))}</p>
+                <button class="ghost-button" type="button" data-action="${action}"${target}>${event.gameId ? 'Open details' : 'Browse library'}</button>
+              </article>
+            `
+          })
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderGuestSafeguardStrip() {
+  if (state.authToken) {
+    return ''
+  }
+
+  const trackedCount = getOwnedGames().length + getWantedGames().length
+
+  if (trackedCount === 0) {
+    return ''
+  }
+
+  return `
+    <section class="guest-safeguard-strip" aria-label="Save your guest vault">
+      <div class="guest-safeguard-strip__copy">
+        <p class="kicker">Keep what you already started</p>
+        <h2>Save this vault before you lose the work.</h2>
+        <p class="subtle">${trackedCount.toLocaleString()} game${trackedCount === 1 ? '' : 's'} already have owned or wanted data in this browser.</p>
+      </div>
+      <div class="guest-safeguard-strip__stats">
+        <span>${getOwnedGames().length.toLocaleString()} owned</span>
+        <span>${getWantedGames().length.toLocaleString()} wanted</span>
+        <span>${formatPrice(getOwnedGames().reduce((total, game) => total + getOwnedMarketPrice(game), 0))} tracked</span>
+      </div>
+      <div class="guest-safeguard-strip__actions">
+        <button class="secondary-button" type="button" data-action="open-login">Sign In</button>
+        <button class="install-button" type="button" data-action="open-register">Create Free Vault</button>
+        <button class="ghost-button" type="button" data-action="export-catalog">Export vault</button>
+      </div>
+    </section>
+  `
+}
+
+function renderVaultLanesStrip() {
+  const laneItems = [
+    {
+      label: 'Games library',
+      title: `${getCatalog().length.toLocaleString()} in library`,
+      detail: 'Open anything',
+      action: 'browse-library',
+      active: state.ownershipFilter === 'all' && !state.search.trim(),
+    },
+    {
+      label: 'Owned shelf',
+      title: `${getOwnedGames().length.toLocaleString()} tracked`,
+      detail: 'Your collection',
+      action: 'browse-owned-games',
+      active: state.ownershipFilter === 'owned',
+    },
+    {
+      label: 'Wanted list',
+      title: `${getWantedGames().length.toLocaleString()} hunting`,
+      detail: 'Target games',
+      action: 'ownership-filter',
+      active: state.ownershipFilter === 'wanted',
+      filter: 'wanted',
+    },
+    {
+      label: 'Ready to trade',
+      title: `${(state.publicCommunityStats?.tradeListingCount ?? 0).toLocaleString()} listed`,
+      detail: 'Live copies',
+      action: 'browse-tradeable-now',
+      active: state.ownershipFilter === 'tradeable-now',
+    },
+    {
+      label: 'Price alerts',
+      title: `${getAlertMatches().length.toLocaleString()} hits`,
+      detail: 'Target prices',
+      action: 'ownership-filter',
+      active: state.ownershipFilter === 'wanted-now',
+      filter: 'wanted-now',
+    },
+  ]
+
+  return `
+    <section class="vault-lanes" aria-label="Quick lanes">
+      <div class="vault-lanes__header">
+        <div>
+          <p class="kicker">${state.authToken ? 'Quick lanes' : 'Start here'}</p>
+          <p class="subtle">${state.authToken ? 'Jump straight to the part of the vault you need.' : 'Jump straight into the part of the vault that matters right now.'}</p>
+        </div>
+      </div>
+      <div class="vault-lanes__list">
+        ${laneItems
+          .map((item) => `
+            <button
+              class="vault-lane${item.active ? ' is-active' : ''}"
+              type="button"
+              data-action="${item.action}"
+              ${item.filter ? `data-filter="${item.filter}"` : ''}
+            >
+              <span>${escapeHtml(item.label)}</span>
+              <strong>${escapeHtml(item.title)}</strong>
+              <em>${escapeHtml(item.detail)}</em>
+            </button>
+          `)
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
 function renderFeaturedSystemsStrip() {
   return `
     <section class="featured-systems" aria-label="Featured systems">
@@ -4934,898 +5291,6 @@ function renderFeatureStrip() {
       </div>
     </section>
   `
-}
-
-function renderCollectorPositioningStrip() {
-  const alertCount = getAlertMatches().length
-  const tradeSignal = state.publicCommunityStats?.tradeListingCount ?? state.tradeableNowIds?.size ?? 0
-  const ownedCount = getOwnedGames().length
-  const wantedCount = getWantedGames().length
-
-  return `
-    <section class="positioning-strip" aria-label="Why collectors use Retro Vault Elite">
-      <div class="positioning-strip__intro">
-        <p class="kicker">Why collectors stay</p>
-        <h2>More than a price lookup. This is where the whole collection lives.</h2>
-        <p class="subtle">Price checking matters. But serious collecting is also duplicates, upgrade plans, wanted targets, condition, variants, notes, and knowing who has the game you still need.</p>
-      </div>
-      <div class="positioning-strip__grid">
-        <article class="positioning-card">
-          <span>Track exact copies</span>
-          <strong>Keep loose, boxed, manual, CiB, sealed, graded, and duplicate copies separate.</strong>
-          <p class="subtle">${ownedCount.toLocaleString()} owned game${ownedCount === 1 ? '' : 's'} can be tracked as real collector copies instead of one flat quantity number.</p>
-        </article>
-        <article class="positioning-card">
-          <span>Build upgrade plans</span>
-          <strong>Move from loose to complete without losing the history of what you already own.</strong>
-          <p class="subtle">Track what you paid, what condition it is in, and what still needs upgrading on the shelf.</p>
-        </article>
-        <article class="positioning-card">
-          <span>Use a real wanted list</span>
-          <strong>Wanted games are not just a bookmark. They tie into price targets, hunt lists, and trade matches.</strong>
-          <p class="subtle">${wantedCount.toLocaleString()} wanted game${wantedCount === 1 ? '' : 's'}${alertCount > 0 ? `, including ${alertCount.toLocaleString()} active alert hit${alertCount === 1 ? '' : 's'}` : ''}.</p>
-        </article>
-        <article class="positioning-card positioning-card--accent">
-          <span>Trade from the vault</span>
-          <strong>Mark duplicates for trade, see who has what you want, and keep the whole conversation tied to the game.</strong>
-          <p class="subtle">${tradeSignal.toLocaleString()} game${tradeSignal === 1 ? '' : 's'} are already marked for trade across the collector community.</p>
-        </article>
-      </div>
-      <div class="positioning-strip__footer">
-        <strong>Retro Vault Elite is for collectors who want one place to track, upgrade, value, and trade their games, not just check a number and leave.</strong>
-      </div>
-    </section>
-  `
-}
-
-function renderReturnStrip() {
-  const alertMatches = getAlertMatches()
-  const topAlert = alertMatches[0] ?? null
-  const upgradeCandidate = [...getOwnedGames()]
-    .filter((game) => {
-      const record = getRecord(game.id)
-      return !isCompleteEdition(record) && typeof game.priceComplete === 'number' && game.priceComplete > getOwnedMarketPrice(game)
-    })
-    .sort((left, right) => (right.priceComplete ?? 0) - getOwnedMarketPrice(right) - ((left.priceComplete ?? 0) - getOwnedMarketPrice(left)))[0] ?? null
-  const upgradePremium =
-    upgradeCandidate && typeof upgradeCandidate.priceComplete === 'number'
-      ? Math.max(0, upgradeCandidate.priceComplete - getOwnedMarketPrice(upgradeCandidate))
-      : 0
-  const weeklyHighlights = getWeeklyRecapHighlights()
-  const liveTradeCount = state.tradeInboxFreshOpportunityIds.size + state.tradePending + state.tradeUnread
-
-  return `
-    <section class="return-strip" aria-label="Reasons to come back to the vault">
-      <article class="return-strip__card return-strip__card--trade">
-        <span>Come back for trade movement</span>
-        <strong>${liveTradeCount > 0 ? `${liveTradeCount} trade signal${liveTradeCount === 1 ? '' : 's'} waiting right now.` : 'Trade Inbox is where collectors return when wanted games surface.'}</strong>
-        <p class="subtle">${state.authToken ? 'Private requests, accepted trades, and new matches all show up in one place.' : 'Create an account when you want duplicates, wanted games, and trade requests tied together.'}</p>
-        <button class="ghost-button" type="button" data-action="${state.authToken ? 'trade-open-inbox' : 'browse-tradeable-now'}">${state.authToken ? 'Open Trade Inbox' : 'Ready to Trade'}</button>
-      </article>
-      <article class="return-strip__card return-strip__card--alert">
-        <span>Come back for wanted hits</span>
-        <strong>${topAlert ? `${topAlert.title} is at or below your target right now.` : 'Wanted games can trigger real price hits instead of sitting in a static wishlist.'}</strong>
-        <p class="subtle">${topAlert ? `Loose value ${formatPrice(topAlert.priceLoose)}${getRecord(topAlert.id).targetPrice !== null ? ` / Target ${formatPrice(getRecord(topAlert.id).targetPrice!)}` : ''}` : 'Set a target price on your wanted games and the vault starts giving you a reason to return.'}</p>
-        <button class="ghost-button" type="button" data-action="${topAlert ? 'open-details' : 'browse-library'}"${topAlert ? ` data-id="${escapeHtml(topAlert.id)}"` : ''}>${topAlert ? 'Open alert hit' : 'Build wanted list'}</button>
-      </article>
-      <article class="return-strip__card">
-        <span>Come back for upgrades</span>
-        <strong>${upgradeCandidate ? `${upgradeCandidate.title} has a ${formatPrice(upgradePremium)} step-up to complete.` : 'Upgrade paths get clearer once you track the copies you already own.'}</strong>
-        <p class="subtle">${upgradeCandidate ? `${getOwnedValueLabel(upgradeCandidate)} is currently tracked. Complete market is ${formatPrice(upgradeCandidate.priceComplete ?? 0)}.` : 'Loose, boxed, manual, CiB, sealed, graded, duplicates, and variants should all live in the same collector history.'}</p>
-        <button class="ghost-button" type="button" data-action="${upgradeCandidate ? 'open-details' : 'browse-owned-games'}"${upgradeCandidate ? ` data-id="${escapeHtml(upgradeCandidate.id)}"` : ''}>${upgradeCandidate ? 'Review upgrade' : 'Browse owned games'}</button>
-      </article>
-      <article class="return-strip__card">
-        <span>Come back for weekly progress</span>
-        <strong>${escapeHtml(weeklyHighlights.added)}</strong>
-        <p class="subtle">${escapeHtml(weeklyHighlights.value)}. ${escapeHtml(weeklyHighlights.alerts)}.</p>
-        <button class="ghost-button" type="button" data-action="share-recap">Copy weekly recap</button>
-      </article>
-    </section>
-  `
-}
-
-function renderCollectorCommandStrip() {
-  const ownedGames = getOwnedGames()
-  const wantedGames = getWantedGames()
-  const alertMatches = getAlertMatches()
-  const nearComplete = getNearCompleteConsoles()[0] ?? null
-  const tradeableOwned = ownedGames.filter((game) => getRecord(game.id).forTrade)
-  const wantedTradeHit =
-    wantedGames
-      .filter((game) => getTradeAvailabilityCount(game.id) > 0)
-      .sort((left, right) => getTradeAvailabilityCount(right.id) - getTradeAvailabilityCount(left.id))[0] ?? null
-  const firstWantedWithoutTarget = wantedGames.find((game) => getRecord(game.id).targetPrice === null) ?? null
-  const firstOwnedWithoutPrice = ownedGames.find((game) => getRecord(game.id).pricePaid === null) ?? null
-
-  let nextMove = {
-    label: 'Next best move',
-    title: 'Add your first owned game.',
-    detail: 'Everything gets smarter once the vault knows what is already on your shelf.',
-    meta: 'Unlock collector rank, completion, and trade tracking',
-    action: 'browse-library',
-    actionLabel: 'Browse Games Library',
-    gameId: '',
-  }
-
-  if (ownedGames.length > 0 && wantedGames.length === 0) {
-    nextMove = {
-      label: 'Next best move',
-      title: 'Build your wanted list.',
-      detail: 'Wanted games unlock trade discovery, hunt planning, and future price alerts.',
-      meta: `${ownedGames.length.toLocaleString()} owned already tracked`,
-      action: 'browse-library',
-      actionLabel: 'Add wanted game',
-      gameId: '',
-    }
-  } else if (firstWantedWithoutTarget) {
-    nextMove = {
-      label: 'Next best move',
-      title: `Set a target on ${firstWantedWithoutTarget.title}.`,
-      detail: 'A target price turns a static wishlist entry into a live deal watch.',
-      meta: `Loose value ${formatPrice(firstWantedWithoutTarget.priceLoose)}`,
-      action: 'set-target-price',
-      actionLabel: 'Set target',
-      gameId: firstWantedWithoutTarget.id,
-    }
-  } else if (tradeableOwned.length === 0 && ownedGames.length > 1) {
-    nextMove = {
-      label: 'Next best move',
-      title: 'List one duplicate for trade.',
-      detail: 'Trade Inbox becomes far more useful once at least one owned copy is marked for trade.',
-      meta: `${ownedGames.length.toLocaleString()} owned games can be reviewed for duplicates`,
-      action: 'browse-owned-games',
-      actionLabel: 'Browse owned games',
-      gameId: '',
-    }
-  } else if (firstOwnedWithoutPrice) {
-    nextMove = {
-      label: 'Next best move',
-      title: `Add what you paid for ${firstOwnedWithoutPrice.title}.`,
-      detail: 'Paid prices turn your vault into a real collection ledger instead of a checklist.',
-      meta: `Current tracked value ${formatPrice(getOwnedMarketPrice(firstOwnedWithoutPrice))}`,
-      action: 'set-price-paid',
-      actionLabel: 'Set paid',
-      gameId: firstOwnedWithoutPrice.id,
-    }
-  }
-
-  const nextMoveDataId = nextMove.gameId ? ` data-id="${escapeHtml(nextMove.gameId)}"` : ''
-
-  return `
-    <section class="command-strip" aria-label="Collector command center">
-      <article class="command-strip__card command-strip__card--priority">
-        <span>${escapeHtml(nextMove.label)}</span>
-        <strong>${escapeHtml(nextMove.title)}</strong>
-        <p class="subtle">${escapeHtml(nextMove.detail)}</p>
-        <em>${escapeHtml(nextMove.meta)}</em>
-        <button class="ghost-button" type="button" data-action="${nextMove.action}"${nextMoveDataId}>${escapeHtml(nextMove.actionLabel)}</button>
-      </article>
-      <article class="command-strip__card">
-        <span>Trade opening</span>
-        <strong>${wantedTradeHit ? `${wantedTradeHit.title} already has collectors offering it.` : 'Trade matches get stronger when wanted games overlap with tradeable copies.'}</strong>
-        <p class="subtle">${wantedTradeHit ? `${getTradeAvailabilityCount(wantedTradeHit.id)} collector${getTradeAvailabilityCount(wantedTradeHit.id) === 1 ? '' : 's'} have this marked for trade right now.` : 'Wanted list + duplicates + opt-in trade listings is the collector loop we want people returning for.'}</p>
-        <button class="ghost-button" type="button" data-action="${wantedTradeHit ? 'open-trade-request' : 'browse-tradeable-now'}"${wantedTradeHit ? ` data-id="${escapeHtml(wantedTradeHit.id)}"` : ''}>${wantedTradeHit ? 'Request trade' : 'Browse tradeable now'}</button>
-      </article>
-      <article class="command-strip__card">
-        <span>Milestone pressure</span>
-        <strong>${nearComplete ? `${nearComplete.consoleName} is ${nearComplete.total - nearComplete.owned} game${nearComplete.total - nearComplete.owned === 1 ? '' : 's'} away.` : 'Completion tracking turns the vault into a real hunt plan.'}</strong>
-        <p class="subtle">${nearComplete ? `${nearComplete.owned}/${nearComplete.total} owned / ${nearComplete.progress}% complete.` : 'Once you start owning games on a console, the vault can surface the easiest set to finish next.'}</p>
-        <button class="ghost-button" type="button" data-action="${nearComplete ? 'daily-console' : 'browse-library'}"${nearComplete ? ` data-console="${escapeHtml(nearComplete.consoleName)}"` : ''}>${nearComplete ? 'View console' : 'Start a console run'}</button>
-      </article>
-      <article class="command-strip__card">
-        <span>This week</span>
-        <strong>${alertMatches.length > 0 ? `${alertMatches.length} alert hit${alertMatches.length === 1 ? '' : 's'} and ${tradeableOwned.length} trade listing${tradeableOwned.length === 1 ? '' : 's'} are already working for you.` : 'Weekly progress should feel like motion, not a pile of static entries.'}</strong>
-        <p class="subtle">${escapeHtml(getWeeklyRecapHighlights().added)}. ${escapeHtml(getWeeklyRecapHighlights().value)}.</p>
-        <button class="ghost-button" type="button" data-action="share-weekly-recap">Share weekly recap</button>
-      </article>
-    </section>
-  `
-}
-
-function renderAccountUnlockStrip() {
-  const signedInCopy = state.authToken
-    ? `Your vault is syncing as ${state.accountDisplayName || state.accountEmail || 'collector'}, so wanted games, paid prices, notes, alerts, and trade activity stay with you across devices.`
-    : 'Create an account to keep your collection, wanted list, paid prices, alerts, notes, and trade activity in one place across every device.'
-
-  return `
-    <section class="account-unlock-strip" aria-label="Why create a Retro Vault Elite account">
-      <div class="account-unlock-strip__intro">
-        <p class="kicker">Why create an account</p>
-        <h2>${state.authToken ? 'Your collector data is now portable.' : 'The real upgrade is saving the whole collector workflow.'}</h2>
-        <p class="subtle">${escapeHtml(signedInCopy)}</p>
-      </div>
-      <div class="account-unlock-strip__grid">
-        <article class="account-unlock-card">
-          <span>Sync</span>
-          <strong>Pick up on phone, desktop, or tablet without losing your place.</strong>
-          <p class="subtle">Owned copies, wanted games, paid prices, and progress all follow the account instead of getting stuck on one browser.</p>
-        </article>
-        <article class="account-unlock-card">
-          <span>Alerts</span>
-          <strong>Wanted games become live targets instead of a static wishlist.</strong>
-          <p class="subtle">Target prices, trade openings, and weekly collector emails give people a reason to come back.</p>
-        </article>
-        <article class="account-unlock-card">
-          <span>Trade</span>
-          <strong>Duplicates, matches, and private trade requests all stay tied to the game.</strong>
-          <p class="subtle">Collectors can move from “I own two copies” to “this one is ready to trade” without leaving the vault.</p>
-        </article>
-        <article class="account-unlock-card account-unlock-card--accent">
-          <span>Collector memory</span>
-          <strong>Notes, variants, grades, custom entries, and weird edge cases are saved with the collection.</strong>
-          <p class="subtle">That is the difference between a disposable checklist and a real long-term collector home.</p>
-        </article>
-      </div>
-      <div class="account-unlock-strip__actions">
-        ${
-          state.authToken
-            ? '<button class="secondary-button" type="button" data-action="open-account-settings">Account Settings</button><button class="ghost-button" type="button" data-action="sync-now">Sync Now</button>'
-            : '<button class="install-button" type="button" data-action="open-register">Create Free Vault</button><button class="secondary-button" type="button" data-action="open-login">Sign In</button>'
-        }
-      </div>
-    </section>
-  `
-}
-
-function renderCollectorAlertsStrip() {
-  const wantedGames = getWantedGames()
-  const alertMatches = getAlertMatches()
-  const topAlert = alertMatches[0] ?? null
-  const wantedTradeHit =
-    wantedGames
-      .filter((game) => getTradeAvailabilityCount(game.id) > 0)
-      .sort((left, right) => getTradeAvailabilityCount(right.id) - getTradeAvailabilityCount(left.id))[0] ?? null
-  const demandOwned =
-    getOwnedGames()
-      .filter((game) => getTradeWantedCount(game.id) > 0)
-      .sort((left, right) => getTradeWantedCount(right.id) - getTradeWantedCount(left.id))[0] ?? null
-  const nearComplete = getNearCompleteConsoles()[0] ?? null
-
-  return `
-    <section class="alerts-strip" aria-label="Collector alerts and return hooks">
-      <div class="alerts-strip__intro">
-        <p class="kicker">Collector alerts</p>
-        <h2>${state.authToken ? 'Reasons to come back are now personal.' : 'The real hook is when the vault starts watching your collection for you.'}</h2>
-        <p class="subtle">${state.authToken ? 'Wanted games, trade openings, demand signals, and completion pressure should feel like active reasons to check in, not just static stats.' : 'Create a free vault to save wanted games, trade signals, targets, and collector momentum across devices.'}</p>
-      </div>
-      <div class="alerts-strip__grid">
-        <article class="alerts-card alerts-card--gold">
-          <span>Target hits</span>
-          <strong>${topAlert ? `${topAlert.title} is already at or below your target.` : 'Target prices turn the wanted list into a real watchlist.'}</strong>
-          <p class="subtle">${topAlert ? `Loose ${formatPrice(topAlert.priceLoose)}${getRecord(topAlert.id).targetPrice !== null ? ` / Target ${formatPrice(getRecord(topAlert.id).targetPrice!)}` : ''}` : 'Add a few wanted games and set one target price. That is when the site starts feeling active instead of static.'}</p>
-          <button class="ghost-button" type="button" data-action="${topAlert ? 'open-details' : state.authToken ? 'ownership-filter' : 'open-register'}"${topAlert ? ` data-id="${escapeHtml(topAlert.id)}"` : state.authToken ? ' data-filter="wanted"' : ''}>${topAlert ? 'Open Alert' : state.authToken ? 'Open Wanted List' : 'Create Free Vault'}</button>
-        </article>
-        <article class="alerts-card alerts-card--teal">
-          <span>Trade openings</span>
-          <strong>${wantedTradeHit ? `${getTradeAvailabilityCount(wantedTradeHit.id)} collectors can already trade ${wantedTradeHit.title}.` : 'Trade openings should surface without you hunting through the whole catalog.'}</strong>
-          <p class="subtle">${wantedTradeHit ? 'This is where a wanted list becomes useful: the vault can bring the right trade back to you.' : 'Mark wanted games now, then let Trade Inbox and Ready to Trade keep surfacing better matches.'}</p>
-          <button class="ghost-button" type="button" data-action="${wantedTradeHit ? 'open-trade-request' : 'browse-tradeable-now'}"${wantedTradeHit ? ` data-id="${escapeHtml(wantedTradeHit.id)}"` : ''}>${wantedTradeHit ? 'Request Trade' : 'Ready to Trade'}</button>
-        </article>
-        <article class="alerts-card alerts-card--crimson">
-          <span>Demand on your shelf</span>
-          <strong>${demandOwned ? `${demandOwned.title} is wanted by ${getTradeWantedCount(demandOwned.id)} collector${getTradeWantedCount(demandOwned.id) === 1 ? '' : 's'}.` : 'Owned games become much more useful when you can see what other collectors actually want.'}</strong>
-          <p class="subtle">${demandOwned ? 'This is the kind of signal that turns a duplicate into an actual trade move.' : 'Once your vault has more owned games, demand signals will help surface which copies are most worth listing for trade.'}</p>
-          <button class="ghost-button" type="button" data-action="${demandOwned ? 'open-details' : 'browse-owned-games'}"${demandOwned ? ` data-id="${escapeHtml(demandOwned.id)}"` : ''}>${demandOwned ? 'Review Game' : 'Browse Owned Games'}</button>
-        </article>
-        <article class="alerts-card alerts-card--blue">
-          <span>Completion pressure</span>
-          <strong>${nearComplete ? `${nearComplete.consoleName} is only ${nearComplete.total - nearComplete.owned} games away.` : 'Completion pressure is part of what makes collectors reopen a vault.'}</strong>
-          <p class="subtle">${nearComplete ? `${nearComplete.owned}/${nearComplete.total} owned / ${nearComplete.progress}% complete.` : 'The closer a system gets to complete, the more the site should feel like it knows exactly what you will want to do next.'}</p>
-          <button class="ghost-button" type="button" data-action="${nearComplete ? 'daily-console' : 'browse-library'}"${nearComplete ? ` data-console="${escapeHtml(nearComplete.consoleName)}"` : ''}>${nearComplete ? 'See Missing Games' : 'Browse Games Library'}</button>
-        </article>
-      </div>
-    </section>
-  `
-}
-
-function renderCollectorShowcaseStrip() {
-  const rank = getCollectorRank()
-  const dominantConsole = getDominantConsole()
-  const topShelf = getTopShelfGames()
-  const rarestOwned = getRarestOwnedGame()
-
-  return `
-    <section class="showcase-strip" aria-label="Collector identity and sharing">
-      <div class="showcase-strip__intro">
-        <p class="kicker">Collector showcase</p>
-        <h2>${state.authToken ? 'Your vault should feel like a collector profile, not just a spreadsheet replacement.' : 'Serious collectors stay when the vault starts to look like their own space.'}</h2>
-        <p class="subtle">${state.authToken ? 'Rank, strongest system, grails, and top shelf picks should all be easy to share once the collection starts taking shape.' : 'Create a free vault to save your collector identity, strongest system, top shelf, and progress in one place.'}</p>
-      </div>
-      <div class="showcase-strip__grid">
-        <article class="showcase-strip__card showcase-strip__card--identity">
-          <span>Collector rank</span>
-          <strong>${rank.title}</strong>
-          <p class="subtle">${rank.detail}</p>
-          <div class="showcase-strip__meta">
-            <em>${dominantConsole ? `${escapeHtml(dominantConsole.consoleName)} specialist` : 'Shelf still taking shape'}</em>
-            <em>${rarestOwned ? `Rarest flex: ${escapeHtml(rarestOwned.title)}` : 'Rarest flex still loading'}</em>
-          </div>
-        </article>
-        <article class="showcase-strip__card">
-          <span>Top shelf preview</span>
-          <strong>${topShelf.length ? topShelf.map((game) => game.title).slice(0, 3).join(' · ') : 'Favorite a few games to build your shelf.'}</strong>
-          <p class="subtle">${topShelf.length ? 'Favorites, grails, and standout owned copies make the vault feel personal fast.' : 'Top shelf picks are one of the fastest ways to turn a collection tracker into something worth sharing.'}</p>
-        </article>
-        <article class="showcase-strip__card showcase-strip__card--actions">
-          <span>Share the vault</span>
-          <strong>${state.authToken ? 'Turn progress into brag cards, weekly recaps, and collector challenge shares.' : 'Accounts make the vault worth coming back to and worth showing off.'}</strong>
-          <div class="showcase-strip__actions">
-            <button class="ghost-button" type="button" data-action="share-recap">Share Recap</button>
-            <button class="ghost-button" type="button" data-action="share-weekly-recap">Share Weekly Recap</button>
-            ${state.authToken ? '<button class="ghost-button" type="button" data-action="share-challenge">Share Collector Challenge</button>' : '<button class="install-button" type="button" data-action="open-register">Create Free Vault</button>'}
-          </div>
-        </article>
-      </div>
-    </section>
-  `
-}
-
-function renderCollectorMigrationStrip() {
-  return `
-    <section class="migration-strip" aria-label="Move your collection into Retro Vault Elite">
-      <article class="migration-card migration-card--import">
-        <span>Move in without starting over</span>
-        <strong>Bring over spreadsheet rows, checklist exports, and CSV collections without rebuilding the vault by hand.</strong>
-        <p class="subtle">Serious collectors should be able to carry over owned games, editions, and progress fast. Import first, then clean up the edge cases inside the vault.</p>
-        <div class="migration-card__meta">
-          <em>CSV import ready</em>
-          <em>Review matches before saving</em>
-          <em>Works on desktop and mobile</em>
-        </div>
-        <div class="migration-card__actions">
-          <button class="toggle-button" type="button" data-action="import-collection">Import Collection</button>
-          <button class="ghost-button" type="button" data-action="browse-library">Browse Games Library</button>
-        </div>
-      </article>
-      <article class="migration-card migration-card--pulse">
-        <span>Weekly collector pulse</span>
-        <strong>${state.authToken ? 'Your account is what turns the vault into a weekly collector companion.' : 'Create a free vault to save wanted hits, trade movement, weekly progress, and collector updates.'}</strong>
-        <p class="subtle">${state.authToken ? 'Members get the full loop: saved vault progress across devices, private trade inbox activity, target price hits, and weekly site updates worth checking.' : 'This is the difference between a one-time browse and a collection home that keeps working for you after you leave.'}</p>
-        <div class="migration-card__meta">
-          <em>Wanted game alerts</em>
-          <em>Trade inbox movement</em>
-          <em>Weekly Retro Vault updates</em>
-        </div>
-        <div class="migration-card__actions">
-          ${state.authToken
-            ? '<button class="toggle-button" type="button" data-action="open-account-settings">Open Account Settings</button><button class="ghost-button" type="button" data-action="share-weekly-recap">Share Weekly Recap</button>'
-            : '<button class="install-button" type="button" data-action="open-register">Create Free Vault</button><button class="ghost-button" type="button" data-action="open-login">Sign In</button>'}
-        </div>
-      </article>
-    </section>
-  `
-}
-
-function renderGuestSafeguardStrip() {
-  if (state.authToken) {
-    return ''
-  }
-
-  const ownedCount = getOwnedGames().length
-  const wantedCount = getWantedGames().length
-  const tradeCount = getOwnedGames().filter((game) => getRecord(game.id).forTrade).length
-  const trackedCount = ownedCount + wantedCount
-  const customCount = state.customCatalog.length
-
-  if (!trackedCount && !customCount) {
-    return ''
-  }
-
-  return `
-    <section class="guest-safeguard-strip" aria-label="Protect your guest vault">
-      <div class="guest-safeguard-strip__copy">
-        <p class="kicker">Protect this vault</p>
-        <h2>You already have real collector work saved on this device.</h2>
-        <p class="subtle">Create a free vault now to keep ${trackedCount.toLocaleString()} tracked game${trackedCount === 1 ? '' : 's'}, ${wantedCount.toLocaleString()} wanted, ${tradeCount.toLocaleString()} trade-ready, and ${customCount.toLocaleString()} custom entr${customCount === 1 ? 'y' : 'ies'} synced across devices.</p>
-      </div>
-      <div class="guest-safeguard-strip__stats">
-        <span>${ownedCount.toLocaleString()} owned</span>
-        <span>${wantedCount.toLocaleString()} wanted</span>
-        <span>${tradeCount.toLocaleString()} for trade</span>
-        <span>${customCount.toLocaleString()} custom</span>
-      </div>
-      <div class="guest-safeguard-strip__actions">
-        <button class="install-button" type="button" data-action="open-register">Create Free Vault</button>
-        <button class="secondary-button" type="button" data-action="open-login">Sign In</button>
-        <button class="ghost-button" type="button" data-action="export-catalog">Export Collection</button>
-      </div>
-    </section>
-  `
-}
-
-function renderWorkspaceRail() {
-  const ownedCount = getOwnedGames().length
-  const wantedCount = getWantedGames().length
-  const tradeCount = getOwnedGames().filter((game) => getRecord(game.id).forTrade).length
-  const alertCount = getAlertMatches().length
-  const setupScore = getCollectionCompletenessScore()
-
-  return `
-    <section class="workspace-rail" aria-label="Collector workspace">
-      <div class="workspace-rail__header">
-        <div>
-          <p class="kicker">Collector workspace</p>
-          <h2>Move around the vault like a real collection desk.</h2>
-        </div>
-        <p class="subtle">Jump between the full library, owned shelf, wanted hunt list, trade-ready copies, and collector setup work without losing your place.</p>
-      </div>
-      <div class="workspace-rail__grid">
-        <button class="workspace-chip ${state.ownershipFilter === 'all' ? 'is-active' : ''}" type="button" data-action="browse-library">
-          <span>Games library</span>
-          <strong>Browse everything</strong>
-          <em>Full vault search</em>
-        </button>
-        <button class="workspace-chip ${state.ownershipFilter === 'owned' ? 'is-active' : ''}" type="button" data-action="browse-owned-games">
-          <span>Owned shelf</span>
-          <strong>${ownedCount.toLocaleString()} tracked</strong>
-          <em>Review copies and upgrades</em>
-        </button>
-        <button class="workspace-chip ${state.ownershipFilter === 'wanted' ? 'is-active' : ''}" type="button" data-action="ownership-filter" data-filter="wanted">
-          <span>Wanted list</span>
-          <strong>${wantedCount.toLocaleString()} hunting</strong>
-          <em>${alertCount.toLocaleString()} active alerts</em>
-        </button>
-        <button class="workspace-chip ${state.ownershipFilter === 'tradeable-now' ? 'is-active' : ''}" type="button" data-action="browse-tradeable-now">
-          <span>Ready to trade</span>
-          <strong>${tradeCount.toLocaleString()} listed</strong>
-          <em>Collectors trading now</em>
-        </button>
-        <button class="workspace-chip workspace-chip--setup" type="button" data-action="import-collection">
-          <span>Move in faster</span>
-          <strong>Import collection</strong>
-          <em>Spreadsheet to vault</em>
-        </button>
-        <button class="workspace-chip workspace-chip--setup" type="button" data-action="open-scanner">
-          <span>Fast capture</span>
-          <strong>Scan barcode</strong>
-          <em>Setup score ${setupScore}%</em>
-        </button>
-      </div>
-    </section>
-  `
-}
-
-function renderVaultLanesStrip() {
-  const ownedCount = getOwnedGames().length
-  const wantedCount = getWantedGames().length
-  const tradeCount = getOwnedGames().filter((game) => getRecord(game.id).forTrade).length
-  const alertCount = getAlertMatches().length
-
-  return `
-    <section class="vault-lanes" aria-label="Vault quick lanes">
-      <div class="vault-lanes__header">
-        <p class="kicker">Start here</p>
-        <p class="subtle">Jump straight into the part of the vault that matters right now.</p>
-      </div>
-      <div class="vault-lanes__list">
-        <button class="vault-lane ${state.ownershipFilter === 'all' ? 'is-active' : ''}" type="button" data-action="browse-library">
-          <span>Games Library</span>
-          <strong>Browse Everything</strong>
-          <em>${getCatalog().length.toLocaleString()} games</em>
-        </button>
-        <button class="vault-lane ${state.ownershipFilter === 'owned' ? 'is-active' : ''}" type="button" data-action="browse-owned-games">
-          <span>Owned Shelf</span>
-          <strong>${ownedCount.toLocaleString()} Tracked</strong>
-          <em>Review copies</em>
-        </button>
-        <button class="vault-lane ${state.ownershipFilter === 'wanted' ? 'is-active' : ''}" type="button" data-action="browse-wanted-games">
-          <span>Wanted List</span>
-          <strong>${wantedCount.toLocaleString()} Hunting</strong>
-          <em>Build the chase</em>
-        </button>
-        <button class="vault-lane ${state.ownershipFilter === 'tradeable-now' ? 'is-active' : ''}" type="button" data-action="browse-tradeable-now">
-          <span>Ready To Trade</span>
-          <strong>${tradeCount.toLocaleString()} Listed</strong>
-          <em>Collectors trading now</em>
-        </button>
-        <button class="vault-lane ${state.ownershipFilter === 'wanted-now' ? 'is-active' : ''}" type="button" data-action="browse-alert-hits">
-          <span>Price Alerts</span>
-          <strong>${alertCount.toLocaleString()} Live</strong>
-          <em>Wanted games in play</em>
-        </button>
-      </div>
-    </section>
-  `
-}
-
-function getCatalogRunwayGames(filteredGames: CatalogEntry[], limit = 4) {
-  const rarityWeight: Record<RarityTier, number> = { Grail: 30, Classic: 18, Common: 10 }
-  const base = filteredGames.slice(0, 180)
-  return [...base]
-    .sort((left, right) => {
-      const leftScore =
-        (getTradeAvailabilityCount(left.id) > 0 ? 24 : 0) +
-        getTradeWantedCount(left.id) * 5 +
-        (Math.max(left.trendDelta, 0) * 100) +
-        (left.priceComplete ?? left.priceLoose) / 22 +
-        rarityWeight[left.rarity]
-      const rightScore =
-        (getTradeAvailabilityCount(right.id) > 0 ? 24 : 0) +
-        getTradeWantedCount(right.id) * 5 +
-        (Math.max(right.trendDelta, 0) * 100) +
-        (right.priceComplete ?? right.priceLoose) / 22 +
-        rarityWeight[right.rarity]
-      return rightScore - leftScore
-    })
-    .slice(0, limit)
-}
-
-function getCatalogRunwayReason(game: CatalogEntry) {
-  const tradeCount = getTradeAvailabilityCount(game.id)
-  const wantedCount = getTradeWantedCount(game.id)
-
-  if (tradeCount > 0) {
-    return tradeCount === 1 ? 'Collector offering it now' : `${tradeCount} collectors trading now`
-  }
-
-  if (wantedCount > 0) {
-    return wantedCount === 1 ? 'Wanted by 1 collector' : `Wanted by ${wantedCount} collectors`
-  }
-
-  if (game.rarity === 'Grail') {
-    return 'Collector grail territory'
-  }
-
-  if (game.trendDelta > 0.12) {
-    return `Market moving +${Math.round(game.trendDelta * 100)}%`
-  }
-
-  return 'Worth opening next'
-}
-
-function renderCatalogRunway(filteredGames: CatalogEntry[]) {
-  const games = getCatalogRunwayGames(filteredGames)
-
-  if (!games.length) {
-    return ''
-  }
-
-  return `
-    <section class="catalog-rail catalog-rail--runway" aria-label="Picked for you">
-      <div class="catalog-rail__header">
-        <div>
-          <p class="kicker">Picked for you</p>
-          <h3>Popular right now</h3>
-        </div>
-        <p class="subtle">A premium first pass through the library before you drop into the full grid.</p>
-      </div>
-      <div class="catalog-rail__track">
-        ${games.map((game) => `
-          <button class="catalog-rail-card" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
-            <img class="catalog-rail-card__cover" src="${getCardCoverUrl(game)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${getCoverFallbackAttributes(game)} />
-            <div class="catalog-rail-card__copy">
-              <span>${escapeHtml(game.console)}</span>
-              <strong>${escapeHtml(game.title)}</strong>
-              <em>${escapeHtml(getCatalogRunwayReason(game))}</em>
-            </div>
-          </button>
-        `).join('')}
-      </div>
-    </section>
-  `
-}
-
-function getRecentlyViewedGames(limit = 5) {
-  return state.recentViewedGameIds
-    .map((id) => getGameById(id))
-    .filter((game): game is CatalogEntry => game !== undefined)
-    .slice(0, limit)
-}
-
-function renderContinueHuntingStrip() {
-  if (!state.authToken) {
-    return ''
-  }
-
-  const games = getRecentlyViewedGames()
-
-  if (!games.length) {
-    return ''
-  }
-
-  return `
-    <section class="catalog-rail catalog-rail--recent" aria-label="Continue hunting">
-      <div class="catalog-rail__header">
-        <div>
-          <p class="kicker">Continue hunting</p>
-          <h3>Your recently viewed games</h3>
-        </div>
-        <p class="subtle">The vault remembers where your attention was last.</p>
-      </div>
-      <div class="catalog-rail__track">
-        ${games.map((game) => `
-          <button class="catalog-rail-card catalog-rail-card--recent" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
-            <img class="catalog-rail-card__cover" src="${getCardCoverUrl(game)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${getCoverFallbackAttributes(game)} />
-            <div class="catalog-rail-card__copy">
-              <span>${escapeHtml(game.console)} / ${escapeHtml(game.region)}</span>
-              <strong>${escapeHtml(game.title)}</strong>
-              <em>${formatPrice(getReferencePrice(game))} reference market</em>
-            </div>
-          </button>
-        `).join('')}
-      </div>
-    </section>
-  `
-}
-
-function getBecauseYouCollectGames(limit = 6) {
-  if (!state.authToken) {
-    return []
-  }
-
-  const wantedGames = getWantedGames()
-  const ownedGames = getOwnedGames()
-  const priorityConsoles = Array.from(
-    new Set([
-      ...wantedGames.map((game) => game.console),
-      ...ownedGames.slice(0, 8).map((game) => game.console),
-    ]),
-  )
-
-  if (!priorityConsoles.length) {
-    return []
-  }
-
-  const excluded = new Set([
-    ...wantedGames.map((game) => game.id),
-    ...ownedGames.map((game) => game.id),
-    ...state.recentViewedGameIds,
-  ])
-
-  return getCatalog()
-    .filter((game) => priorityConsoles.includes(game.console) && !excluded.has(game.id))
-    .sort((a, b) => {
-      const aConsoleRank = priorityConsoles.indexOf(a.console)
-      const bConsoleRank = priorityConsoles.indexOf(b.console)
-      if (aConsoleRank !== bConsoleRank) {
-        return aConsoleRank - bConsoleRank
-      }
-
-      const aTrade = getTradeAvailabilityCount(a.id) + getTradeWantedCount(a.id)
-      const bTrade = getTradeAvailabilityCount(b.id) + getTradeWantedCount(b.id)
-      if (aTrade !== bTrade) {
-        return bTrade - aTrade
-      }
-
-      if (a.rarity !== b.rarity) {
-        const rarityRank: Record<string, number> = { Grail: 0, Classic: 1, Common: 2 }
-        return (rarityRank[a.rarity] ?? 2) - (rarityRank[b.rarity] ?? 2)
-      }
-
-      return (b.priceLoose ?? 0) - (a.priceLoose ?? 0)
-    })
-    .slice(0, limit)
-}
-
-function getBecauseYouCollectReason(game: CatalogEntry) {
-  const tradeCount = getTradeAvailabilityCount(game.id)
-  const demandCount = getTradeWantedCount(game.id)
-
-  if (tradeCount > 0) {
-    return tradeCount === 1 ? 'Trade-ready in your collector lane' : `${tradeCount} collectors trading it now`
-  }
-
-  if (demandCount > 0) {
-    return demandCount === 1 ? 'Wanted by 1 collector right now' : `Wanted by ${demandCount} collectors`
-  }
-
-  if (game.rarity === 'Grail') {
-    return 'Fits the grail taste already in your vault'
-  }
-
-  return `${game.console} keeps showing up in your collector pattern`
-}
-
-function renderBecauseYouCollectStrip() {
-  const games = getBecauseYouCollectGames()
-
-  if (!games.length) {
-    return ''
-  }
-
-  return `
-    <section class="catalog-rail catalog-rail--because" aria-label="Because you collect">
-      <div class="catalog-rail__header">
-        <div>
-          <p class="kicker">Because you collect</p>
-          <h3>More games that fit your shelf</h3>
-        </div>
-        <p class="subtle">Picked from the systems, hunt patterns, and collector signals already showing up in your vault.</p>
-      </div>
-      <div class="catalog-rail__track">
-        ${games.map((game) => `
-          <button class="catalog-rail-card catalog-rail-card--because" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
-            <img class="catalog-rail-card__cover" src="${getCardCoverUrl(game)}" alt="${escapeHtml(game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${getCoverFallbackAttributes(game)} />
-            <div class="catalog-rail-card__copy">
-              <span>${escapeHtml(game.console)} / ${escapeHtml(game.region)}</span>
-              <strong>${escapeHtml(game.title)}</strong>
-              <em>${escapeHtml(getBecauseYouCollectReason(game))}</em>
-            </div>
-          </button>
-        `).join('')}
-      </div>
-    </section>
-  `
-}
-
-function getActivityActionMeta(event: ActivityEvent) {
-  if (event.gameId) {
-    return {
-      action: event.type === 'target_price_added' ? 'set-target-price' : 'open-details',
-      actionLabel: event.type === 'target_price_added' ? 'Review target' : 'Open game',
-      attr: ` data-id="${escapeHtml(event.gameId)}"`,
-    }
-  }
-
-  if (event.type === 'badge_unlocked') {
-    return {
-      action: 'open-badges',
-      actionLabel: 'View badges',
-      attr: '',
-    }
-  }
-
-  return {
-    action: 'browse-library',
-    actionLabel: 'Open vault',
-    attr: '',
-  }
-}
-
-function renderCollectorActivityStrip() {
-  const recentEvents = state.activityEvents.slice(0, 6)
-
-  return `
-    <section class="activity-strip" aria-label="Recent collector activity">
-      <div class="activity-strip__intro">
-        <p class="kicker">Recent collector activity</p>
-        <h2>${recentEvents.length ? 'Your vault is moving.' : 'The vault starts feeling alive once you log a few real collector moves.'}</h2>
-        <p class="subtle">${recentEvents.length ? 'Owned adds, wanted games, upgrades, price entries, favorites, and badge unlocks should all feel like progress worth seeing at a glance.' : 'Add games, set targets, mark favorites, and upgrade copies. The recent activity feed will turn that into a running collector story.'}</p>
-      </div>
-      <div class="activity-strip__grid">
-        ${
-          recentEvents.length
-            ? recentEvents
-                .map((event) => {
-                  const actionMeta = getActivityActionMeta(event)
-                  return `
-                    <article class="activity-card">
-                      <span>${escapeHtml(event.type.replace(/_/g, ' '))}</span>
-                      <strong>${escapeHtml(event.title)}</strong>
-                      <p class="subtle">${escapeHtml(event.detail)}</p>
-                      <em>${escapeHtml(formatRelativeTime(event.createdAt))}</em>
-                      <button class="ghost-button" type="button" data-action="${actionMeta.action}"${actionMeta.attr}>${escapeHtml(actionMeta.actionLabel)}</button>
-                    </article>
-                  `
-                })
-                .join('')
-            : `
-              <article class="activity-card activity-card--empty">
-                <span>First move</span>
-                <strong>Add one owned game.</strong>
-                <p class="subtle">That unlocks activity tracking, progress, and a clearer next-best-move loop.</p>
-                <em>Everything starts with one shelf entry.</em>
-                <button class="ghost-button" type="button" data-action="browse-library">Browse Games Library</button>
-              </article>
-              <article class="activity-card activity-card--empty">
-                <span>Build the hunt</span>
-                <strong>Add one wanted game.</strong>
-                <p class="subtle">Wanted titles are the start of alerts, trade matches, and comeback reasons.</p>
-                <em>Wanted list first, deals later.</em>
-                <button class="ghost-button" type="button" data-action="browse-library">Find a grail</button>
-              </article>
-              <article class="activity-card activity-card--empty">
-                <span>Start a loop</span>
-                <strong>Set one target price.</strong>
-                <p class="subtle">That is how the vault starts telling you when something is worth checking again.</p>
-                <em>Targets make the wishlist useful.</em>
-                <button class="ghost-button" type="button" data-action="browse-library">Set a target</button>
-              </article>
-            `
-        }
-      </div>
-    </section>
-  `
-}
-
-function renderMarketRadarStrip() {
-  const mover = getMarketMovers()[0] ?? null
-  const wantedTradeHit =
-    getWantedGames()
-      .filter((game) => getTradeAvailabilityCount(game.id) > 0)
-      .sort((left, right) => getTradeAvailabilityCount(right.id) - getTradeAvailabilityCount(left.id))[0] ?? null
-  const grail = getMissingGrails()[0] ?? null
-  const nearComplete = getNearCompleteConsoles()[0] ?? null
-
-  return `
-    <section class="market-radar-strip" aria-label="Collector market radar">
-      <div class="market-radar-strip__intro">
-        <p class="kicker">Collector radar</p>
-        <h2>What is moving around your collection right now.</h2>
-        <p class="subtle">A strong collector tool should not only store data. It should surface the next title worth buying, trading, upgrading, or paying attention to.</p>
-      </div>
-      <div class="market-radar-strip__grid">
-        <article class="market-radar-card market-radar-card--hot">
-          <span>Market mover</span>
-          <strong>${mover ? mover.title : 'No mover surfaced yet'}</strong>
-          <p class="subtle">${mover ? `${formatDelta(mover.trendDelta)} trend / Loose ${formatPrice(mover.priceLoose)} / Complete ${mover.priceComplete === null ? 'Listing only' : formatPrice(mover.priceComplete)}` : 'The vault will start surfacing notable movers as soon as the live catalog is in view.'}</p>
-          <button class="ghost-button" type="button" data-action="${mover ? 'open-details' : 'browse-library'}"${mover ? ` data-id="${escapeHtml(mover.id)}"` : ''}>${mover ? 'Inspect mover' : 'Browse Games Library'}</button>
-        </article>
-        <article class="market-radar-card">
-          <span>Trade opening</span>
-          <strong>${wantedTradeHit ? `${wantedTradeHit.title} is already up for trade.` : 'Trade openings appear here when collectors list games from your wanted stack.'}</strong>
-          <p class="subtle">${wantedTradeHit ? `${getTradeAvailabilityCount(wantedTradeHit.id)} collector${getTradeAvailabilityCount(wantedTradeHit.id) === 1 ? '' : 's'} currently have this wanted game marked for trade.` : 'This is the part of the loop that can bring people back without them having to manually dig through the whole catalog.'}</p>
-          <button class="ghost-button" type="button" data-action="${wantedTradeHit ? 'open-trade-request' : 'browse-tradeable-now'}"${wantedTradeHit ? ` data-id="${escapeHtml(wantedTradeHit.id)}"` : ''}>${wantedTradeHit ? 'Request trade' : 'Browse tradeable now'}</button>
-        </article>
-        <article class="market-radar-card">
-          <span>Grail pressure</span>
-          <strong>${grail ? `${grail.title} is still missing from the vault.` : 'Missing grails will surface here once your shelf takes shape.'}</strong>
-          <p class="subtle">${grail ? `${grail.console} / ${formatPrice(getReferencePrice(grail))} / ${grail.rarity}. Serious collectors want the hunt list to stay visible, not buried.` : 'The best collector tools keep the chase visible, not just the items you already own.'}</p>
-          <button class="ghost-button" type="button" data-action="${grail ? 'open-details' : 'browse-library'}"${grail ? ` data-id="${escapeHtml(grail.id)}"` : ''}>${grail ? 'Open grail' : 'Find a grail'}</button>
-        </article>
-        <article class="market-radar-card">
-          <span>Completion heat</span>
-          <strong>${nearComplete ? `${nearComplete.consoleName} is ${nearComplete.total - nearComplete.owned} game${nearComplete.total - nearComplete.owned === 1 ? '' : 's'} away.` : 'Completion runs start surfacing once your console shelves have shape.'}</strong>
-          <p class="subtle">${nearComplete ? `${nearComplete.owned}/${nearComplete.total} owned / ${nearComplete.progress}% complete. This is the kind of nudge that turns a tracker into a collecting habit.` : 'Console completion is one of the easiest reasons for a collector to check back and keep moving.'}</p>
-          <button class="ghost-button" type="button" data-action="${nearComplete ? 'daily-console' : 'browse-library'}"${nearComplete ? ` data-console="${escapeHtml(nearComplete.consoleName)}"` : ''}>${nearComplete ? 'See missing games' : 'Start a console run'}</button>
-        </article>
-      </div>
-    </section>
-  `
-}
-
-function renderVaultHealthStrip() {
-  const ownedGames = getOwnedGames()
-  const wantedGames = getWantedGames()
-  const paidCount = ownedGames.filter((game) => getRecord(game.id).pricePaid !== null).length
-  const noteCount = ownedGames.filter((game) => getRecord(game.id).notes.trim()).length
-  const targetCount = wantedGames.filter((game) => getRecord(game.id).targetPrice !== null).length
-  const tradeCount = ownedGames.filter((game) => getRecord(game.id).forTrade).length
-
-  const paidPercent = ownedGames.length ? Math.round((paidCount / ownedGames.length) * 100) : 0
-  const notePercent = ownedGames.length ? Math.round((noteCount / ownedGames.length) * 100) : 0
-  const targetPercent = wantedGames.length ? Math.round((targetCount / wantedGames.length) * 100) : 0
-  const tradePercent = ownedGames.length ? Math.round((tradeCount / ownedGames.length) * 100) : 0
-
-  return `
-    <section class="vault-health-strip" aria-label="Collector vault health">
-      <div class="vault-health-strip__intro">
-        <p class="kicker">Vault health</p>
-        <h2>How complete your collector setup really is.</h2>
-        <p class="subtle">A serious collector tool should help you see what is missing from your setup, not just what is missing from your shelf.</p>
-      </div>
-      <div class="vault-health-strip__grid">
-        <article class="vault-health-card">
-          <span>Paid prices</span>
-          <strong>${paidCount}/${ownedGames.length || 0}</strong>
-          <p class="subtle">${paidPercent}% of owned games have a paid price. This is what turns value tracking into a real collection ledger.</p>
-        </article>
-        <article class="vault-health-card">
-          <span>Collector notes</span>
-          <strong>${noteCount}/${ownedGames.length || 0}</strong>
-          <p class="subtle">${notePercent}% of owned games include notes. Condition stories, variant details, and shelf memory matter more over time than people think.</p>
-        </article>
-        <article class="vault-health-card">
-          <span>Wanted targets</span>
-          <strong>${targetCount}/${wantedGames.length || 0}</strong>
-          <p class="subtle">${wantedPercentText(targetPercent, wantedGames.length)}</p>
-        </article>
-        <article class="vault-health-card">
-          <span>Trade listings</span>
-          <strong>${tradeCount}/${ownedGames.length || 0}</strong>
-          <p class="subtle">${tradePercent}% of owned games are marked for trade. Duplicates only become useful opportunities once they are actually listed.</p>
-        </article>
-      </div>
-    </section>
-  `
-}
-
-function wantedPercentText(targetPercent: number, wantedTotal: number) {
-  if (!wantedTotal) {
-    return 'Add wanted games first, then set target prices so the vault can start surfacing real return-worthy alert hits.'
-  }
-
-  return `${targetPercent}% of wanted games have a target price. This is what makes a wanted list feel active instead of decorative.`
 }
 
 function renderOnboardingPanel() {
@@ -6824,6 +6289,7 @@ function renderCatalogSkeleton() {
 function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: CatalogEntry[]) {
   const isShelf = state.viewMode === 'shelf'
   const trackedCount = getOwnedGames().length + getWantedGames().length
+  const showDiscoveryRails = !state.search.trim() && state.ownershipFilter === 'all'
   const emptyState = state.ownershipFilter === 'tradeable-now'
     ? '<div class="empty-state"><p class="empty-state__eyebrow">Trade live</p><h3>No live trade copies in this view</h3><p>Nothing here is currently listed by other collectors. Widen the console or region filters, or open Trade Inbox for fresher matches.</p><div class="empty-state__actions"><button class="ghost-button" data-action="trade-open-inbox" type="button">Open Trade Inbox</button><button class="secondary-button" data-action="ownership-filter" data-filter="all" type="button">Show all games</button></div></div>'
     : state.ownershipFilter === 'wanted-now'
@@ -6834,9 +6300,9 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
   const showSkeleton = state.isCatalogLoading && visibleGames.length === 0
   return `
     <section class="catalog-section">
-      ${renderCatalogRunway(filteredGames)}
-      ${renderContinueHuntingStrip()}
-      ${renderBecauseYouCollectStrip()}
+      ${showDiscoveryRails ? renderCatalogRunway(filteredGames) : ''}
+      ${showDiscoveryRails ? renderContinueHuntingStrip() : ''}
+      ${showDiscoveryRails ? renderBecauseYouCollectStrip() : ''}
       <div class="section-heading">
         <div>
           <div class="catalog-kicker-row">
@@ -6887,140 +6353,7 @@ function getMissingGamesForConsole(consoleName: string, limit = 6) {
     .slice(0, limit)
 }
 
-function renderFinishLineBanner() {
-  const nearComplete = getNearCompleteConsoles()[0]
-
-  if (!nearComplete) {
-    return ''
-  }
-
-  const remaining = nearComplete.total - nearComplete.owned
-
-  if (remaining > 10 || remaining === 0) {
-    return ''
-  }
-
-  return `
-    <section class="finish-line-banner">
-      <div class="finish-line-text">
-        <p class="kicker">Finish line</p>
-        <h3>You are <strong>${remaining}</strong> game${remaining === 1 ? '' : 's'} from completing ${escapeHtml(nearComplete.consoleName)}.</h3>
-        <p>${nearComplete.owned} of ${nearComplete.total} owned &mdash; ${nearComplete.progress}% done. You are this close.</p>
-      </div>
-      <button class="toggle-button" type="button" data-action="daily-console" data-console="${escapeHtml(nearComplete.consoleName)}">See missing games</button>
-    </section>
-  `
-}
-
-function renderHuntCard() {
-  const nearComplete = getNearCompleteConsoles()[0]
-
-  if (!nearComplete) {
-    return ''
-  }
-
-  const remaining = nearComplete.total - nearComplete.owned
-
-  if (remaining === 0 || remaining > 30) {
-    return ''
-  }
-
-  const missingGames = getMissingGamesForConsole(nearComplete.consoleName, 6)
-
-  if (!missingGames.length) {
-    return ''
-  }
-
-  return `
-    <section class="hunt-missing-card">
-      <div class="hunt-missing-header">
-        <div>
-          <p class="kicker">Hunt list</p>
-          <h3>Missing from ${escapeHtml(nearComplete.consoleName)}</h3>
-          <p>${remaining} game${remaining === 1 ? '' : 's'} to go &mdash; here are the ones worth finding first.</p>
-        </div>
-        <button class="ghost-button" type="button" data-action="daily-console" data-console="${escapeHtml(nearComplete.consoleName)}">See all missing</button>
-      </div>
-      <ul class="hunt-missing-list">
-        ${missingGames
-          .map(
-            (game) => `
-          <li>
-            <button class="hunt-missing-item" type="button" data-action="open-details" data-id="${escapeHtml(game.id)}">
-              <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
-              <strong>${escapeHtml(game.title)}</strong>
-              <span>${formatPrice(getReferencePrice(game))}</span>
-            </button>
-          </li>`,
-          )
-          .join('')}
-      </ul>
-    </section>
-  `
-}
-
-function renderConsolePush(title: string, entries: ReturnType<typeof getNearCompleteConsoles>, emptyText: string) {
-  return `
-    <article class="smart-card">
-      <h3>${title}</h3>
-      ${
-        entries.length
-          ? `<ul class="smart-list">${entries
-              .map(
-                (entry) =>
-                  `<li><strong>${escapeHtml(entry.consoleName)}</strong><span>${entry.owned}/${entry.total} owned / ${entry.progress}% complete</span></li>`,
-              )
-              .join('')}</ul>`
-          : `<p class="subtle">${emptyText}</p>`
-      }
-    </article>
-  `
-}
-
-function renderConsoleProgress() {
-  return getConsoleProgress()
-    .map(
-      (entry) => `
-        <div class="progress-row">
-          <div class="progress-copy">
-            <strong>${escapeHtml(entry.consoleName)}</strong>
-            <span>${entry.owned}/${entry.total} owned</span>
-          </div>
-          <div class="progress-bar" aria-hidden="true"><span style="width:${entry.progress}%"></span></div>
-          <span class="progress-percent">${entry.progress}%</span>
-        </div>
-      `,
-    )
-    .join('')
-}
-
-function renderConsoleCompletionCard() {
-  const progress = getConsoleProgress()
-  const topProgress = progress.slice(0, 3)
-
-  return `
-    <article class="smart-card">
-      <details class="completion-panel">
-        <summary class="completion-summary">
-          <div>
-            <h3>Console completion</h3>
-            <p class="subtle">A clean snapshot of your progress across each system, with the full breakdown tucked neatly behind one tap.</p>
-          </div>
-          <span class="completion-toggle">Open</span>
-        </summary>
-        <div class="completion-preview">
-          ${topProgress
-            .map(
-              (entry) =>
-                `<div class="completion-preview-row"><strong>${escapeHtml(entry.consoleName)}</strong><span>${entry.owned}/${entry.total} owned</span></div>`,
-            )
-            .join('')}
-        </div>
-        <div class="progress-stack">${renderConsoleProgress()}</div>
-      </details>
-    </article>
-  `
-}
+void [getTodayHuntItems, getWeeklyRecapHighlights, getCollectionEraLabel, getCollectorAchievements]
 
 function renderOwnershipPickerModal() {
   if (!state.ownershipPickerGameId) {
@@ -7164,24 +6497,6 @@ function renderCustomEntryModal() {
   `
 }
 
-function renderAccountCard() {
-  return `
-    <article class="smart-card">
-      <h3>Account sync</h3>
-      <p class="subtle">${state.authToken ? `Signed in as ${escapeHtml(state.accountDisplayName || state.accountEmail || 'collector')}. Your owned games, wishlist, CIB marks, paid prices, favorites, alerts, and profile are protected in your account.` : 'Create an account so your collection, wishlist, paid prices, favorites, alerts, and brag profile are safely synced.'}</p>
-      <div class="account-meta">
-        <span class="detail-chip">${escapeHtml(state.syncStatus)}</span>
-        <span class="detail-chip">${state.authToken ? 'Account protected' : 'Device-only mode'}</span>
-      </div>
-      <div class="card-actions">
-        ${state.authToken
-          ? '<button class="toggle-button" data-action="sync-now" type="button">Sync Now</button><button class="ghost-button" data-action="open-account-settings" type="button">Account Settings</button><button class="ghost-button" data-action="logout-account" type="button">Sign Out</button>'
-          : '<button class="toggle-button" data-action="open-register" type="button">Create Free Vault</button><button class="ghost-button" data-action="open-login" type="button">Sign In</button>'}
-      </div>
-    </article>
-  `
-}
-
 function renderMobileAccountBar() {
   const accountIdentity = getAccountIdentityLabel()
 
@@ -7310,227 +6625,6 @@ function renderAuthForm() {
         <button class="ghost-button danger-button" type="button" data-action="delete-account">Delete account</button>
       </div>
     </form>
-  `
-}
-
-function renderCollectionIdentityCard() {
-  const rank = getCollectorRank()
-  const dominantConsole = getDominantConsole()
-  const rarestOwned = getRarestOwnedGame()
-
-  return `
-    <article class="identity-card">
-      <div class="identity-copy">
-        <p class="kicker">Collector identity</p>
-        <h2>${rank.title}</h2>
-        <p class="identity-summary">${rank.detail}</p>
-        <div class="identity-metrics">
-          <article>
-            <span>Collection era</span>
-            <strong>${getCollectionEraLabel()}</strong>
-          </article>
-          <article>
-            <span>Shelf mood</span>
-            <strong>${getCollectionMood()}</strong>
-          </article>
-          <article>
-            <span>Strongest console</span>
-            <strong>${dominantConsole ? escapeHtml(dominantConsole.consoleName) : 'Still building'}</strong>
-          </article>
-          <article>
-            <span>Rarest flex</span>
-            <strong>${rarestOwned ? escapeHtml(rarestOwned.title) : 'Still hunting'}</strong>
-          </article>
-        </div>
-      </div>
-      <div class="identity-share">
-        <p class="kicker">Share-ready brag card</p>
-        <div class="share-card">
-          <strong>Retro Vault Elite</strong>
-          <span>${rank.title}</span>
-          <span>${dominantConsole ? `${escapeHtml(dominantConsole.consoleName)} specialist` : 'Shelf in progress'}</span>
-          <span>${rarestOwned ? `Flex: ${escapeHtml(rarestOwned.title)}` : 'Flex: loading'}</span>
-        </div>
-        <div class="card-actions">
-          <button class="toggle-button" type="button" data-action="share-challenge">Share collector challenge</button>
-          <a class="link-button" href="/collector-challenge.html">Open challenge page</a>
-        </div>
-      </div>
-    </article>
-  `
-}
-
-function renderAchievementStrip() {
-  const achievements = getCollectorAchievements()
-
-  if (!achievements.length) {
-    return ''
-  }
-
-  return `
-    <section class="achievement-strip">
-      ${achievements
-        .map(
-          (achievement) => `
-            <article class="achievement-pill achievement-pill--${achievement.tone}">
-              <span class="achievement-title">${achievement.title}</span>
-              <span class="achievement-detail">${achievement.detail}</span>
-            </article>
-          `,
-        )
-        .join('')}
-    </section>
-  `
-}
-
-function renderTodayHunt() {
-  const items = getTodayHuntItems()
-
-  return `
-    <section class="daily-hunt" aria-labelledby="daily-hunt-title">
-      <div class="daily-hunt-header">
-        <div>
-          <p class="kicker">Today's collector hunt</p>
-          <h2 id="daily-hunt-title">Five reasons to check the vault today.</h2>
-        </div>
-        <p class="subtle">A fresh daily mix of grails, market movement, milestones, deal prompts, and share fuel.</p>
-      </div>
-      <div class="daily-hunt-grid">
-        ${items
-          .map((item) => {
-            const dataId = item.game ? ` data-id="${escapeHtml(item.game.id)}"` : ''
-            const dataConsole = item.consoleName ? ` data-console="${escapeHtml(item.consoleName)}"` : ''
-
-            return `
-              <article class="hunt-card hunt-card--${item.tone}">
-                <span class="hunt-label">${escapeHtml(item.label)}</span>
-                <h3>${escapeHtml(item.title)}</h3>
-                <p>${escapeHtml(item.detail)}</p>
-                <strong>${escapeHtml(item.meta)}</strong>
-                <button class="link-button" type="button" data-action="${item.action}"${dataId}${dataConsole}>${escapeHtml(item.actionLabel)}</button>
-              </article>
-            `
-          })
-          .join('')}
-      </div>
-    </section>
-  `
-}
-
-function renderRetentionRecap() {
-  const highlights = getWeeklyRecapHighlights()
-
-  return `
-    <section class="retention-grid" aria-label="Daily streak and weekly recap">
-      <article class="streak-card">
-        <p class="kicker">Daily streak</p>
-        <strong>${state.visitStreak.current}</strong>
-        <span>day${state.visitStreak.current === 1 ? '' : 's'} in a row</span>
-        <p class="subtle">Best streak ${state.visitStreak.best}. Check the vault daily to keep your collector rhythm alive.</p>
-      </article>
-      <article class="weekly-recap-card">
-        <div class="weekly-recap-copy">
-          <p class="kicker">Weekly recap</p>
-          <h2>Your vault story for the week.</h2>
-          <p class="subtle">A shareable snapshot of your collection, hunt list, value, strongest console, and rarest flex.</p>
-        </div>
-        <div class="weekly-recap-stats">
-          <span>${escapeHtml(highlights.owned)}</span>
-          <span>${escapeHtml(highlights.added)}</span>
-          <span>${escapeHtml(highlights.value)}</span>
-          <span>${escapeHtml(highlights.strongest)}</span>
-          <span>${escapeHtml(highlights.rarest)}</span>
-          <span>${escapeHtml(highlights.alerts)}</span>
-        </div>
-        <div class="card-actions">
-          <button class="toggle-button" type="button" data-action="share-weekly-recap">Share weekly recap</button>
-          <button class="ghost-button" type="button" data-action="browse-library">Improve next week</button>
-        </div>
-      </article>
-    </section>
-  `
-}
-
-function renderBadgePreview() {
-  const unlockedBadges = getUnlockedBadges()
-  const nextBadges = getNextBadges()
-  const previewBadges = unlockedBadges.slice(0, 4)
-  const totalBadges = getCollectorBadges().length
-
-  return `
-    <section class="badge-preview" aria-label="Collector badges">
-      <div class="badge-preview-copy">
-        <p class="kicker">Collector badges</p>
-        <h2>${unlockedBadges.length}/${totalBadges} unlocked</h2>
-        <p class="subtle">Badges turn collection habits into goals: owned counts, grails, CIB tracking, wishlist alerts, streaks, value tracking, and console mastery.</p>
-        <div class="card-actions">
-          <button class="toggle-button" type="button" data-action="open-badges">View badges</button>
-          <button class="ghost-button" type="button" data-action="share-badges">Share badges</button>
-        </div>
-      </div>
-      <div class="badge-preview-list">
-        ${
-          previewBadges.length
-            ? previewBadges.map(renderBadgePill).join('')
-            : '<p class="subtle">No badges unlocked yet. Mark your first owned game to start the shelf.</p>'
-        }
-      </div>
-      <div class="next-badge-list">
-        <strong>Closest next</strong>
-        ${
-          nextBadges.length
-            ? nextBadges
-                .map(
-                  (badge) => `
-                    <div class="next-badge">
-                      <span>${escapeHtml(badge.title)}</span>
-                      <em>${badge.progress}/${badge.target}</em>
-                      <div class="badge-progress" aria-hidden="true"><span style="width:${getBadgePercent(badge)}%"></span></div>
-                    </div>
-                  `,
-                )
-                .join('')
-            : '<p class="subtle">Every badge is unlocked. Legendary shelf behavior.</p>'
-        }
-      </div>
-    </section>
-  `
-}
-
-function renderNewsletterCapture() {
-  return `
-    <section class="newsletter-card" aria-label="Weekly retro market movers email">
-      <div>
-        <p class="kicker">Collector market notes</p>
-        <h2>Get the weekly collector pulse.</h2>
-        <p class="subtle">A short collector email with market movers, wanted-list hits, trade openings, checklist ideas, and Retro Vault updates worth knowing about.</p>
-        <div class="newsletter-benefits">
-          <span>Short weekly watchlist</span>
-          <span>Collector-built updates</span>
-          <span>No paid API fluff</span>
-        </div>
-        ${state.newsletterStatus ? `<p class="newsletter-status">${escapeHtml(state.newsletterStatus)}</p>` : ''}
-      </div>
-      <form class="newsletter-form" data-newsletter-form>
-        <label>
-          <span>Email</span>
-          <input name="email" type="email" autocomplete="email" required value="${escapeHtml(state.accountEmail)}" />
-        </label>
-        <button class="toggle-button" type="submit">Join the Weekly Pulse</button>
-      </form>
-    </section>
-  `
-}
-
-function renderBadgePill(badge: CollectorBadge) {
-  return `
-    <article class="badge-pill badge-pill--${badge.tone}">
-      <div class="badge-medal" aria-hidden="true"><span>${escapeHtml(badge.icon)}</span></div>
-      <div class="badge-pill-copy">
-        <span>${badge.unlocked ? 'Unlocked' : `${badge.progress}/${badge.target}`}</span>
-        <strong>${escapeHtml(badge.title)}</strong>
-      </div>
-    </article>
   `
 }
 
@@ -7711,29 +6805,6 @@ function renderScannerModal() {
   `
 }
 
-function renderSpotlight(spotlight: Spotlight | null) {
-  if (!spotlight) {
-    return '<article class="spotlight-card"><div class="spotlight-copy"><h2>No spotlight yet</h2><p>Mark games as wanted or owned to build your collector spotlight.</p></div></article>'
-  }
-
-  return `
-    <article class="spotlight-card">
-      <img class="spotlight-cover" src="${getCardCoverUrl(spotlight.game)}" alt="${escapeHtml(spotlight.game.title)} cover art" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${getCoverFallbackAttributes(spotlight.game)} />
-      <div class="spotlight-copy">
-        <p class="kicker">${spotlight.label}</p>
-        <h2>${escapeHtml(spotlight.game.title)}</h2>
-                  <p class="subtle">${escapeHtml(spotlight.game.console)} / ${spotlight.game.year ?? 'Release year unavailable'} / ${spotlight.game.rarity}</p>
-                  <p>${spotlight.copy}</p>
-                  <div class="spotlight-stats">
-                    <span>Loose ${formatPrice(spotlight.game.priceLoose)}</span>
-                    <span>Complete ${spotlight.game.priceComplete === null ? 'n/a' : formatPrice(spotlight.game.priceComplete)}</span>
-                    <span>Trend ${formatDelta(spotlight.game.trendDelta)}</span>
-                  </div>
-      </div>
-    </article>
-  `
-}
-
 function captureFocusSnapshot(): FocusSnapshot | null {
   const activeElement = document.activeElement
 
@@ -7800,88 +6871,35 @@ function renderNow() {
   const estimatedSellValue = ownedTrackedValue
   const completionPercentage = dashboard.completionPercentage
   const wishlistValue = dashboard.wishlistValue
-  const collectionDelta = dashboard.collectionDelta
-  const prestigeScore = dashboard.prestigeScore
-  const spotlight = dashboard.spotlight
   const consoleCount = new Set(catalog.map((game) => game.console)).size
   const loadedConsoleCount = state.loadedConsoles.length
   const totalConsoleCount = state.catalogMeta.length || consoleCount
   const selectedCurrency = getSelectedCurrency()
-  const alertMatches = dashboard.alertMatches
-  const nearCompleteConsoles = dashboard.nearCompleteConsoles
   const accountIdentity = getAccountIdentityLabel()
   const compactCatalogWindow = useCompactCatalogWindow()
+  const isSignedIn = Boolean(state.authToken)
+  const hasSearchQuery = Boolean(state.search.trim())
+  const hasTrackedGames = ownedGames.length + wantedGames.length > 0
   const catalogStatusText = state.isCatalogLoading
     ? `Loading the library. ${loadedConsoleCount} of ${totalConsoleCount} console lists are ready so far.`
     : state.catalogLoadError
       ? `Using the latest reference snapshot from ${priceSnapshotDate} while the rest of the catalog catches up.`
       : `${catalog.length} games across ${consoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
 
-  const preCatalogCollectorMarkup = `
-      ${renderWorkspaceRail()}
-  `
+  const preCatalogCollectorMarkup = isSignedIn ? '' : renderWorkspaceRail()
 
-  const postCatalogCollectorMarkup = `
+  const postCatalogCollectorMarkup = isSignedIn
+    ? `
+      ${!hasSearchQuery && hasTrackedGames ? renderCollectorActivityStrip() : ''}
+      ${!hasTrackedGames ? renderOnboardingPanel() : ''}
+    `
+    : `
       ${renderFeatureStrip()}
-      ${renderCollectorPositioningStrip()}
       ${renderTrustStrip()}
       ${renderPlatformProofStrip()}
-      ${renderReturnStrip()}
-      ${renderCollectorCommandStrip()}
-      ${renderAccountUnlockStrip()}
       ${renderGuestSafeguardStrip()}
-      ${renderCollectorMigrationStrip()}
-      ${renderCollectorAlertsStrip()}
-      ${renderCollectorShowcaseStrip()}
-      ${renderCollectorActivityStrip()}
-      ${renderMarketRadarStrip()}
-      ${renderVaultHealthStrip()}
-
       ${renderOnboardingPanel()}
-
-      <section class="smart-grid">
-        ${renderSmartList('Top grails still missing', getMissingGrails(), 'You already own every seeded grail.')}
-        ${renderAccountCard()}
-        ${renderConsoleCompletionCard()}
-      </section>
-
-      <section class="showcase-grid">
-        ${renderSpotlight(spotlight)}
-        <div class="insight-grid">
-          ${renderInsightCard('Shelf prestige', prestigeScore.toString(), 'Weighted by rarity, market heat, CIB, and top-shelf picks.')}
-          ${renderInsightCard('Market edge', formatPrice(collectionDelta), `Tracked owned value minus paid value in ${selectedCurrency.code}.`)}
-          ${renderInsightCard('Price alerts', alertMatches.length.toString(), 'Wanted games currently at or below your target price.')}
-          ${renderInsightCard('Top shelf', getTopShelfGames().length.toString(), 'Favorites and standout owned games that deserve a hero row.')}
-        </div>
-      </section>
-
-      ${renderCollectionIdentityCard()}
-      ${renderFinishLineBanner()}
-
-      <section class="smart-grid smart-grid--secondary">
-        ${renderSmartList('Top shelf', getTopShelfGames(), 'Favorite or own some games to build your brag shelf.')}
-        ${renderSmartList('Price alert hits', alertMatches, 'Set a target price on wanted games to surface deals here.')}
-        ${renderConsolePush('Close to completion', nearCompleteConsoles, 'Own some games on a console and this will surface the easiest set to finish next.')}
-      </section>
-
-      ${renderHuntCard()}
-      ${renderAchievementStrip()}
-      ${renderTodayHunt()}
-      ${renderRetentionRecap()}
-      ${renderBadgePreview()}
-      ${renderNewsletterCapture()}
-
-      <section class="roadmap-strip">
-        <article class="roadmap-card">
-          <h3>Collector-first browsing</h3>
-          <p>Browse clean cover grids, jump between console libraries, and see owned, wanted, favorite, loose, CIB, sealed, graded, paid-price, and alert states without losing the thread of the hunt.</p>
-        </article>
-        <article class="roadmap-card">
-          <h3>Account-backed collection sync</h3>
-          <p>Sign in to protect your collection, wishlist, paid prices, favorites, alerts, barcode links, notes, profile details, and regional library progress across devices.</p>
-        </article>
-      </section>
-  `
+    `
 
   app.innerHTML = `
     ${renderBackdropWall(visibleGames, catalog)}
@@ -7892,11 +6910,13 @@ function renderNow() {
           <a href="/" class="site-logo" aria-label="Retro Vault Elite home">
             <img class="site-logo__image" src="/retro-vault-elite-logo.png" alt="Retro Vault Elite" width="320" height="320" decoding="async" fetchpriority="high" />
           </a>
-          <h1>Track your collection, build a wanted list, and trade duplicates with other collectors.</h1>
+          <h1>${isSignedIn ? 'Your vault' : 'Track your collection, build a wanted list, and trade duplicates with other collectors.'}</h1>
           <p class="hero-text">
-            Retro Vault Elite helps you track what you own, what you still want, what you paid, and which extra copies are ready to trade, without juggling spreadsheets, notes, and price tabs.
+            ${isSignedIn
+              ? 'Search the library, update owned and wanted games, and manage trade-ready copies without losing your place.'
+              : 'Retro Vault Elite helps you track what you own, what you still want, what you paid, and which extra copies are ready to trade, without juggling spreadsheets, notes, and price tabs.'}
           </p>
-          <p class="hero-authority">Built for serious collectors tracking condition, paid price, wanted games, duplicates, and trade-ready copies.</p>
+          <p class="hero-authority">${isSignedIn ? 'Search first, then open any game to update your vault.' : 'Built for serious collectors tracking condition, paid price, wanted games, duplicates, and trade-ready copies.'}</p>
           <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 30 April 2026.</p>
           ${
             state.authToken
@@ -7909,7 +6929,7 @@ function renderNow() {
             <button class="secondary-button" type="button" data-action="open-scanner">Scan Barcode</button>
             <button class="secondary-button" type="button" data-action="browse-tradeable-now">Ready to Trade</button>
           </div>
-          <p class="hero-action-note">No account needed &mdash; search first, build your vault when you're ready.</p>
+          <p class="hero-action-note">${isSignedIn ? 'Open a game to mark it owned, wanted, shelved, or trade live.' : 'No account needed &mdash; search first, build your vault when you\'re ready.'}</p>
         </div>
         <div class="hero-stats">
           <article class="hero-stat-card hero-stat-card--count">
@@ -7940,7 +6960,7 @@ function renderNow() {
               ${renderHeroSearchBlock()}
               <p class="hero-text hero-text--trade">${
                 state.authToken
-                  ? 'Trade Inbox shows live trade opportunities, good matches, and private requests once both sides accept.'
+                  ? 'Trade Inbox keeps live opportunities, pending requests, and collector replies in one place.'
                   : 'Browse tradeable games right away. Create an account when you want to list duplicates and send requests.'
               }</p>
             </div>
