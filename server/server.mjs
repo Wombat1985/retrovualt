@@ -40,6 +40,7 @@ const defaultAllowedOrigins = [
   'https://retrovaultelite.com',
   'https://retro-vault-web.onrender.com',
 ]
+const backendPublicUrl = String(process.env.BACKEND_PUBLIC_URL ?? 'https://retro-vault-backend.onrender.com').replace(/\/$/, '')
 const allowedOrigins = (process.env.CORS_ORIGIN ?? '')
   .split(',')
   .map((value) => value.trim())
@@ -55,6 +56,7 @@ function createEmptyDb() {
     passwordResets: [],
     newsletterSubscribers: [],
     emailCampaigns: [],
+    emailSuppressions: [],
     sharedBarcodeMappings: {},
     analytics: createDefaultAnalyticsState(),
     tradeRequests: [],
@@ -87,6 +89,7 @@ function normalizeDb(parsed) {
     passwordResets: Array.isArray(parsed?.passwordResets) ? parsed.passwordResets : [],
     newsletterSubscribers: Array.isArray(parsed?.newsletterSubscribers) ? parsed.newsletterSubscribers : [],
     emailCampaigns: Array.isArray(parsed?.emailCampaigns) ? parsed.emailCampaigns.map(normalizeEmailCampaign).filter(Boolean) : [],
+    emailSuppressions: Array.isArray(parsed?.emailSuppressions) ? parsed.emailSuppressions.map(normalizeEmailSuppression).filter(Boolean) : [],
     sharedBarcodeMappings: normalizeSharedBarcodeMappings(parsed?.sharedBarcodeMappings),
     analytics: normalizeAnalyticsState(parsed?.analytics),
     tradeRequests: Array.isArray(parsed?.tradeRequests) ? parsed.tradeRequests.map(normalizeTradeRequest) : [],
@@ -812,12 +815,133 @@ function normalizeEmailCampaign(raw) {
     recipientCount: Number(raw.recipientCount) || 0,
     sentCount: Number(raw.sentCount) || 0,
     failedCount: Number(raw.failedCount) || 0,
+    skippedCount: Number(raw.skippedCount) || 0,
     testEmail: raw.testEmail ? String(raw.testEmail).toLowerCase() : null,
+  }
+}
+
+function normalizeEmailSuppression(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null
+  }
+
+  const email = String(raw.email ?? '').trim().toLowerCase()
+
+  if (!email) {
+    return null
+  }
+
+  return {
+    email,
+    audience: ['members', 'newsletter', 'both'].includes(String(raw.audience ?? 'both'))
+      ? String(raw.audience ?? 'both')
+      : 'both',
+    reason: String(raw.reason ?? 'manual').trim().slice(0, 120) || 'manual',
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
   }
 }
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+const blockedRecipientDomains = new Set([
+  'example.com',
+  'example.org',
+  'example.net',
+  'invalid',
+  'localhost',
+  'test.com',
+])
+
+const blockedRecipientLocalPatterns = [/^collector$/i, /^codex-test/i, /^example/i, /^test([+._-].*)?$/i]
+
+function getEmailSuppressionSecret() {
+  return String(
+    process.env.EMAIL_UNSUBSCRIBE_SECRET ??
+      process.env.RESEND_API_KEY ??
+      process.env.SUPABASE_SERVICE_ROLE_KEY ??
+      getAdminKey() ??
+      'retro-vault-elite-email',
+  )
+}
+
+function buildEmailSuppressionToken(email, audience) {
+  return createHash('sha256')
+    .update(`${String(email).trim().toLowerCase()}::${String(audience)}::${getEmailSuppressionSecret()}`)
+    .digest('hex')
+}
+
+function buildUnsubscribeUrl(email, audience) {
+  const params = new URLSearchParams({
+    email: String(email).trim().toLowerCase(),
+    audience: String(audience),
+    token: buildEmailSuppressionToken(email, audience),
+  })
+  return `${backendPublicUrl}/email/unsubscribe?${params.toString()}`
+}
+
+function isSuppressedForAudience(entryAudience, requestedAudience) {
+  return entryAudience === 'both' || requestedAudience === 'both' || entryAudience === requestedAudience
+}
+
+function isEmailSuppressed(db, email, audience = 'members') {
+  return (db.emailSuppressions ?? []).some(
+    (entry) => entry?.email === email && isSuppressedForAudience(String(entry.audience ?? 'both'), audience),
+  )
+}
+
+function removeEmailSuppression(db, email, audience = 'newsletter') {
+  db.emailSuppressions = (db.emailSuppressions ?? []).filter(
+    (entry) => !(entry?.email === email && isSuppressedForAudience(String(entry.audience ?? 'both'), audience)),
+  )
+}
+
+function addEmailSuppression(db, email, audience = 'both', reason = 'manual') {
+  const normalized = normalizeEmailSuppression({
+    email,
+    audience,
+    reason,
+    createdAt: new Date().toISOString(),
+  })
+
+  if (!normalized) {
+    return
+  }
+
+  const existing = (db.emailSuppressions ?? []).find(
+    (entry) => entry.email === normalized.email && String(entry.audience ?? 'both') === normalized.audience,
+  )
+
+  if (existing) {
+    existing.reason = normalized.reason
+    existing.createdAt = normalized.createdAt
+    return
+  }
+
+  db.emailSuppressions = [normalized, ...(db.emailSuppressions ?? [])].slice(0, 2000)
+}
+
+function getRecipientSkipReason(db, email, audience = 'members') {
+  if (!isValidEmail(email)) {
+    return 'invalid email format'
+  }
+
+  const [localPart = '', domain = ''] = email.split('@')
+
+  if (blockedRecipientDomains.has(domain)) {
+    return `blocked test domain (${domain})`
+  }
+
+  if (blockedRecipientLocalPatterns.some((pattern) => pattern.test(localPart))) {
+    return 'blocked test address'
+  }
+
+  if (isEmailSuppressed(db, email, audience)) {
+    return 'unsubscribed or previously suppressed'
+  }
+
+  return ''
 }
 
 function getRecipientLists(db) {
@@ -831,16 +955,27 @@ function getRecipientLists(db) {
 
 function resolveCampaignRecipients(db, audience = 'members') {
   const { memberEmails, newsletterEmails } = getRecipientLists(db)
+  const skipped = []
+
+  const filterRecipients = (emails, targetAudience) =>
+    emails.filter((email) => {
+      const reason = getRecipientSkipReason(db, email, targetAudience)
+      if (!reason) {
+        return true
+      }
+      skipped.push({ email, reason, audience: targetAudience })
+      return false
+    })
 
   if (audience === 'newsletter') {
-    return newsletterEmails
+    return { recipients: filterRecipients(newsletterEmails, 'newsletter'), skipped }
   }
 
   if (audience === 'both') {
-    return [...new Set([...memberEmails, ...newsletterEmails])]
+    return { recipients: filterRecipients([...new Set([...memberEmails, ...newsletterEmails])], 'both'), skipped }
   }
 
-  return memberEmails
+  return { recipients: filterRecipients(memberEmails, 'members'), skipped }
 }
 
 const blockedSenderDomains = new Set([
@@ -1044,7 +1179,10 @@ async function sendAdminBroadcastEmail(email, payload) {
     closing,
     ctaLabel = 'Open Retro Vault Elite',
     campaignType = 'site_update',
+    audience = 'members',
   } = payload
+
+  const unsubscribeUrl = buildUnsubscribeUrl(email, audience)
 
   const sections =
     campaignType === 'newsletter'
@@ -1053,12 +1191,14 @@ async function sendAdminBroadcastEmail(email, payload) {
           fixedTitle: 'What changed in the vault',
           testingTitle: 'Worth checking this week',
           footer: 'You are receiving this because you joined the Retro Vault Elite newsletter.',
+          unsubscribeLabel: 'Unsubscribe from these emails',
         }
       : {
           addedTitle: 'What is new',
           fixedTitle: 'What was fixed',
           testingTitle: 'What still needs testing',
           footer: 'You are receiving this because you created an account on Retro Vault Elite.',
+          unsubscribeLabel: 'Stop member update emails',
         }
 
   const makeList = (items) => {
@@ -1087,6 +1227,9 @@ async function sendAdminBroadcastEmail(email, payload) {
         </a>
       </p>
       <p style="color:#526072; font-size:13px">${sections.footer}</p>
+      <p style="color:#526072; font-size:13px; margin-top:10px">
+        <a href="${unsubscribeUrl}" style="color:#526072">${sections.unsubscribeLabel}</a>
+      </p>
     </div>
   `
 
@@ -1138,6 +1281,73 @@ async function sendPasswordResetEmail(email, resetLink) {
   }
 }
 
+function isHardEmailFailure(message) {
+  return /invalid|not found|unknown user|mailbox unavailable|recipient address rejected|suppressed|bounce|blacklist|does not exist|not verified/i.test(
+    String(message ?? ''),
+  )
+}
+
+function renderUnsubscribeResponse(email, audience, ok) {
+  const safeEmail = String(email ?? '').replace(/[<&>"]/g, '')
+  const safeAudience = String(audience ?? '').replace(/[<&>"]/g, '')
+  const title = ok ? 'Email preference updated' : 'Unsubscribe link invalid'
+  const message = ok
+    ? `You will no longer receive ${safeAudience === 'newsletter' ? 'newsletter emails' : safeAudience === 'members' ? 'member update emails' : 'Retro Vault Elite campaign emails'} at ${safeEmail}.`
+    : 'That unsubscribe link is missing something important or could not be verified.'
+
+  return `<!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>${title}</title>
+      <style>
+        :root { color-scheme: dark; }
+        body {
+          margin: 0;
+          font-family: "Segoe UI", Arial, sans-serif;
+          color: #f5f8ff;
+          background: linear-gradient(180deg, #132033 0%, #08111b 100%);
+        }
+        main {
+          width: min(720px, calc(100% - 28px));
+          margin: 0 auto;
+          padding: 48px 0;
+        }
+        section {
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(15, 25, 38, 0.94);
+          border-radius: 28px;
+          padding: 28px;
+          box-shadow: 0 22px 80px rgba(0, 0, 0, 0.34);
+        }
+        h1 { margin: 0 0 12px; font-size: clamp(2rem, 5vw, 3rem); line-height: 0.96; }
+        p { margin: 0 0 12px; color: #aebed0; line-height: 1.6; }
+        a {
+          display: inline-block;
+          margin-top: 8px;
+          padding: 12px 18px;
+          border-radius: 999px;
+          text-decoration: none;
+          font-weight: 800;
+          background: linear-gradient(135deg, #ff9f35, #ffd76b);
+          color: #1a1004;
+        }
+      </style>
+    </head>
+    <body>
+      <main>
+        <section>
+          <h1>${title}</h1>
+          <p>${message}</p>
+          <p>You can still browse the site any time.</p>
+          <a href="${defaultAllowedOrigins[0]}">Open Retro Vault Elite</a>
+        </section>
+      </main>
+    </body>
+  </html>`
+}
+
 const server = createServer(async (request, response) => {
   if (!request.url) {
     json(request, response, 404, { error: 'Not found.' })
@@ -1167,6 +1377,7 @@ const server = createServer(async (request, response) => {
       url.pathname === '/admin/stats' ||
       url.pathname === '/admin/email-draft' ||
       url.pathname === '/admin/broadcast-email' ||
+      url.pathname === '/email/unsubscribe' ||
       url.pathname.startsWith('/trade/')
     const db = await loadDb({ required: accountRoute })
     pruneSecurityState(db)
@@ -1217,8 +1428,36 @@ const server = createServer(async (request, response) => {
         })
       }
 
+      removeEmailSuppression(db, email, 'newsletter')
+
       await saveDb(db)
       json(request, response, 200, { ok: true, message: 'You are on the Retro Vault market movers list.' })
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/email/unsubscribe') {
+      const email = String(url.searchParams.get('email') ?? '').trim().toLowerCase()
+      const audience = ['members', 'newsletter', 'both'].includes(String(url.searchParams.get('audience') ?? 'members'))
+        ? String(url.searchParams.get('audience') ?? 'members')
+        : 'members'
+      const token = String(url.searchParams.get('token') ?? '').trim()
+      const valid = Boolean(email) && token === buildEmailSuppressionToken(email, audience)
+
+      if (valid) {
+        addEmailSuppression(db, email, audience, 'unsubscribe-link')
+        if (audience === 'newsletter' || audience === 'both') {
+          db.newsletterSubscribers = db.newsletterSubscribers.filter((entry) => String(entry.email ?? '').trim().toLowerCase() !== email)
+        }
+        await saveDb(db)
+      }
+
+      response.writeHead(valid ? 200 : 400, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'X-Content-Type-Options': 'nosniff',
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+        'Cache-Control': 'no-store',
+      })
+      response.end(renderUnsubscribeResponse(email, audience, valid))
       return
     }
 
@@ -1308,10 +1547,18 @@ const server = createServer(async (request, response) => {
         return
       }
 
-      const recipients = testEmail ? [testEmail] : resolveCampaignRecipients(db, audience)
+      const recipientPlan = testEmail
+        ? { recipients: [testEmail], skipped: [] }
+        : resolveCampaignRecipients(db, audience)
+      const recipients = recipientPlan.recipients
+      const skipped = recipientPlan.skipped
 
       if (!recipients.length) {
-        json(request, response, 400, { error: 'No recipients were found for that audience.' })
+        json(request, response, 400, {
+          error: skipped.length ? 'No eligible recipients were left after skipping suppressed or test addresses.' : 'No recipients were found for that audience.',
+          skippedCount: skipped.length,
+          skipped: skipped.slice(0, 20),
+        })
         return
       }
 
@@ -1333,6 +1580,7 @@ const server = createServer(async (request, response) => {
               closing,
               ctaLabel,
               campaignType,
+              audience,
             }).then(() => email),
           ),
         )
@@ -1350,6 +1598,10 @@ const server = createServer(async (request, response) => {
             email,
             message: result.reason instanceof Error ? result.reason.message : 'Unknown email error.',
           })
+
+          if (!testEmail && isHardEmailFailure(result.reason instanceof Error ? result.reason.message : '')) {
+            addEmailSuppression(db, email, audience, 'hard-email-failure')
+          }
         }
 
         if (index + batchSize < recipients.length) {
@@ -1368,6 +1620,7 @@ const server = createServer(async (request, response) => {
             recipientCount: recipients.length,
             sentCount,
             failedCount: failures.length,
+            skippedCount: skipped.length,
           }),
           ...(db.emailCampaigns ?? []),
         ].filter(Boolean).slice(0, 40)
@@ -1381,8 +1634,10 @@ const server = createServer(async (request, response) => {
         campaignType,
         sentCount,
         failedCount: failures.length,
+        skippedCount: skipped.length,
         totalCount: recipients.length,
         failures: failures.slice(0, 20),
+        skipped: skipped.slice(0, 20),
         message: testEmail
           ? failures.length
             ? 'Test email finished with failures.'

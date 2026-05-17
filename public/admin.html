@@ -351,7 +351,7 @@
 
       function renderCampaignRows(campaigns) {
         if (!campaigns?.length) {
-          return '<tr><td colspan="7">No email campaigns sent yet.</td></tr>'
+          return '<tr><td colspan="8">No email campaigns sent yet.</td></tr>'
         }
 
         return campaigns
@@ -365,6 +365,7 @@
                 <td>${Number(campaign.recipientCount || 0).toLocaleString()}</td>
                 <td>${Number(campaign.sentCount || 0).toLocaleString()}</td>
                 <td>${Number(campaign.failedCount || 0).toLocaleString()}</td>
+                <td>${Number(campaign.skippedCount || 0).toLocaleString()}</td>
               </tr>
             `,
           )
@@ -661,6 +662,7 @@
                   <th>Recipients</th>
                   <th>Sent</th>
                   <th>Failed</th>
+                  <th>Skipped</th>
                 </tr>
               </thead>
               <tbody>${renderCampaignRows(stats.recentEmailCampaigns)}</tbody>
@@ -915,14 +917,17 @@
 
         const sentCount = Number(payload?.sentCount || 0)
         const failedCount = Number(payload?.failedCount || 0)
+        const skippedCount = Number(payload?.skippedCount || 0)
         const totalCount = Number(payload?.totalCount || 0)
         const failures = Array.isArray(payload?.failures) ? payload.failures : []
+        const skipped = Array.isArray(payload?.skipped) ? payload.skipped : []
         const mode = payload?.mode === 'test' ? 'test email' : 'campaign'
 
         if (!failedCount) {
           resultEl.innerHTML = `
             <p class="ok" style="margin:0">${mode === 'test email' ? 'Test email sent successfully.' : 'Email campaign sent successfully.'}</p>
             <p style="margin:6px 0 0">${sentCount.toLocaleString()} of ${totalCount.toLocaleString()} ${mode === 'test email' ? 'test recipients' : 'recipients'} were emailed.</p>
+            ${skippedCount ? `<p class="warn" style="margin:8px 0 0">Skipped ${skippedCount.toLocaleString()} address${skippedCount === 1 ? '' : 'es'} that were unsubscribed, suppressed, or obvious test entries.</p>` : ''}
           `
           return
         }
@@ -930,6 +935,7 @@
         resultEl.innerHTML = `
           <p class="error" style="margin:0">${mode === 'test email' ? 'Test email finished with failures.' : 'Email send finished with failures.'}</p>
           <p style="margin:6px 0 0">Sent ${sentCount.toLocaleString()} of ${totalCount.toLocaleString()}. Failed: ${failedCount.toLocaleString()}.</p>
+          ${skippedCount ? `<p class="warn" style="margin:8px 0 0">Skipped ${skippedCount.toLocaleString()} address${skippedCount === 1 ? '' : 'es'} before sending.</p>` : ''}
           <ul style="margin:10px 0 0; padding-left:20px">
             ${failures
               .slice(0, 5)
@@ -939,6 +945,15 @@
               )
               .join('')}
           </ul>
+          ${skipped.length
+            ? `<ul style="margin:10px 0 0; padding-left:20px">${skipped
+                .slice(0, 5)
+                .map(
+                  (entry) =>
+                    `<li>${escapeHtml(entry.email || 'Unknown email')} - skipped: ${escapeHtml(entry.reason || 'Unknown reason')}</li>`,
+                )
+                .join('')}</ul>`
+            : ''}
         `
       }
 
