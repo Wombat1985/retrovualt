@@ -253,6 +253,35 @@ a {
   position: relative;
 }
 
+@media (min-width: 1180px) {
+  .hero-panel {
+    gap: 14px;
+    padding: 22px 22px 20px;
+  }
+
+  .hero-copy {
+    max-width: 640px;
+  }
+
+  .hero-stats {
+    gap: 10px;
+  }
+
+  .hero-stat-card {
+    min-height: 100px;
+    padding: 15px;
+  }
+
+  .hero-bottom {
+    gap: 12px;
+    margin-top: 0;
+  }
+
+  .hero-badges {
+    margin-top: 8px;
+  }
+}
+
 .hero-panel::before {
   content: '';
   position: absolute;
@@ -344,8 +373,8 @@ a {
 .price-grid dt,
 .stat-label {
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  font-size: 0.74rem;
 }
 
 .kicker,
@@ -368,7 +397,7 @@ a {
 .hero-copy h1 {
   max-width: 11.6ch;
   font-family: 'Russo One', var(--display);
-  font-size: clamp(1.9rem, 3.8vw, 3.2rem);
+  font-size: clamp(1.88rem, 3.45vw, 3rem);
   letter-spacing: 0;
   line-height: 0.96;
   text-wrap: balance;
@@ -388,34 +417,35 @@ a {
 
 .hero-text {
   max-width: 62ch;
-  margin-top: 14px;
-  font-size: 1rem;
-  line-height: 1.54;
+  margin-top: 12px;
+  font-size: 0.98rem;
+  line-height: 1.58;
 }
 
 .hero-text--tiny {
-  margin-top: 10px;
-  font-size: 0.9rem;
+  margin-top: 8px;
+  font-size: 0.86rem;
 }
 
 .hero-text--trade {
   max-width: 58ch;
-  margin-top: 14px;
-  font-size: 0.98rem;
+  margin-top: 12px;
+  font-size: 0.94rem;
+  line-height: 1.5;
 }
 
 .hero-authority {
   max-width: 58ch;
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   color: rgba(245, 247, 251, 0.92);
-  font-size: 0.98rem;
-  line-height: 1.55;
+  font-size: 0.94rem;
+  line-height: 1.54;
 }
 
 .hero-action-note {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: var(--accent-2);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   line-height: 1.45;
 }
 
@@ -586,7 +616,7 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.045);
   color: var(--muted);
-  font-size: 0.77rem;
+  font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -609,14 +639,14 @@ a {
 }
 
 .hero-value-card strong {
-  font-size: 0.96rem;
-  line-height: 1.2;
+  font-size: 0.94rem;
+  line-height: 1.24;
 }
 
 .hero-value-card span {
   color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.42;
+  font-size: 0.84rem;
+  line-height: 1.48;
 }
 
 .hero-preview,
@@ -667,6 +697,58 @@ a {
 .hero-preview-card:focus-visible {
   transform: translateY(-2px);
   border-color: rgba(255, 214, 110, 0.34);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-panel,
+  .toolbar,
+  .filters,
+  .control-summary,
+  .view-summary,
+  .game-modal {
+    animation: surface-enter 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .game-modal-backdrop {
+    animation: fade-in 180ms ease-out;
+  }
+
+  .hero-badge,
+  .hero-value-card,
+  .game-card,
+  .catalog-rail-card,
+  .hero-preview-card,
+  .hero-search-result,
+  .modal-summary-card,
+  .modal-market-grid article,
+  .modal-evidence-card {
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease,
+      background 180ms ease,
+      box-shadow 180ms ease,
+      opacity 180ms ease;
+  }
+}
+
+@keyframes surface-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .hero-preview-card__cover {
@@ -3164,8 +3246,8 @@ a {
 }
 
 .catalog-rail__header h3 {
-  font-size: clamp(1.2rem, 2.6vw, 1.7rem);
-  line-height: 1.08;
+  font-size: clamp(1.16rem, 2.2vw, 1.54rem);
+  line-height: 1.1;
 }
 
 .catalog-rail__track {
@@ -3258,12 +3340,13 @@ a {
 .view-summary strong {
   display: block;
   margin-top: 8px;
-  font-size: clamp(1.5rem, 4vw, 2.3rem);
+  font-size: clamp(1.44rem, 3.3vw, 2.05rem);
 }
 
 .view-summary .stat-note {
   display: block;
   margin-top: 6px;
+  line-height: 1.45;
 }
 
 .section-heading {
@@ -3274,7 +3357,8 @@ a {
 }
 
 .section-heading h2 {
-  font-size: clamp(1.9rem, 4vw, 3rem);
+  font-size: clamp(1.82rem, 3.5vw, 2.7rem);
+  line-height: 0.98;
 }
 
 .catalog-grid {
@@ -3621,14 +3705,15 @@ a {
 .collector-line {
   margin: 0;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.84rem;
+  line-height: 1.38;
 }
 
 .collector-signal {
   margin: 2px 0 0;
   color: rgba(255, 233, 164, 0.92);
-  font-size: 0.8rem;
-  line-height: 1.35;
+  font-size: 0.78rem;
+  line-height: 1.42;
 }
 
 .price-grid {
@@ -3701,8 +3786,8 @@ a {
 .card-editorial-text {
   margin: 0;
   color: rgba(235, 241, 250, 0.86);
-  font-size: 0.84rem;
-  line-height: 1.45;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .card-actions {
@@ -4413,7 +4498,7 @@ a {
 
 .game-modal-copy h2 {
   margin: 0;
-  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-size: clamp(1.92rem, 3.7vw, 3.1rem);
   line-height: 0.98;
 }
 
@@ -4471,8 +4556,8 @@ a {
 }
 
 .modal-summary-card strong {
-  font-size: 1.12rem;
-  line-height: 1.2;
+  font-size: 1.06rem;
+  line-height: 1.24;
 }
 
 .modal-summary-card p {
@@ -4534,7 +4619,7 @@ a {
 .modal-market-grid strong {
   display: block;
   margin-top: 8px;
-  font-size: 1.55rem;
+  font-size: 1.44rem;
 }
 
 .modal-notes {
@@ -4595,8 +4680,8 @@ a {
 }
 
 .modal-evidence-card strong {
-  font-size: 1rem;
-  line-height: 1.35;
+  font-size: 0.96rem;
+  line-height: 1.38;
 }
 
 .modal-evidence-card p {
