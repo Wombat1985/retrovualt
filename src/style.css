@@ -5402,8 +5402,8 @@ a {
   }
 
   .catalog-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .hero-text--tiny {
@@ -5553,8 +5553,8 @@ a {
   }
 
   .catalog-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .cover-wrap {
@@ -5608,18 +5608,31 @@ a {
   }
 
   .game-copy {
-    gap: 5px;
-    padding: 7px;
+    gap: 6px;
+    padding: 9px;
   }
 
   .game-copy h3 {
     display: -webkit-box;
-    min-height: 2.25em;
+    min-height: 2.4em;
     overflow: hidden;
-    font-size: 0.82rem;
-    line-height: 1.12;
+    font-size: 0.96rem;
+    line-height: 1.2;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+  }
+
+  .card-editorial-row {
+    gap: 8px;
+  }
+
+  .card-editorial-chip {
+    padding: 8px 10px;
+  }
+
+  .card-editorial-text {
+    font-size: 0.84rem;
+    line-height: 1.45;
   }
 
   .game-copy .eyebrow,
