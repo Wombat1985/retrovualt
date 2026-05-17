@@ -650,6 +650,7 @@ a {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .hero-value-strip {
@@ -3659,6 +3660,7 @@ a {
   letter-spacing: 0.14em;
   background: rgba(8, 8, 12, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* Rarity-tier badges — pixel font + icons */
@@ -3785,15 +3787,19 @@ a {
 .collector-line {
   margin: 0;
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   line-height: 1.38;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .collector-signal {
   margin: 2px 0 0;
   color: rgba(255, 233, 164, 0.92);
-  font-size: 0.78rem;
-  line-height: 1.42;
+  font-size: 0.76rem;
+  line-height: 1.38;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .price-grid {
@@ -3860,17 +3866,18 @@ a {
   background: rgba(255, 214, 110, 0.1);
   border: 1px solid rgba(255, 214, 110, 0.2);
   color: var(--accent-2);
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .card-editorial-text {
   margin: 0;
   color: rgba(235, 241, 250, 0.86);
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: 0.8rem;
+  line-height: 1.46;
 }
 
 .card-actions {
@@ -4669,9 +4676,9 @@ a {
 
 .modal-summary-card span {
   color: var(--accent-2);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -4718,6 +4725,12 @@ a {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.modal-market-panel,
+.modal-notes-panel {
+  display: grid;
+  gap: 10px;
 }
 
 .modal-market-grid article {
@@ -4804,8 +4817,8 @@ a {
 
 .modal-evidence-card span {
   color: var(--accent-2);
-  font-size: 0.76rem;
-  letter-spacing: 0.12em;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -6075,15 +6088,16 @@ a {
 
 .for-trade-chip {
   display: inline-block;
-  background: rgba(241, 168, 30, 0.18);
+  background: linear-gradient(135deg, rgba(241, 168, 30, 0.2), rgba(241, 201, 95, 0.12));
   border: 1px solid rgba(241, 168, 30, 0.55);
-  color: #f5c842;
-  font-size: 0.62rem;
+  color: #ffd66e;
+  font-size: 0.6rem;
   font-weight: 800;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 4px 9px;
   border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .copy-trade-tag {

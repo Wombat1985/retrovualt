@@ -4257,28 +4257,28 @@ function renderCard(game: CatalogEntry) {
   const tradeWantedCount = getTradeWantedCount(game.id)
   const showTradeAvailability = tradeAvailabilityCount > 0 && record.status !== 'owned'
   const collectorSignal = showTradeAvailability
-    ? (tradeAvailabilityCount === 1 ? '1 collector ready to trade' : `${tradeAvailabilityCount} collectors ready to trade`)
+    ? (tradeAvailabilityCount === 1 ? '1 live trader' : `${tradeAvailabilityCount} live traders`)
     : isOwned && tradeWantedCount > 0
-      ? (tradeWantedCount === 1 ? 'Wanted by 1 collector' : `Wanted by ${tradeWantedCount} collectors`)
+      ? (tradeWantedCount === 1 ? '1 collector wants this' : `${tradeWantedCount} collectors want this`)
       : game.trendDelta > 0.12
         ? `Market moving +${Math.round(game.trendDelta * 100)}%`
         : game.rarity === 'Grail'
           ? 'Collector grail'
           : 'Track value, condition, and notes'
   const editorialLabel = isOwned
-    ? (record.forTrade ? 'Vault edge' : 'Collection note')
+    ? (record.forTrade ? 'Trade live' : 'Vault record')
     : isWanted
-      ? 'Hunt status'
+      ? 'Hunt target'
       : 'Collector read'
   const editorialCopy = isOwned
     ? (record.forTrade
-        ? 'This copy is live for trade and ready for collector messages.'
-        : `${getCopiesSummary(record) || 'Tracked in your vault'} with ${getOwnedEditionSummary(record).toLowerCase()} detail kept intact.`)
+        ? 'This copy is listed for trade and ready for collector replies.'
+        : `${getCopiesSummary(record) || 'Tracked in your vault'} with ${getOwnedEditionSummary(record).toLowerCase()} detail saved.`)
     : isWanted
-      ? `Wanted at ${record.targetPrice === null ? 'your next pickup stage' : `${formatPrice(record.targetPrice)} target`} with room to track variants and paid price later.`
+      ? `Wanted at ${record.targetPrice === null ? 'your next pickup stage' : `${formatPrice(record.targetPrice)} target`} with room for variants and paid price later.`
       : (showTradeAvailability
-          ? `${tradeAvailabilityCount === 1 ? 'One collector has this ready to trade now.' : `${tradeAvailabilityCount} collectors already have this trade-ready.`}`
-          : `${game.rarity === 'Grail' ? 'A grail-tier title with real shelf presence.' : 'Open it to track condition, value, variants, and collector notes.'}`)
+          ? `${tradeAvailabilityCount === 1 ? 'One collector has this listed for trade now.' : `${tradeAvailabilityCount} collectors already have this listed for trade.`}`
+          : `${game.rarity === 'Grail' ? 'A grail-tier title with real shelf presence.' : 'Open it to track condition, value, variants, and notes.'}`)
 
   return `
     <article class="game-card ${isOwned ? 'is-owned' : ''} ${ownedPulseClass}" data-game-card="true" data-id="${safeGameId}" role="button" tabindex="0" aria-label="Open details for ${escapeHtml(game.title)}">
@@ -4295,8 +4295,8 @@ function renderCard(game: CatalogEntry) {
         <div class="cover-chips">
           <span class="ownership-pill ${getOwnershipTone(record.status)}">${getOwnershipLabel(record.status, record)}</span>
           <span class="rarity-badge rarity-badge--${game.rarity.toLowerCase()}">${game.rarity}</span>
-          ${isOwned && record.forTrade ? `<span class="for-trade-chip">For Trade</span>` : ''}
-          ${showTradeAvailability ? `<span class="trade-available-chip">${tradeAvailabilityCount === 1 ? 'Available for trade' : `${tradeAvailabilityCount} traders`}</span>` : ''}
+          ${isOwned && record.forTrade ? `<span class="for-trade-chip">Trade live</span>` : ''}
+          ${showTradeAvailability ? `<span class="trade-available-chip">${tradeAvailabilityCount === 1 ? '1 live trader' : `${tradeAvailabilityCount} live traders`}</span>` : ''}
         </div>
         ${isOwned ? `<div class="owned-stamp"><strong>Owned</strong><span>${escapeHtml(ownedEditionText)}</span></div>` : ''}
       </div>
@@ -4326,9 +4326,9 @@ function renderCard(game: CatalogEntry) {
         ${isOwned && record.notes.trim() ? `<div class="card-note-preview"><p class="card-note-text">${escapeHtml(record.notes)}</p></div>` : ''}
         <div class="card-actions">
           <button class="toggle-button ${isOwned ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${escapeHtml(getOwnedButtonLabel(record))}</button>
-          <button class="ghost-button ${isWanted ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${isWanted ? 'Remove wanted' : 'Want it'}</button>
-          <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
-          <button class="ghost-button" data-action="open-details" data-id="${safeGameId}" type="button">Details</button>
+            <button class="ghost-button ${isWanted ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${isWanted ? 'Wanted ✓' : 'Want'}</button>
+            <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Shelf'}</button>
+            <button class="ghost-button" data-action="open-details" data-id="${safeGameId}" type="button">Open details</button>
         </div>
       </div>
     </article>
@@ -4408,8 +4408,8 @@ function renderSelectedGameModal() {
           ` : ''}
           <div class="modal-primary-actions">
             <button class="toggle-button ${record.status === 'owned' ? 'is-confirmed' : ''}" data-action="toggle-owned" data-id="${safeGameId}" type="button">${getOwnedButtonLabel(record)}</button>
-            <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Remove wanted' : 'Want it'}</button>
-            <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Favorite'}</button>
+            <button class="ghost-button ${record.status === 'wanted' ? 'is-active' : ''}" data-action="toggle-wanted" data-id="${safeGameId}" type="button">${record.status === 'wanted' ? 'Wanted ✓' : 'Want'}</button>
+            <button class="ghost-button ${record.favorite ? 'is-active' : ''}" data-action="toggle-favorite" data-id="${safeGameId}" type="button">${record.favorite ? 'Top shelf' : 'Shelf'}</button>
             ${record.status === 'owned' && state.authToken ? `<button class="ghost-button for-trade-btn ${record.forTrade ? 'is-active' : ''}" data-action="toggle-for-trade" data-id="${safeGameId}" type="button">${record.forTrade ? 'For trade ✓' : 'Offer for trade'}</button>` : ''}
           </div>
           ${record.status === 'owned' && (getTradeWantedCount(game.id) > 0 || record.forTrade) ? `
@@ -4446,32 +4446,35 @@ function renderSelectedGameModal() {
           <p class="modal-description">
             This collector view keeps the market snapshot, ownership state, and source art together in one place so the title feels like a real piece of your collection.
           </p>
-          <div class="modal-market-grid">
-            <article>
-              <span>Loose market</span>
-              <strong>${formatPrice(game.priceLoose)}</strong>
-            </article>
-            <article>
-              <span>Complete market</span>
-              <strong>${game.priceComplete === null ? 'Listing only' : formatPrice(game.priceComplete)}</strong>
-            </article>
-            <article>
-              <span>Sealed market</span>
-              <strong>${typeof game.priceSealed === 'number' ? formatPrice(game.priceSealed) : 'Not sourced yet'}</strong>
-            </article>
-            <article>
-              <span>Your tracked value</span>
-              <strong>${record.status === 'owned' ? formatPrice(getOwnedMarketPrice(game)) : 'Mark owned'}</strong>
-            </article>
-            <article>
-              <span>You paid</span>
-              <strong>${record.pricePaid === null ? 'Not set' : formatPrice(record.pricePaid)}</strong>
-            </article>
-            <article>
-              <span>Market movement</span>
-              <strong>${formatDelta(game.trendDelta)}</strong>
-            </article>
-          </div>
+          <section class="modal-market-panel" aria-label="Market snapshot">
+            <p class="modal-section-label">Market snapshot</p>
+            <div class="modal-market-grid">
+              <article>
+                <span>Loose market</span>
+                <strong>${formatPrice(game.priceLoose)}</strong>
+              </article>
+              <article>
+                <span>Complete market</span>
+                <strong>${game.priceComplete === null ? 'Listing only' : formatPrice(game.priceComplete)}</strong>
+              </article>
+              <article>
+                <span>Sealed market</span>
+                <strong>${typeof game.priceSealed === 'number' ? formatPrice(game.priceSealed) : 'Not sourced yet'}</strong>
+              </article>
+              <article>
+                <span>Your tracked value</span>
+                <strong>${record.status === 'owned' ? formatPrice(getOwnedMarketPrice(game)) : 'Mark owned'}</strong>
+              </article>
+              <article>
+                <span>You paid</span>
+                <strong>${record.pricePaid === null ? 'Not set' : formatPrice(record.pricePaid)}</strong>
+              </article>
+              <article>
+                <span>Market movement</span>
+                <strong>${formatDelta(game.trendDelta)}</strong>
+              </article>
+            </div>
+          </section>
           <section class="modal-identifier-panel" aria-label="Identifiers">
             <p class="modal-section-label">Identifiers</p>
             <div class="identifier-chip-list">
@@ -4511,7 +4514,8 @@ function renderSelectedGameModal() {
               <a class="ghost-button" href="${safeCoverSourceUrl}" target="_blank" rel="noreferrer">Open cover source</a>
             </div>
           </section>
-          <div class="modal-notes">
+          <div class="modal-notes modal-notes-panel">
+            <p class="modal-section-label">Vault insight</p>
             <p><strong>Price snapshot:</strong> ${priceSnapshotDate}</p>
             <p><strong>Market edge:</strong> ${valueGap === null ? 'Add your paid price to see gain or loss.' : `${valueGap >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(valueGap))} versus ${getOwnedValueLabel(game).toLowerCase()}.`}</p>
             <p><strong>Alert target:</strong> ${record.targetPrice === null ? 'No target set.' : `Notify yourself when loose value hits ${formatPrice(record.targetPrice)} or less.`}</p>
@@ -7891,7 +7895,7 @@ function renderNow() {
           <p class="hero-text">
             Retro Vault Elite helps you track what you own, what you still want, what you paid, and which extra copies are ready to trade, without juggling spreadsheets, notes, and price tabs.
           </p>
-          <p class="hero-authority">Built for serious collectors who track condition, paid price, wanted games, duplicates, and trade-ready copies.</p>
+          <p class="hero-authority">Built for serious collectors tracking condition, paid price, wanted games, duplicates, and trade-ready copies.</p>
           <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 30 April 2026.</p>
           ${
             state.authToken
@@ -7904,7 +7908,7 @@ function renderNow() {
             <button class="secondary-button" type="button" data-action="open-scanner">Scan Barcode</button>
             <button class="secondary-button" type="button" data-action="browse-tradeable-now">Ready to Trade</button>
           </div>
-          <p class="hero-action-note">No account needed &mdash; search games before creating a vault.</p>
+          <p class="hero-action-note">No account needed &mdash; search first, build your vault when you're ready.</p>
         </div>
         <div class="hero-stats">
           <article class="hero-stat-card hero-stat-card--count">
@@ -7935,8 +7939,8 @@ function renderNow() {
               ${renderHeroSearchBlock()}
               <p class="hero-text hero-text--trade">${
                 state.authToken
-                  ? 'Trade Inbox shows collectors trading games you want, good matches, and private trade requests once both sides accept.'
-                  : 'You can browse tradeable games right away. Create an account when you want to mark duplicates for trade and start sending requests.'
+                  ? 'Trade Inbox shows live trade opportunities, good matches, and private requests once both sides accept.'
+                  : 'Browse tradeable games right away. Create an account when you want to list duplicates and send requests.'
               }</p>
             </div>
             <div class="hero-proof-side">
