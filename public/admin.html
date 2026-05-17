@@ -184,6 +184,40 @@
         padding-left: 20px;
       }
 
+      .preview-panel {
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .preview-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .preview-metric {
+        border-radius: 18px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .preview-metric strong {
+        display: block;
+        color: var(--gold);
+        font-size: 1.35rem;
+        font-weight: 900;
+      }
+
+      .preview-list {
+        margin: 12px 0 0;
+        padding-left: 20px;
+      }
+
       .card-heading-row {
         display: flex;
         flex-wrap: wrap;
@@ -249,6 +283,7 @@
       const cachedBarcodesKey = 'retro-vault-admin-barcodes-cache'
       const lifetimeViewsKey = 'retro-vault-lifetime-page-views'
       let latestBarcodeMappings = []
+      let latestRecipientPreview = null
 
       keyInput.value = sessionStorage.getItem('retro-vault-admin-key') || ''
 
@@ -397,6 +432,73 @@
               : '<p style="margin:8px 0 0">Backend sender config is in place.</p>'}
           </div>
         `
+      }
+
+      function renderRecipientPreview(preview) {
+        if (!preview) {
+          return `
+            <div class="preview-panel">
+              <p class="warn" style="margin:0">Recipient preview is loading.</p>
+            </div>
+          `
+        }
+
+        const summary = Array.isArray(preview.skippedSummary) ? preview.skippedSummary : []
+        const skipped = Array.isArray(preview.skipped) ? preview.skipped : []
+
+        return `
+          <div class="preview-panel">
+            <p class="ok" style="margin:0">Audience preview is ready.</p>
+            <p style="margin:8px 0 0">This send would currently target <strong>${Number(preview.recipientCount || 0).toLocaleString()}</strong> real recipients for the <strong>${escapeHtml(preview.audience || 'members')}</strong> audience.</p>
+            <div class="preview-metrics">
+              <div class="preview-metric"><strong>${Number(preview.memberPoolCount || 0).toLocaleString()}</strong><span>Member pool</span></div>
+              <div class="preview-metric"><strong>${Number(preview.newsletterPoolCount || 0).toLocaleString()}</strong><span>Newsletter pool</span></div>
+              <div class="preview-metric"><strong>${Number(preview.recipientCount || 0).toLocaleString()}</strong><span>Will be emailed</span></div>
+              <div class="preview-metric"><strong>${Number(preview.skippedCount || 0).toLocaleString()}</strong><span>Will be skipped</span></div>
+            </div>
+            ${summary.length
+              ? `<ul class="preview-list">${summary
+                  .map((entry) => `<li>${Number(entry.count || 0).toLocaleString()} skipped for ${escapeHtml(entry.reason || 'unknown reason')}</li>`)
+                  .join('')}</ul>`
+              : '<p style="margin:12px 0 0">No skipped addresses right now.</p>'}
+            ${skipped.length
+              ? `<p style="margin:10px 0 0; color:var(--muted)">Examples: ${skipped
+                  .slice(0, 3)
+                  .map((entry) => `${escapeHtml(entry.email || 'unknown')} (${escapeHtml(entry.reason || 'unknown')})`)
+                  .join(', ')}</p>`
+              : ''}
+          </div>
+        `
+      }
+
+      async function loadRecipientPreview(audience = 'members') {
+        const key = keyInput.value.trim()
+
+        if (!key) {
+          return null
+        }
+
+        const response = await fetchWithTimeout(
+          `${API_BASE_URL}/admin/recipient-preview?audience=${encodeURIComponent(audience)}`,
+          {
+            headers: {
+              'X-Admin-Key': key,
+            },
+          },
+          35000,
+        )
+        const payload = await response.json()
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Could not load recipient preview.')
+        }
+
+        latestRecipientPreview = payload
+        const previewEl = document.querySelector('#broadcast-preview')
+        if (previewEl) {
+          previewEl.innerHTML = renderRecipientPreview(payload)
+        }
+        return payload
       }
 
       function applyBroadcastDraft(draft) {
@@ -588,6 +690,7 @@
               <span class="ok">${Number(stats.userCount || 0).toLocaleString()} members / ${Number(stats.newsletterSubscriberCount || 0).toLocaleString()} subscribers</span>
             </div>
             ${renderEmailHealth(emailHealth)}
+            <div id="broadcast-preview" style="margin-bottom: 14px">${renderRecipientPreview(latestRecipientPreview)}</div>
             <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 14px">
               <label>
                 Campaign type
@@ -1005,6 +1108,7 @@
           statusEl.textContent = `Loaded. Last updated ${stats.generatedAt}.`
           refreshBtn.style.display = ''
           renderStats(stats)
+          await loadRecipientPreview(document.querySelector('#broadcast-audience')?.value?.trim() || 'members').catch(() => {})
           await loadBroadcastDraft(
             document.querySelector('#broadcast-campaign-type')?.value?.trim() || 'site_update',
             true,
@@ -1159,6 +1263,16 @@
 
       resultsEl.addEventListener('change', async (event) => {
         const campaignTypeInput = event.target.closest('#broadcast-campaign-type')
+        const audienceInput = event.target.closest('#broadcast-audience')
+
+        if (audienceInput) {
+          try {
+            await loadRecipientPreview(audienceInput.value)
+          } catch (error) {
+            statusEl.className = 'error'
+            statusEl.textContent = error instanceof Error ? error.message : 'Could not load recipient preview.'
+          }
+        }
 
         if (!campaignTypeInput) {
           return

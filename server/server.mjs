@@ -978,6 +978,34 @@ function resolveCampaignRecipients(db, audience = 'members') {
   return { recipients: filterRecipients(memberEmails, 'members'), skipped }
 }
 
+function summarizeSkippedRecipients(skipped) {
+  const counts = new Map()
+
+  for (const entry of skipped ?? []) {
+    const reason = String(entry?.reason ?? 'unknown')
+    counts.set(reason, Number(counts.get(reason) ?? 0) + 1)
+  }
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([reason, count]) => ({ reason, count }))
+}
+
+function getRecipientPreview(db, audience = 'members') {
+  const { memberEmails, newsletterEmails } = getRecipientLists(db)
+  const { recipients, skipped } = resolveCampaignRecipients(db, audience)
+
+  return {
+    audience,
+    memberPoolCount: memberEmails.length,
+    newsletterPoolCount: newsletterEmails.length,
+    recipientCount: recipients.length,
+    skippedCount: skipped.length,
+    skippedSummary: summarizeSkippedRecipients(skipped),
+    skipped: skipped.slice(0, 20),
+  }
+}
+
 const blockedSenderDomains = new Set([
   'gmail.com',
   'googlemail.com',
@@ -1376,6 +1404,7 @@ const server = createServer(async (request, response) => {
       url.pathname.startsWith('/admin/barcodes') ||
       url.pathname === '/admin/stats' ||
       url.pathname === '/admin/email-draft' ||
+      url.pathname === '/admin/recipient-preview' ||
       url.pathname === '/admin/broadcast-email' ||
       url.pathname === '/email/unsubscribe' ||
       url.pathname.startsWith('/trade/')
@@ -1492,6 +1521,25 @@ const server = createServer(async (request, response) => {
         : 'site_update'
 
       json(request, response, 200, getAdminEmailDraft(campaignType))
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/admin/recipient-preview') {
+      if (!getAdminKey()) {
+        json(request, response, 503, { error: 'Admin reporting is not configured.' })
+        return
+      }
+
+      if (!isAdminRequest(request, url)) {
+        json(request, response, 401, { error: 'Admin key required.' })
+        return
+      }
+
+      const audience = ['members', 'newsletter', 'both'].includes(String(url.searchParams.get('audience') ?? 'members'))
+        ? String(url.searchParams.get('audience') ?? 'members')
+        : 'members'
+
+      json(request, response, 200, getRecipientPreview(db, audience))
       return
     }
 
