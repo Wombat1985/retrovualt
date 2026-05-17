@@ -76,6 +76,10 @@ function createDefaultAnalyticsState() {
   }
 }
 
+function createId() {
+  return randomBytes(16).toString('hex')
+}
+
 function normalizeDb(parsed) {
   return {
     users: Array.isArray(parsed?.users) ? parsed.users : [],
