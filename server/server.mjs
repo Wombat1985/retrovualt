@@ -1408,7 +1408,17 @@ const server = createServer(async (request, response) => {
       url.pathname === '/admin/broadcast-email' ||
       url.pathname === '/email/unsubscribe' ||
       url.pathname.startsWith('/trade/')
-    const db = await loadDb({ required: accountRoute })
+    const requiresPermanentStorage =
+      url.pathname.startsWith('/auth') ||
+      url.pathname === '/sync' ||
+      request.method === 'PUT' && url.pathname.startsWith('/barcode/') ||
+      url.pathname.startsWith('/trade/') ||
+      request.method !== 'GET' && (
+        url.pathname.startsWith('/admin/barcodes') ||
+        url.pathname === '/admin/broadcast-email' ||
+        url.pathname === '/email/unsubscribe'
+      )
+    const db = await loadDb({ required: requiresPermanentStorage && accountRoute })
     pruneSecurityState(db)
 
     if (request.method === 'GET' && url.pathname === '/health') {
