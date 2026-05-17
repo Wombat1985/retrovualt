@@ -6320,10 +6320,11 @@ function renderFiltersSection() {
         <button class="secondary-button mobile-only-action" data-action="open-custom-entry" type="button">Add your own game</button>
       </div>
       <div class="filters__utility">
-        <button class="secondary-button" data-action="reset-library" type="button">Reset library</button>
+        <span class="filters__utility-label">Library tools</span>
+        <button class="secondary-button" data-action="reset-library" type="button">Clear filters</button>
         <button class="secondary-button" data-action="import-collection" type="button">Import collection</button>
-        <button class="secondary-button" data-action="import-catalog" type="button">Import JSON catalog</button>
-        <button class="secondary-button" data-action="export-catalog" type="button">Export collection</button>
+        <button class="secondary-button" data-action="import-catalog" type="button">Import catalog</button>
+        <button class="secondary-button" data-action="export-catalog" type="button">Export vault</button>
       </div>
       <input id="catalog-import" type="file" accept=".json,application/json" hidden />
       <input id="collection-import-input" type="file" accept=".csv,text/csv" hidden />
@@ -6824,12 +6825,12 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
   const isShelf = state.viewMode === 'shelf'
   const trackedCount = getOwnedGames().length + getWantedGames().length
   const emptyState = state.ownershipFilter === 'tradeable-now'
-    ? '<div class="empty-state"><h3>No tradeable games right now</h3><p>Nothing in this view is currently marked for trade by other collectors. Try widening the console or region filters, or check Trade Inbox for fresh matches.</p><button class="ghost-button" data-action="trade-open-inbox" type="button">Open Trade Inbox</button></div>'
+    ? '<div class="empty-state"><p class="empty-state__eyebrow">Trade live</p><h3>No live trade copies in this view</h3><p>Nothing here is currently listed by other collectors. Widen the console or region filters, or open Trade Inbox for fresher matches.</p><div class="empty-state__actions"><button class="ghost-button" data-action="trade-open-inbox" type="button">Open Trade Inbox</button><button class="secondary-button" data-action="ownership-filter" data-filter="all" type="button">Show all games</button></div></div>'
     : state.ownershipFilter === 'wanted-now'
-      ? '<div class="empty-state"><h3>No active wanted signals here</h3><p>No collectors in this view are currently looking for these games. Try another console, clear a filter, or mark more of your own games for trade.</p><button class="secondary-button" data-action="ownership-filter" data-filter="all" type="button">Show all games</button></div>'
+      ? '<div class="empty-state"><p class="empty-state__eyebrow">Demand</p><h3>No live wanted signals here</h3><p>No collectors in this view are actively chasing these games right now. Try another console, clear a filter, or mark more of your own copies for trade.</p><div class="empty-state__actions"><button class="secondary-button" data-action="ownership-filter" data-filter="all" type="button">Show all games</button><button class="ghost-button" data-action="browse-tradeable-now" type="button">Browse trade live</button></div></div>'
       : trackedCount === 0
-        ? '<div class="empty-state"><h3>Your vault is waiting</h3><p>Start by browsing the games library or scanning a barcode.</p><div class="empty-state__actions"><button class="toggle-button" data-action="browse-library" type="button">Browse Games Library</button><button class="ghost-button" data-action="open-scanner" type="button">Scan Barcode</button></div></div>'
-        : '<div class="empty-state"><h3>No matches</h3><p>Add it as a custom entry and keep building your collection immediately.</p><button class="toggle-button" data-action="open-custom-entry" type="button">Add this game</button></div>'
+        ? '<div class="empty-state"><p class="empty-state__eyebrow">Fresh vault</p><h3>Your vault is ready for its first hunt</h3><p>Start with one owned game, one wanted game, or one quick barcode scan. Everything else builds from there.</p><div class="empty-state__actions"><button class="toggle-button" data-action="browse-library" type="button">Browse Games Library</button><button class="ghost-button" data-action="open-scanner" type="button">Scan Barcode</button></div></div>'
+        : '<div class="empty-state"><p class="empty-state__eyebrow">No matches</p><h3>Nothing matches this view yet</h3><p>Clear a filter, switch consoles, or add the missing title yourself and keep the vault moving.</p><div class="empty-state__actions"><button class="toggle-button" data-action="open-custom-entry" type="button">Add missing game</button><button class="ghost-button" data-action="reset-library" type="button">Clear filters</button></div></div>'
   const showSkeleton = state.isCatalogLoading && visibleGames.length === 0
   return `
     <section class="catalog-section">
@@ -7817,6 +7818,10 @@ function renderNow() {
       : `${catalog.length} games across ${consoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
 
   const preCatalogCollectorMarkup = `
+      ${renderWorkspaceRail()}
+  `
+
+  const postCatalogCollectorMarkup = `
       ${renderFeatureStrip()}
       ${renderCollectorPositioningStrip()}
       ${renderTrustStrip()}
@@ -7832,10 +7837,6 @@ function renderNow() {
       ${renderMarketRadarStrip()}
       ${renderVaultHealthStrip()}
 
-      ${renderWorkspaceRail()}
-  `
-
-  const postCatalogCollectorMarkup = `
       ${renderOnboardingPanel()}
 
       <section class="smart-grid">
