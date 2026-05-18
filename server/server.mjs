@@ -606,6 +606,19 @@ function getSafeUserDetails(user) {
   }
 }
 
+function getTrackedLibraryRecordCount(library) {
+  if (!library || typeof library !== 'object') {
+    return 0
+  }
+
+  return Object.values(library).filter(
+    (record) =>
+      record &&
+      typeof record === 'object' &&
+      (record.status === 'owned' || record.status === 'wanted'),
+  ).length
+}
+
 function incrementCounter(bucket, key) {
   const safeKey = key || 'unknown'
   bucket[safeKey] = (Number(bucket[safeKey]) || 0) + 1
@@ -2047,19 +2060,45 @@ const server = createServer(async (request, response) => {
       const body = await readBody(request)
       const rawLibrary = body.library && typeof body.library === 'object' ? body.library : {}
       const rawBarcodes = body.barcodeMappings && typeof body.barcodeMappings === 'object' ? body.barcodeMappings : {}
+      const nextLibrary = Object.fromEntries(Object.entries(rawLibrary).slice(0, MAX_LIBRARY_ENTRIES))
+      const nextCustomCatalog = Array.isArray(body.customCatalog) ? body.customCatalog.slice(0, MAX_CATALOG_ENTRIES) : []
+      const nextBarcodeMappings = Object.fromEntries(Object.entries(rawBarcodes).slice(0, MAX_BARCODE_MAPPINGS))
+      const nextActivityEvents = Array.isArray(body.activityEvents) ? body.activityEvents.slice(0, 250) : user.syncState?.activityEvents ?? []
+      const currentLibrary = user.syncState?.library && typeof user.syncState.library === 'object' ? user.syncState.library : {}
+      const currentTrackedCount = getTrackedLibraryRecordCount(currentLibrary)
+      const incomingTrackedCount = getTrackedLibraryRecordCount(nextLibrary)
+      const emptyOverwriteGuardTriggered =
+        currentTrackedCount > 0 &&
+        incomingTrackedCount === 0 &&
+        body.allowEmptySync !== true
+
       user.syncState = {
-        library: Object.fromEntries(Object.entries(rawLibrary).slice(0, MAX_LIBRARY_ENTRIES)),
-        customCatalog: Array.isArray(body.customCatalog) ? body.customCatalog.slice(0, MAX_CATALOG_ENTRIES) : [],
+        library: emptyOverwriteGuardTriggered ? currentLibrary : nextLibrary,
+        customCatalog:
+          emptyOverwriteGuardTriggered && nextCustomCatalog.length === 0
+            ? user.syncState?.customCatalog ?? []
+            : nextCustomCatalog,
         currencyCode: body.currencyCode ?? 'USD',
-        barcodeMappings: Object.fromEntries(Object.entries(rawBarcodes).slice(0, MAX_BARCODE_MAPPINGS)),
-        activityEvents: Array.isArray(body.activityEvents) ? body.activityEvents.slice(0, 250) : user.syncState?.activityEvents ?? [],
+        barcodeMappings:
+          emptyOverwriteGuardTriggered && Object.keys(nextBarcodeMappings).length === 0
+            ? user.syncState?.barcodeMappings ?? {}
+            : nextBarcodeMappings,
+        activityEvents: nextActivityEvents,
         clientUpdatedAt: typeof body.clientUpdatedAt === 'string' ? body.clientUpdatedAt : new Date().toISOString(),
         version: typeof body.version === 'number' ? body.version : 1,
         profile: body.profile ?? user.syncState?.profile ?? { displayName: user.displayName ?? '', shelfTagline: '' },
         updatedAt: new Date().toISOString(),
       }
       await saveDb(db, { required: true })
-      json(request, response, 200, { syncState: user.syncState })
+      json(request, response, 200, {
+        syncState: user.syncState,
+        guard: emptyOverwriteGuardTriggered
+          ? {
+              preventedEmptyOverwrite: true,
+              keptTrackedCount: currentTrackedCount,
+            }
+          : null,
+      })
       return
     }
 
