@@ -4722,12 +4722,7 @@ function renderHeroSearchSuggestions(query: string) {
   const trimmed = query.trim()
 
   if (trimmed.length < 2) {
-    const quickSearches = ['Super Mario', 'Pokemon', 'Zelda', 'Sonic']
-    return `
-      <div class="hero-search__suggestions hero-search__suggestions--quick" aria-label="Quick searches">
-        ${quickSearches.map((term) => `<button class="chip hero-search__chip" type="button" data-action="hero-search-fill" data-query="${escapeHtml(term)}">${escapeHtml(term)}</button>`).join('')}
-      </div>
-    `
+    return ''
   }
 
   const suggestions = getHeroSearchSuggestions(trimmed)
