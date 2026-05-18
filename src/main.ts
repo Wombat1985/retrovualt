@@ -348,10 +348,10 @@ const LEGENDS_PATTERNS: readonly string[] = [
 ]
 const TRUSTED_COVER_HOSTS = new Set(['storage.googleapis.com', 'images.pricecharting.com'])
 const COVER_FALLBACK_PREFIX = 'data:image/svg+xml;charset=UTF-8,'
-const INITIAL_VISIBLE_GAME_COUNT = 96
-const VISIBLE_GAME_INCREMENT = 96
-const COMPACT_VISIBLE_GAME_COUNT = 48
-const COMPACT_VISIBLE_GAME_INCREMENT = 48
+const INITIAL_VISIBLE_GAME_COUNT = 48
+const VISIBLE_GAME_INCREMENT = 48
+const COMPACT_VISIBLE_GAME_COUNT = 32
+const COMPACT_VISIBLE_GAME_INCREMENT = 32
 const SEARCH_RENDER_DELAY_MS = 180
 const appElement = document.querySelector<HTMLDivElement>('#app')
 let catalogCache: CatalogEntry[] | null = null
