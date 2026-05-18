@@ -21,6 +21,7 @@ export type SyncStatePayload = {
   customCatalog: unknown[]
   currencyCode: string
   barcodeMappings: Record<string, string>
+  deletedGameIds?: string[]
   activityEvents?: unknown[]
   clientUpdatedAt?: string
   version?: number

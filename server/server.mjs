@@ -29,6 +29,7 @@ const requestLimits = new Map()
 const MAX_LIBRARY_ENTRIES = 10000
 const MAX_CATALOG_ENTRIES = 1000
 const MAX_BARCODE_MAPPINGS = 10000
+const MAX_SYNC_BACKUPS = 5
 let lastStorageStatus = {
   mode: 'local',
   ok: true,
@@ -619,6 +620,88 @@ function getTrackedLibraryRecordCount(library) {
   ).length
 }
 
+function normalizeDeletedGameIds(rawDeletedGameIds) {
+  if (!Array.isArray(rawDeletedGameIds)) {
+    return []
+  }
+
+  return [...new Set(
+    rawDeletedGameIds
+      .filter((id) => typeof id === 'string' && id.trim().length > 0)
+      .map((id) => id.trim()),
+  )].slice(0, MAX_LIBRARY_ENTRIES)
+}
+
+function mergeSyncLibrary(currentLibrary, incomingLibrary, deletedGameIds) {
+  const mergedLibrary = {
+    ...(currentLibrary && typeof currentLibrary === 'object' ? currentLibrary : {}),
+  }
+
+  for (const deletedId of deletedGameIds) {
+    delete mergedLibrary[deletedId]
+  }
+
+  for (const [gameId, record] of Object.entries(incomingLibrary && typeof incomingLibrary === 'object' ? incomingLibrary : {})) {
+    if (deletedGameIds.includes(gameId)) {
+      continue
+    }
+
+    mergedLibrary[gameId] = record
+  }
+
+  return mergedLibrary
+}
+
+function mergeSyncBarcodeMappings(currentMappings, incomingMappings) {
+  return {
+    ...(currentMappings && typeof currentMappings === 'object' ? currentMappings : {}),
+    ...(incomingMappings && typeof incomingMappings === 'object' ? incomingMappings : {}),
+  }
+}
+
+function mergeSyncCustomCatalog(currentCatalog, incomingCatalog) {
+  const combined = [...(Array.isArray(currentCatalog) ? currentCatalog : []), ...(Array.isArray(incomingCatalog) ? incomingCatalog : [])]
+  const seen = new Set()
+  const merged = []
+
+  for (const entry of combined) {
+    if (!entry || typeof entry !== 'object') {
+      continue
+    }
+
+    const key = String(entry.id ?? '').trim()
+
+    if (!key || seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    merged.push(entry)
+  }
+
+  return merged.slice(0, MAX_CATALOG_ENTRIES)
+}
+
+function appendSyncBackup(user, reason = 'sync-protection') {
+  const currentSyncState = user?.syncState
+  const currentLibrary = currentSyncState?.library && typeof currentSyncState.library === 'object' ? currentSyncState.library : {}
+  const trackedCount = getTrackedLibraryRecordCount(currentLibrary)
+
+  if (!trackedCount) {
+    return
+  }
+
+  const snapshot = JSON.parse(JSON.stringify(currentSyncState))
+  const backup = {
+    id: randomBytes(10).toString('hex'),
+    reason,
+    createdAt: new Date().toISOString(),
+    syncState: snapshot,
+  }
+
+  user.syncBackups = [backup, ...(Array.isArray(user.syncBackups) ? user.syncBackups : [])].slice(0, MAX_SYNC_BACKUPS)
+}
+
 function incrementCounter(bucket, key) {
   const safeKey = key || 'unknown'
   bucket[safeKey] = (Number(bucket[safeKey]) || 0) + 1
@@ -770,9 +853,10 @@ function createDefaultSyncState() {
     customCatalog: [],
     currencyCode: 'USD',
     barcodeMappings: {},
+    deletedGameIds: [],
     activityEvents: [],
     clientUpdatedAt: new Date().toISOString(),
-    version: 2,
+    version: 3,
     profile: {
       displayName: '',
       shelfTagline: '',
@@ -2063,29 +2147,56 @@ const server = createServer(async (request, response) => {
       const nextLibrary = Object.fromEntries(Object.entries(rawLibrary).slice(0, MAX_LIBRARY_ENTRIES))
       const nextCustomCatalog = Array.isArray(body.customCatalog) ? body.customCatalog.slice(0, MAX_CATALOG_ENTRIES) : []
       const nextBarcodeMappings = Object.fromEntries(Object.entries(rawBarcodes).slice(0, MAX_BARCODE_MAPPINGS))
+      const nextDeletedGameIds = normalizeDeletedGameIds(body.deletedGameIds)
       const nextActivityEvents = Array.isArray(body.activityEvents) ? body.activityEvents.slice(0, 250) : user.syncState?.activityEvents ?? []
       const currentLibrary = user.syncState?.library && typeof user.syncState.library === 'object' ? user.syncState.library : {}
+      const currentDeletedGameIds = normalizeDeletedGameIds(user.syncState?.deletedGameIds)
       const currentTrackedCount = getTrackedLibraryRecordCount(currentLibrary)
       const incomingTrackedCount = getTrackedLibraryRecordCount(nextLibrary)
       const emptyOverwriteGuardTriggered =
         currentTrackedCount > 0 &&
         incomingTrackedCount === 0 &&
+        nextDeletedGameIds.length === 0 &&
         body.allowEmptySync !== true
+      const mergedDeletedGameIds = [...new Set([...currentDeletedGameIds, ...nextDeletedGameIds])]
+
+      for (const gameId of Object.keys(nextLibrary)) {
+        const deletedIndex = mergedDeletedGameIds.indexOf(gameId)
+
+        if (deletedIndex >= 0) {
+          mergedDeletedGameIds.splice(deletedIndex, 1)
+        }
+      }
+
+      const mergedLibrary = emptyOverwriteGuardTriggered
+        ? currentLibrary
+        : mergeSyncLibrary(currentLibrary, nextLibrary, mergedDeletedGameIds)
+      const mergedTrackedCount = getTrackedLibraryRecordCount(mergedLibrary)
+      const destructiveSyncIntent =
+        nextDeletedGameIds.length > 0 ||
+        mergedTrackedCount < currentTrackedCount ||
+        emptyOverwriteGuardTriggered
+
+      if (destructiveSyncIntent) {
+        appendSyncBackup(
+          user,
+          emptyOverwriteGuardTriggered
+            ? 'empty-overwrite-guard'
+            : nextDeletedGameIds.length > 0
+              ? 'explicit-delete'
+              : 'tracked-count-drop',
+        )
+      }
 
       user.syncState = {
-        library: emptyOverwriteGuardTriggered ? currentLibrary : nextLibrary,
-        customCatalog:
-          emptyOverwriteGuardTriggered && nextCustomCatalog.length === 0
-            ? user.syncState?.customCatalog ?? []
-            : nextCustomCatalog,
+        library: mergedLibrary,
+        customCatalog: mergeSyncCustomCatalog(user.syncState?.customCatalog, nextCustomCatalog),
         currencyCode: body.currencyCode ?? 'USD',
-        barcodeMappings:
-          emptyOverwriteGuardTriggered && Object.keys(nextBarcodeMappings).length === 0
-            ? user.syncState?.barcodeMappings ?? {}
-            : nextBarcodeMappings,
+        barcodeMappings: mergeSyncBarcodeMappings(user.syncState?.barcodeMappings, nextBarcodeMappings),
+        deletedGameIds: mergedDeletedGameIds.slice(0, MAX_LIBRARY_ENTRIES),
         activityEvents: nextActivityEvents,
         clientUpdatedAt: typeof body.clientUpdatedAt === 'string' ? body.clientUpdatedAt : new Date().toISOString(),
-        version: typeof body.version === 'number' ? body.version : 1,
+        version: typeof body.version === 'number' ? body.version : 3,
         profile: body.profile ?? user.syncState?.profile ?? { displayName: user.displayName ?? '', shelfTagline: '' },
         updatedAt: new Date().toISOString(),
       }

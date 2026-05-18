@@ -273,6 +273,7 @@ const CURRENCY_STORAGE_KEY = 'retro-game-collector-currency'
 const AUTH_TOKEN_STORAGE_KEY = 'retro-game-collector-auth-token'
 const AUTH_PROFILE_STORAGE_KEY = 'retro-game-collector-auth-profile'
 const BARCODE_STORAGE_KEY = 'retro-game-collector-barcode-mappings'
+const DELETED_GAME_IDS_STORAGE_KEY = 'retro-game-collector-deleted-game-ids'
 const ONBOARDING_STORAGE_KEY = 'retro-game-collector-onboarding-dismissed'
 const STREAK_STORAGE_KEY = 'retro-game-collector-visit-streak'
 const ACTIVITY_STORAGE_KEY = 'retro-game-collector-activity-events'
@@ -286,6 +287,7 @@ const COVER_HASH_CACHE_STORE = 'cover-hashes'
 const CATALOG_CACHE_SNAPSHOT_KEY = 'all-consoles'
 const CATALOG_CACHE_VERSION = '2026-04-25-v2'
 const COVER_MATCH_MAX_SCOPE = 1500
+const MAX_LIBRARY_ENTRIES = 10000
 const MAX_ACTIVITY_EVENTS = 250
 const LEGENDS_FILTER = 'Legends'
 // Only North American first-party console releases count as Legends
@@ -463,6 +465,7 @@ const state = {
   loadedConsoles: [] as string[],
   customCatalog: loadCustomCatalog(),
   barcodeMappings: loadBarcodeMappings(),
+  deletedGameIds: loadDeletedGameIds(),
   onboardingDismissed: loadOnboardingDismissed(),
   hideArchivedTrades: loadHideArchivedTrades(),
   publicCommunityStats: loadPublicCommunityStatsCache(),
@@ -1042,6 +1045,7 @@ function resetLocalCollectionState() {
   state.library = {}
   state.customCatalog = []
   state.barcodeMappings = {}
+  state.deletedGameIds = []
   state.activityEvents = []
   state.justOwnedGameId = ''
   state.selectedGameId = ''
@@ -1054,6 +1058,7 @@ function saveLocalCollectionState() {
   localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
   localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
   localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
+  localStorage.setItem(DELETED_GAME_IDS_STORAGE_KEY, JSON.stringify(state.deletedGameIds))
   saveActivityEvents()
 }
 
@@ -1088,6 +1093,47 @@ function loadBarcodeMappings() {
 function saveBarcodeMappings() {
   localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
   scheduleCloudSync()
+}
+
+function loadDeletedGameIds() {
+  const raw = localStorage.getItem(DELETED_GAME_IDS_STORAGE_KEY)
+
+  if (!raw) {
+    return [] as string[]
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+
+    return Array.isArray(parsed)
+      ? [...new Set(parsed.filter((value): value is string => typeof value === 'string' && value.trim().length > 0).map((value) => value.trim()))].slice(0, MAX_LIBRARY_ENTRIES)
+      : []
+  } catch {
+    return []
+  }
+}
+
+function saveDeletedGameIds() {
+  localStorage.setItem(DELETED_GAME_IDS_STORAGE_KEY, JSON.stringify(state.deletedGameIds.slice(0, MAX_LIBRARY_ENTRIES)))
+  scheduleCloudSync()
+}
+
+function markGameDeleted(id: string) {
+  if (!id || state.deletedGameIds.includes(id)) {
+    return
+  }
+
+  state.deletedGameIds = [...state.deletedGameIds, id].slice(-MAX_LIBRARY_ENTRIES)
+  saveDeletedGameIds()
+}
+
+function clearDeletedGameId(id: string) {
+  if (!id || !state.deletedGameIds.includes(id)) {
+    return
+  }
+
+  state.deletedGameIds = state.deletedGameIds.filter((entry) => entry !== id)
+  saveDeletedGameIds()
 }
 
 function normalizeCatalogEntry(value: unknown): CatalogEntry | null {
@@ -3706,9 +3752,10 @@ function getSyncPayload() {
     customCatalog: state.customCatalog,
     currencyCode: state.currencyCode,
     barcodeMappings: state.barcodeMappings,
+    deletedGameIds: state.deletedGameIds,
     activityEvents: state.activityEvents,
     clientUpdatedAt: new Date().toISOString(),
-    version: 2,
+    version: 3,
     profile: {
       displayName: state.accountDisplayName,
       shelfTagline: getCollectionMood(),
@@ -3766,6 +3813,7 @@ function hasLocalCollectionData() {
     Object.values(state.library).some(hasMeaningfulRecord) ||
     state.customCatalog.length > 0 ||
     Object.keys(state.barcodeMappings).length > 0 ||
+    state.deletedGameIds.length > 0 ||
     state.activityEvents.length > 0
   )
 }
@@ -3809,10 +3857,24 @@ function mergeGameRecord(localRecord: GameRecord | undefined, remoteRecord: Game
   } satisfies GameRecord
 }
 
-function mergeLibraryData(remoteLibrary: Record<string, GameRecord>) {
+function mergeDeletedGameIds(remoteDeletedGameIds: string[]) {
+  const incoming = remoteDeletedGameIds.filter((id) => typeof id === 'string' && id.trim().length > 0).map((id) => id.trim())
+  return [...new Set([...incoming, ...state.deletedGameIds])].slice(-MAX_LIBRARY_ENTRIES)
+}
+
+function mergeLibraryData(remoteLibrary: Record<string, GameRecord>, deletedGameIds: string[] = []) {
   const merged = { ...remoteLibrary }
+  const deletedSet = new Set(deletedGameIds)
+
+  for (const deletedId of deletedSet) {
+    delete merged[deletedId]
+  }
 
   for (const [id, localRecord] of Object.entries(state.library)) {
+    if (deletedSet.has(id)) {
+      continue
+    }
+
     if (!hasMeaningfulRecord(localRecord)) {
       continue
     }
@@ -3839,6 +3901,7 @@ function applyRemoteSyncState(syncState: {
   customCatalog: unknown[]
   currencyCode: string
   barcodeMappings: Record<string, string>
+  deletedGameIds?: string[]
   activityEvents?: unknown[]
   profile?: {
     displayName?: string
@@ -3881,10 +3944,16 @@ function applyRemoteSyncState(syncState: {
   const remoteActivityEvents = Array.isArray(syncState.activityEvents)
     ? syncState.activityEvents.map(normalizeActivityEvent).filter((event): event is ActivityEvent => event !== null)
     : []
+  const remoteDeletedGameIds = Array.isArray(syncState.deletedGameIds)
+    ? [...new Set(syncState.deletedGameIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0).map((id) => id.trim()))].slice(0, MAX_LIBRARY_ENTRIES)
+    : []
 
   const shouldMerge = options.mergeWithLocal && hasLocalCollectionData()
+  state.deletedGameIds = shouldMerge ? mergeDeletedGameIds(remoteDeletedGameIds) : remoteDeletedGameIds
 
-  state.library = shouldMerge ? mergeLibraryData(remoteLibrary) : remoteLibrary
+  state.library = shouldMerge ? mergeLibraryData(remoteLibrary, state.deletedGameIds) : Object.fromEntries(
+    Object.entries(remoteLibrary).filter(([id]) => !state.deletedGameIds.includes(id)),
+  )
   state.customCatalog = shouldMerge ? mergeCustomCatalogData(remoteCustomCatalog) : remoteCustomCatalog
   state.activityEvents = shouldMerge ? mergeActivityEvents(remoteActivityEvents) : remoteActivityEvents.slice(0, MAX_ACTIVITY_EVENTS)
 
@@ -3902,6 +3971,7 @@ function applyRemoteSyncState(syncState: {
   localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
   localStorage.setItem(CURRENCY_STORAGE_KEY, state.currencyCode)
   localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
+  localStorage.setItem(DELETED_GAME_IDS_STORAGE_KEY, JSON.stringify(state.deletedGameIds))
   saveActivityEvents()
 }
 
@@ -7976,6 +8046,9 @@ async function handleAction(element: HTMLElement) {
         appraisedValue: null,
         copies: undefined,
       }))
+      if (!hasMeaningfulRecord(getRecord(id))) {
+        markGameDeleted(id)
+      }
       break
     case 'confirm-owned': {
       if (!id) {
@@ -8016,6 +8089,9 @@ async function handleAction(element: HTMLElement) {
         status: record.status === 'wanted' ? 'missing' : 'wanted',
         completeInBox: record.status === 'wanted' ? record.completeInBox : false,
       }))
+      if (wasWanted && !hasMeaningfulRecord(getRecord(id))) {
+        markGameDeleted(id)
+      }
 
       if (!wasWanted && getTradeAvailabilityCount(id) > 0) {
         void openTradeRequestFlow(id)
@@ -8295,6 +8371,9 @@ async function handleAction(element: HTMLElement) {
       if (currentCopies.length <= 1) {
         playUnmark()
         setRecord(id, (record) => ({ ...record, status: 'missing', ownedCopies: 1, variant: '', gradedLabel: '', appraisedValue: null, copies: undefined, forTrade: false, tradeListedAt: null }))
+        if (!hasMeaningfulRecord(getRecord(id))) {
+          markGameDeleted(id)
+        }
       } else {
         setRecord(id, (record) => {
           const copies = getRecordCopies(record)
@@ -8838,6 +8917,13 @@ function setRecord(id: string, updater: (record: GameRecord) => GameRecord) {
 
   if (decodedAlias !== id) {
     delete state.library[decodedAlias]
+  }
+
+  if (hasMeaningfulRecord(nextRecord)) {
+    clearDeletedGameId(id)
+    if (decodedAlias !== id) {
+      clearDeletedGameId(decodedAlias)
+    }
   }
 
   libraryRevision += 1
