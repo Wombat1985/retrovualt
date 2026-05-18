@@ -5192,6 +5192,7 @@ function renderCollectorActivityStrip() {
     </section>
   `
 }
+void renderCollectorActivityStrip
 
 function renderGuestSafeguardStrip() {
   if (state.authToken) {
@@ -6964,7 +6965,6 @@ function renderNow() {
   const accountIdentity = getAccountIdentityLabel()
   const compactCatalogWindow = useCompactCatalogWindow()
   const isSignedIn = Boolean(state.authToken)
-  const hasSearchQuery = Boolean(state.search.trim())
   const hasTrackedGames = ownedGames.length + wantedGames.length > 0
   const catalogStatusText = state.isCatalogLoading
     ? `Loading the library. ${loadedConsoleCount} of ${totalConsoleCount} console lists are ready so far.`
@@ -6976,7 +6976,6 @@ function renderNow() {
 
   const postCatalogCollectorMarkup = isSignedIn
     ? `
-      ${!hasSearchQuery && hasTrackedGames ? renderCollectorActivityStrip() : ''}
       ${!hasTrackedGames ? renderOnboardingPanel() : ''}
     `
     : `
