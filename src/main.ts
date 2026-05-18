@@ -4510,7 +4510,7 @@ function renderSelectedGameModal() {
             <article class="modal-summary-card">
               <span>Trade pulse</span>
               <strong>${escapeHtml(tradeAvailabilityCount > 0 ? `${tradeAvailabilityCount} live` : tradeDemandCount > 0 ? `${tradeDemandCount} hunting` : 'Quiet now')}</strong>
-              <p>${escapeHtml(tradeAvailabilityCount > 0 ? 'Collectors already have this marked for trade, so it is worth opening with intent.' : tradeDemandCount > 0 ? 'Other collectors already want this title, which makes owned copies more interesting.' : 'Still worth tracking here for variants, value, and the next collector move.')}</p>
+              <p>${escapeHtml(tradeAvailabilityCount > 0 ? 'Collectors currently have this listed for trade.' : tradeDemandCount > 0 ? 'Collectors are already looking for this title.' : 'Track value, condition, and notes here.')}</p>
             </article>
           </div>
           <p class="modal-description">
@@ -4797,8 +4797,8 @@ function getHeroPreviewEntries() {
 
   if (items.length >= 4) {
     return {
-      title: 'Picked from your vault',
-      subtitle: 'Wanted games, recent views, and owned highlights from your collector workflow.',
+      title: 'From your vault',
+      subtitle: 'Wanted games, recent views, and owned highlights.',
       items,
     }
   }
@@ -4822,8 +4822,8 @@ function getHeroPreviewEntries() {
     }))
 
   return {
-    title: 'Popular games collectors are tracking',
-    subtitle: 'Real covers, real titles, real value context.',
+    title: 'Popular games in the library',
+    subtitle: 'A few real titles from the catalog.',
     items: previews,
   }
 }
@@ -4907,6 +4907,7 @@ function renderPlatformProofStrip() {
     </section>
   `
 }
+void renderPlatformProofStrip
 
 function getCatalogRunwayGames(games: CatalogEntry[], limit = 4) {
   return [...games]
@@ -4964,15 +4965,15 @@ function renderCatalogRunway(filteredGames: CatalogEntry[]) {
 
   const title = state.authToken ? 'Quick picks' : 'Library highlights'
   const subtitle = state.authToken
-    ? 'A few clean starting points before you drop into the full grid.'
-    : 'A quick sample from the library before the full grid.'
+    ? 'A few useful places to start.'
+    : 'A few real titles from the library.'
 
   return `
     <section class="catalog-rail" aria-label="${escapeHtml(title)}">
       <div class="catalog-rail__header">
         <div>
           <p class="kicker">${escapeHtml(title)}</p>
-          <h3>${state.authToken ? 'Open a game and keep moving.' : 'A few good places to start.'}</h3>
+          <h3>${state.authToken ? 'Open a game and keep moving.' : 'Open anything and start browsing.'}</h3>
         </div>
         <p class="subtle">${escapeHtml(subtitle)}</p>
       </div>
@@ -5156,6 +5157,7 @@ function renderWorkspaceRail() {
     </section>
   `
 }
+void renderWorkspaceRail
 
 function renderCollectorActivityStrip() {
   const events = state.activityEvents.slice(0, 3)
@@ -5225,45 +5227,69 @@ function renderGuestSafeguardStrip() {
 }
 
 function renderVaultLanesStrip() {
-  const laneItems = [
-    {
-      label: 'Games library',
-      title: `${getCatalog().length.toLocaleString()} in library`,
-      detail: 'Open anything',
-      action: 'browse-library',
-      active: state.ownershipFilter === 'all' && !state.search.trim(),
-    },
-    {
-      label: 'Owned shelf',
-      title: `${getOwnedGames().length.toLocaleString()} tracked`,
-      detail: 'Your collection',
-      action: 'browse-owned-games',
-      active: state.ownershipFilter === 'owned',
-    },
-    {
-      label: 'Wanted list',
-      title: `${getWantedGames().length.toLocaleString()} hunting`,
-      detail: 'Target games',
-      action: 'ownership-filter',
-      active: state.ownershipFilter === 'wanted',
-      filter: 'wanted',
-    },
-    {
-      label: 'Ready to trade',
-      title: `${(state.publicCommunityStats?.tradeListingCount ?? 0).toLocaleString()} listed`,
-      detail: 'Live copies',
-      action: 'browse-tradeable-now',
-      active: state.ownershipFilter === 'tradeable-now',
-    },
-    {
-      label: 'Price alerts',
-      title: `${getAlertMatches().length.toLocaleString()} hits`,
-      detail: 'Target prices',
-      action: 'ownership-filter',
-      active: state.ownershipFilter === 'wanted-now',
-      filter: 'wanted-now',
-    },
-  ]
+  const laneItems = state.authToken
+    ? [
+        {
+          label: 'Games library',
+          title: `${getCatalog().length.toLocaleString()} in library`,
+          detail: 'Open anything',
+          action: 'browse-library',
+          active: state.ownershipFilter === 'all' && !state.search.trim(),
+        },
+        {
+          label: 'Owned shelf',
+          title: `${getOwnedGames().length.toLocaleString()} tracked`,
+          detail: 'Your collection',
+          action: 'browse-owned-games',
+          active: state.ownershipFilter === 'owned',
+        },
+        {
+          label: 'Wanted list',
+          title: `${getWantedGames().length.toLocaleString()} hunting`,
+          detail: 'Target games',
+          action: 'ownership-filter',
+          active: state.ownershipFilter === 'wanted',
+          filter: 'wanted',
+        },
+        {
+          label: 'Ready to trade',
+          title: state.publicCommunityStats ? `${state.publicCommunityStats.tradeListingCount.toLocaleString()} listed` : 'Live listings',
+          detail: 'Live copies',
+          action: 'browse-tradeable-now',
+          active: state.ownershipFilter === 'tradeable-now',
+        },
+        {
+          label: 'Price alerts',
+          title: `${getAlertMatches().length.toLocaleString()} hits`,
+          detail: 'Target prices',
+          action: 'ownership-filter',
+          active: state.ownershipFilter === 'wanted-now',
+          filter: 'wanted-now',
+        },
+      ]
+    : [
+        {
+          label: 'Games library',
+          title: `${getCatalog().length.toLocaleString()} games`,
+          detail: 'Search the full catalog',
+          action: 'browse-library',
+          active: state.ownershipFilter === 'all' && !state.search.trim(),
+        },
+        {
+          label: 'Ready to trade',
+          title: state.publicCommunityStats ? `${state.publicCommunityStats.tradeListingCount.toLocaleString()} listed` : 'Live listings',
+          detail: 'Browse tradeable copies',
+          action: 'browse-tradeable-now',
+          active: state.ownershipFilter === 'tradeable-now',
+        },
+        {
+          label: 'Create vault',
+          title: 'Save owned and wanted games',
+          detail: 'Sync across devices',
+          action: 'open-register',
+          active: false,
+        },
+      ]
 
   return `
     <section class="vault-lanes" aria-label="Quick lanes">
@@ -5362,6 +5388,7 @@ function renderFeatureStrip() {
     </section>
   `
 }
+void renderFeatureStrip
 
 function renderOnboardingPanel() {
   const steps = getOnboardingSteps()
@@ -6956,7 +6983,7 @@ function renderNow() {
       ? `Using the latest reference snapshot from ${priceSnapshotDate} while the rest of the catalog catches up.`
       : `${catalog.length} games across ${consoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
 
-  const preCatalogCollectorMarkup = isSignedIn ? '' : renderWorkspaceRail()
+  const preCatalogCollectorMarkup = ''
 
   const postCatalogCollectorMarkup = isSignedIn
     ? `
@@ -6964,11 +6991,8 @@ function renderNow() {
       ${!hasTrackedGames ? renderOnboardingPanel() : ''}
     `
     : `
-      ${renderFeatureStrip()}
       ${renderTrustStrip()}
-      ${renderPlatformProofStrip()}
-      ${renderGuestSafeguardStrip()}
-      ${renderOnboardingPanel()}
+      ${hasTrackedGames ? renderGuestSafeguardStrip() : ''}
     `
 
   app.innerHTML = `
@@ -6984,10 +7008,10 @@ function renderNow() {
           <p class="hero-text">
             ${isSignedIn
               ? 'Search the library, update owned and wanted games, and manage trade-ready copies without losing your place.'
-              : 'Retro Vault Elite helps you track what you own, what you still want, what you paid, and which extra copies are ready to trade, without juggling spreadsheets, notes, and price tabs.'}
+              : 'Search the library, open any game, and decide later if you want to save a collection, keep a wanted list, or trade duplicates.'}
           </p>
-          <p class="hero-authority">${isSignedIn ? 'Search first, then open any game to update your vault.' : 'Built for serious collectors tracking condition, paid price, wanted games, duplicates, and trade-ready copies.'}</p>
-          <p class="hero-text hero-text--tiny">${catalogStatusText} Collection values convert from USD market data using ECB reference rates from 30 April 2026.</p>
+          <p class="hero-authority">${isSignedIn ? 'Search first, then open any game to update your vault.' : 'Built for collectors who care about condition, variants, paid price, and duplicate tracking.'}</p>
+          <p class="hero-text hero-text--tiny">${catalogStatusText}${isSignedIn ? ' Collection values convert from USD market data using ECB reference rates from 30 April 2026.' : ''}</p>
           ${
             state.authToken
               ? `<p class="account-status-pill"><span>Signed in</span><strong>${escapeHtml(accountIdentity)}</strong></p>`
@@ -7002,26 +7026,53 @@ function renderNow() {
           <p class="hero-action-note">${isSignedIn ? 'Open a game to mark it owned, wanted, shelved, or trade live.' : 'No account needed &mdash; search first, build your vault when you\'re ready.'}</p>
         </div>
         <div class="hero-stats">
-          <article class="hero-stat-card hero-stat-card--count">
-            <span class="stat-label">Owned</span>
-            <strong class="hero-stat-value hero-stat-value--count">${ownedGames.length}</strong>
-            <span class="stat-note">${completionPercentage}% collection completion</span>
-          </article>
-          <article class="hero-stat-card hero-stat-card--count">
-            <span class="stat-label">Wishlist</span>
-            <strong class="hero-stat-value hero-stat-value--count">${wantedGames.length}</strong>
-            <span class="stat-note">${formatPrice(wishlistValue)} target value</span>
-          </article>
-          <article class="hero-stat-card hero-stat-card--money">
-            <span class="stat-label">Estimated sell value</span>
-            <strong class="hero-stat-value hero-stat-value--money">${formatPrice(estimatedSellValue)}</strong>
-            <span class="stat-note">Uses your loose/complete ownership choices in ${selectedCurrency.code}</span>
-          </article>
-          <article class="hero-stat-card hero-stat-card--money">
-            <span class="stat-label">Collection premium</span>
-            <strong class="hero-stat-value hero-stat-value--money">${formatPrice(ownedCompleteValue)}</strong>
-            <span class="stat-note">Complete market total in ${selectedCurrency.code}</span>
-          </article>
+          ${
+            isSignedIn
+              ? `
+                <article class="hero-stat-card hero-stat-card--count">
+                  <span class="stat-label">Owned</span>
+                  <strong class="hero-stat-value hero-stat-value--count">${ownedGames.length}</strong>
+                  <span class="stat-note">${completionPercentage}% collection completion</span>
+                </article>
+                <article class="hero-stat-card hero-stat-card--count">
+                  <span class="stat-label">Wishlist</span>
+                  <strong class="hero-stat-value hero-stat-value--count">${wantedGames.length}</strong>
+                  <span class="stat-note">${formatPrice(wishlistValue)} target value</span>
+                </article>
+                <article class="hero-stat-card hero-stat-card--money">
+                  <span class="stat-label">Estimated sell value</span>
+                  <strong class="hero-stat-value hero-stat-value--money">${formatPrice(estimatedSellValue)}</strong>
+                  <span class="stat-note">Uses your loose/complete ownership choices in ${selectedCurrency.code}</span>
+                </article>
+                <article class="hero-stat-card hero-stat-card--money">
+                  <span class="stat-label">Collection premium</span>
+                  <strong class="hero-stat-value hero-stat-value--money">${formatPrice(ownedCompleteValue)}</strong>
+                  <span class="stat-note">Complete market total in ${selectedCurrency.code}</span>
+                </article>
+              `
+              : `
+                <article class="hero-stat-card hero-stat-card--count">
+                  <span class="stat-label">Library</span>
+                  <strong class="hero-stat-value hero-stat-value--count">${catalog.length.toLocaleString()}</strong>
+                  <span class="stat-note">games ready to browse</span>
+                </article>
+                <article class="hero-stat-card hero-stat-card--count">
+                  <span class="stat-label">Systems</span>
+                  <strong class="hero-stat-value hero-stat-value--count">${consoleCount}</strong>
+                  <span class="stat-note">retro consoles covered</span>
+                </article>
+                <article class="hero-stat-card hero-stat-card--guest">
+                  <span class="stat-label">Tracking</span>
+                  <strong class="hero-stat-value hero-stat-value--guest">Loose to graded</strong>
+                  <span class="stat-note">condition, variants, notes, and paid price</span>
+                </article>
+                <article class="hero-stat-card hero-stat-card--guest">
+                  <span class="stat-label">Trading</span>
+                  <strong class="hero-stat-value hero-stat-value--guest">Private collector trades</strong>
+                  <span class="stat-note">browse live listings before you create an account</span>
+                </article>
+              `
+          }
         </div>
         <div class="hero-bottom">
           ${renderHeroTrustBadges()}
@@ -7031,7 +7082,7 @@ function renderNow() {
               <p class="hero-text hero-text--trade">${
                 state.authToken
                   ? 'Trade Inbox keeps live opportunities, pending requests, and collector replies in one place.'
-                  : 'Browse tradeable games right away. Create an account when you want to list duplicates and send requests.'
+                  : 'Browse tradeable games right away. Create an account only when you want to save data or send trade requests.'
               }</p>
             </div>
             <div class="hero-proof-side">
@@ -7039,7 +7090,7 @@ function renderNow() {
               ${renderFeaturedSystemsStrip()}
             </div>
           </div>
-          ${renderHeroValueStrip()}
+          ${isSignedIn ? renderHeroValueStrip() : ''}
         </div>
       </header>
 
@@ -7047,7 +7098,7 @@ function renderNow() {
       ${renderVaultLanesStrip()}
       <section class="toolbar">
         <label class="search-field">
-          <span>Search the vault</span>
+          <span>${isSignedIn ? 'Search the vault' : 'Search the library'}</span>
           <input id="search-input" type="search" value="${escapeHtml(state.search)}" />
         </label>
         <label class="select-field">

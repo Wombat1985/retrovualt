@@ -1963,6 +1963,15 @@ a {
   letter-spacing: 0;
 }
 
+.hero-stat-value--guest {
+  font-family: 'Russo One', var(--display);
+  font-size: clamp(1.05rem, 1.8vw, 1.5rem);
+  line-height: 1.08;
+  letter-spacing: 0;
+  color: var(--text);
+  text-shadow: none;
+}
+
 .toolbar,
 .filters,
 .smart-grid,
