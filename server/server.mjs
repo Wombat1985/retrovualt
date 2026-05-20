@@ -1262,6 +1262,7 @@ function getAdminEmailDraft(campaignType = 'site_update') {
 async function sendTradeNotificationEmail(email, subject, intro, ctaLabel = 'Open Trade Inbox') {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
+  const replyTo = process.env.REPLY_TO_EMAIL
   const appUrl = defaultAllowedOrigins[0] ?? 'https://www.retrovaultelite.com'
 
   if (!apiKey || !from) {
@@ -1276,8 +1277,9 @@ async function sendTradeNotificationEmail(email, subject, intro, ctaLabel = 'Ope
       body: JSON.stringify({
         from,
         to: email,
-        subject: `Retro Vault Elite  ${subject}`,
-        html: `<p>${intro}</p><p><a href="${appUrl}">${ctaLabel}</a></p><p>Do not reply. Never share personal details over this system.</p>`,
+        ...(replyTo ? { reply_to: replyTo } : {}),
+        subject: `Retro Vault Elite - ${subject}`,
+        html: `<p>${intro}</p><p><a href="${appUrl}">${ctaLabel}</a></p><p>If you reply to this email it will go back to Retro Vault Elite. Never share personal details over this system.</p>`,
       }),
     })
     if (!res.ok) console.error('Trade notification email failed:', res.status)
@@ -1289,6 +1291,7 @@ async function sendTradeNotificationEmail(email, subject, intro, ctaLabel = 'Ope
 async function sendAdminBroadcastEmail(email, payload) {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
+  const replyTo = process.env.REPLY_TO_EMAIL
   const appUrl = defaultAllowedOrigins[0] ?? 'https://www.retrovaultelite.com'
 
   if (!apiKey || !from) {
@@ -1367,6 +1370,7 @@ async function sendAdminBroadcastEmail(email, payload) {
     body: JSON.stringify({
       from,
       to: email,
+      ...(replyTo ? { reply_to: replyTo } : {}),
       subject: `Retro Vault Elite - ${subject}`,
       html,
     }),
@@ -1408,6 +1412,7 @@ async function sendAdminBroadcastEmailWithRetry(email, payload, maxAttempts = 3)
 async function sendPasswordResetEmail(email, resetLink) {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
+  const replyTo = process.env.REPLY_TO_EMAIL
 
   if (!apiKey || !from) {
     console.log(`Password reset link for ${email}: ${resetLink}`)
@@ -1423,6 +1428,7 @@ async function sendPasswordResetEmail(email, resetLink) {
     body: JSON.stringify({
       from,
       to: email,
+      ...(replyTo ? { reply_to: replyTo } : {}),
       subject: 'Reset your Retro Vault Elite password',
       html: `<p>Use this secure link to reset your Retro Vault Elite password:</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you did not request this, you can ignore this email.</p>`,
     }),
@@ -2885,6 +2891,7 @@ const server = createServer(async (request, response) => {
 server.listen(port, () => {
   console.log(`Retro Vault backend listening on http://127.0.0.1:${port}`)
 })
+
 
 
 
