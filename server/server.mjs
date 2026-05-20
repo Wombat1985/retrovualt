@@ -1378,6 +1378,33 @@ async function sendAdminBroadcastEmail(email, payload) {
   }
 }
 
+async function sendAdminBroadcastEmailWithRetry(email, payload, maxAttempts = 3) {
+  let attempt = 0
+  let lastError = null
+
+  while (attempt < maxAttempts) {
+    try {
+      await sendAdminBroadcastEmail(email, payload)
+      return
+    } catch (error) {
+      lastError = error
+      const message = error instanceof Error ? error.message : String(error ?? '')
+      const isRateLimit = /\(429\)|rate_limit_exceeded|too many requests/i.test(message)
+
+      if (!isRateLimit || attempt >= maxAttempts - 1) {
+        throw error
+      }
+
+      const backoffMs = 1400 * (attempt + 1)
+      await sleep(backoffMs)
+    }
+
+    attempt += 1
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Broadcast email failed after retry.')
+}
+
 async function sendPasswordResetEmail(email, resetLink) {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.RESET_FROM_EMAIL
@@ -1719,14 +1746,14 @@ const server = createServer(async (request, response) => {
 
       let sentCount = 0
       const failures = []
-      const batchSize = 4
-      const batchDelayMs = 1100
+      const batchSize = 2
+      const batchDelayMs = 1400
 
       for (let index = 0; index < recipients.length; index += batchSize) {
         const batch = recipients.slice(index, index + batchSize)
         const results = await Promise.allSettled(
           batch.map((email) =>
-            sendAdminBroadcastEmail(email, {
+            sendAdminBroadcastEmailWithRetry(email, {
               subject,
               intro,
               added,
