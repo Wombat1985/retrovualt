@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /admin.html
+Disallow: /promote.html
+Disallow: /catalogs/
 
 Sitemap: https://retrovaultelite.com/sitemap.xml
-
