@@ -7172,8 +7172,10 @@ function renderNow() {
       <footer class="app-footer">
         <a href="${appConfig.supportUrl}" target="_blank" rel="noreferrer">Support</a>
         <a href="${appConfig.privacyUrl}" target="_blank" rel="noreferrer">Privacy</a>
+        <a href="${appConfig.termsUrl}" target="_blank" rel="noreferrer">Terms</a>
         <span>${appConfig.marketDisclaimer}</span>
         <span>Cover artwork is used for game identification with visible source links; rights remain with their owners.</span>
+        <span class="app-footer__copyright">${appConfig.copyrightNotice} ${appConfig.reuseNotice}</span>
       </footer>
       ${renderScannerModal()}
       ${renderSelectedGameModal()}

@@ -4922,6 +4922,11 @@ a {
   text-decoration: none;
 }
 
+.app-footer__copyright {
+  flex-basis: 100%;
+  padding-top: 2px;
+}
+
 .empty-state {
   display: grid;
   gap: 10px;

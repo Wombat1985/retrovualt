@@ -1,5 +1,25 @@
 ;(function () {
   var apiBaseUrl = 'https://retro-vault-backend.onrender.com'
+  var copyrightNotice =
+    '© 2026 James Revert / Retro Vault Elite. All rights reserved. No site copy, branding, or original material may be reused without written permission or a paid licence.'
+
+  function decorateFooter() {
+    try {
+      var footers = document.querySelectorAll('.seo-footer')
+      if (!footers.length) return
+      footers.forEach(function (footer) {
+        if (!footer || footer.querySelector('.copyright-note')) return
+        var note = document.createElement('small')
+        note.className = 'copyright-note'
+        note.style.display = 'block'
+        note.style.marginTop = '12px'
+        note.textContent = copyrightNotice
+        footer.appendChild(note)
+      })
+    } catch (error) {
+      // Footer decoration must never break page load.
+    }
+  }
 
   function sendPageView() {
     try {
@@ -22,8 +42,16 @@
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', sendPageView, { once: true })
+    document.addEventListener(
+      'DOMContentLoaded',
+      function () {
+        decorateFooter()
+        sendPageView()
+      },
+      { once: true }
+    )
   } else {
+    decorateFooter()
     sendPageView()
   }
 })()
