@@ -344,6 +344,14 @@ a {
   max-width: 680px;
 }
 
+.hero-brand-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
 .hero-stats {
   grid-column: 2;
 }
@@ -386,6 +394,7 @@ a {
   text-decoration: none;
   color: inherit;
   margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .site-logo__image {
@@ -395,6 +404,60 @@ a {
   aspect-ratio: 1;
   border-radius: 50%;
   filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
+}
+
+.hero-audience-card {
+  display: grid;
+  gap: 8px;
+  min-height: 148px;
+  align-content: start;
+  padding: 18px 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 214, 110, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(255, 214, 110, 0.12), transparent 36%),
+    linear-gradient(180deg, rgba(10, 17, 28, 0.72), rgba(10, 17, 28, 0.86));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+}
+
+.hero-audience-card__label {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.74rem;
+  color: var(--accent-2);
+}
+
+.hero-audience-card__value {
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  line-height: 1.08;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.hero-audience-card__copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.hero-audience-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.hero-audience-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(154, 190, 220, 0.12);
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.2;
 }
 
 /* ── Kicker / eyebrow labels ────────────────────────── */
@@ -5011,6 +5074,11 @@ a {
     grid-column: 1;
   }
 
+  .hero-brand-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
   .view-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5196,6 +5264,30 @@ a {
 
   .site-logo__image {
     width: min(164px, 44vw);
+  }
+
+  .hero-brand-row {
+    gap: 8px;
+  }
+
+  .hero-audience-card {
+    min-height: 0;
+    padding: 14px 15px;
+    border-radius: 20px;
+  }
+
+  .hero-audience-card__value {
+    font-size: clamp(1rem, 5vw, 1.35rem);
+  }
+
+  .hero-audience-card__copy {
+    font-size: 0.92rem;
+  }
+
+  .hero-audience-card__meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .hero-copy h1 {

@@ -742,9 +742,13 @@ async function ensurePublicCommunityStatsLoaded() {
 
   publicCommunityStatsFetchPromise = (async () => {
     try {
+      const previousGeneratedAt = state.publicCommunityStats?.generatedAt ?? ''
       const stats = await getPublicCommunityStats()
       state.publicCommunityStats = stats
       savePublicCommunityStatsCache(stats)
+      if (stats.generatedAt !== previousGeneratedAt) {
+        patchPublicCommunityStatSurfaces()
+      }
     } catch {
       // Public social proof should never block the vault.
     } finally {
@@ -753,6 +757,43 @@ async function ensurePublicCommunityStatsLoaded() {
   })()
 
   return publicCommunityStatsFetchPromise
+}
+
+function renderHeroAudienceCard() {
+  const stats = state.publicCommunityStats
+  const signedIn = Boolean(state.authToken)
+  const headline = stats
+    ? `${stats.userCount.toLocaleString()} collectors signed up`
+    : 'Collector count loading'
+  const supportingCopy = signedIn
+    ? 'That is your pool for trade replies, wanted matches, and collector activity.'
+    : 'Real collectors are already tracking games here and listing duplicates for trade.'
+  const trackedGamesText = stats
+    ? `${stats.trackedGamesCount.toLocaleString()} games tracked`
+    : 'Library activity loading'
+  const tradeListingsText = stats
+    ? `${stats.tradeListingCount.toLocaleString()} trade listings live`
+    : 'Trade listing count loading'
+
+  return `
+    <aside class="hero-audience-card" data-hero-community-card>
+      <span class="hero-audience-card__label">Collector network</span>
+      <strong class="hero-audience-card__value">${headline}</strong>
+      <p class="hero-audience-card__copy">${supportingCopy}</p>
+      <div class="hero-audience-card__meta">
+        <span>${trackedGamesText}</span>
+        <span>${tradeListingsText}</span>
+      </div>
+    </aside>
+  `
+}
+
+function patchPublicCommunityStatSurfaces() {
+  const heroCard = app.querySelector<HTMLElement>('[data-hero-community-card]')
+
+  if (heroCard) {
+    heroCard.outerHTML = renderHeroAudienceCard()
+  }
 }
 
 function loadLibrary() {
@@ -7223,9 +7264,12 @@ function renderNow() {
       ${renderMobileAccountBar()}
       <header class="hero-panel">
         <div class="hero-copy">
-          <a href="/" class="site-logo" aria-label="Retro Vault Elite home">
-            <img class="site-logo__image" src="/retro-vault-elite-logo.png" alt="Retro Vault Elite" width="320" height="320" decoding="async" fetchpriority="high" />
-          </a>
+          <div class="hero-brand-row">
+            <a href="/" class="site-logo" aria-label="Retro Vault Elite home">
+              <img class="site-logo__image" src="/retro-vault-elite-logo.png" alt="Retro Vault Elite" width="320" height="320" decoding="async" fetchpriority="high" />
+            </a>
+            ${renderHeroAudienceCard()}
+          </div>
           <h1>${isSignedIn ? 'Your collection' : 'Track your collection, build a wanted list, and trade duplicates with other collectors.'}</h1>
           <p class="hero-text">
             ${isSignedIn
@@ -10716,15 +10760,17 @@ window.addEventListener('scroll', () => {
 void loadGeneratedCatalog()   // static files — different server, start immediately
 scheduleDeferredStartupWork()
 
-// Defer backend hits so the page paints before hitting Render (which may be cold-starting)
+window.requestAnimationFrame(() => {
+  void ensurePublicCommunityStatsLoaded()
+})
+
+// Defer page view tracking so the page paints before hitting Render (which may be cold-starting)
 if ('requestIdleCallback' in window) {
   window.requestIdleCallback(() => {
-    void ensurePublicCommunityStatsLoaded()
     void trackPageView(Boolean(loadAuthToken()))
   })
 } else {
   setTimeout(() => {
-    void ensurePublicCommunityStatsLoaded()
     void trackPageView(Boolean(loadAuthToken()))
   }, 1200)
 }
