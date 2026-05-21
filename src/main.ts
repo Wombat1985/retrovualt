@@ -382,7 +382,6 @@ let barcodeModulePromise: Promise<{ BrowserMultiFormatReader: new () => BarcodeR
 const coverHashMemoryCache = new Map<string, string>()
 let pendingCatalogSnapshotSave = 0
 let pendingLibrarySave = 0
-let pendingSyncStatusRender = 0
 let pendingSearchRender = 0
 let pendingBarcodeSearchRender = 0
 let pendingTradeAvailabilityRefresh = 0
@@ -1127,11 +1126,6 @@ function resetLocalCollectionState() {
   if (syncTimeout !== null) {
     window.clearTimeout(syncTimeout)
     syncTimeout = null
-  }
-
-  if (pendingSyncStatusRender) {
-    window.clearTimeout(pendingSyncStatusRender)
-    pendingSyncStatusRender = 0
   }
 
   state.library = {}
@@ -4192,7 +4186,6 @@ async function syncToCloud() {
   }
 
   state.syncStatus = 'Syncing...'
-  scheduleStatusRender()
 
   try {
     await pushSyncState(state.authToken, getSyncPayload())
@@ -4206,19 +4199,6 @@ async function syncToCloud() {
       state.syncStatus = `Sync failed: ${message}`
     }
   }
-
-  scheduleStatusRender()
-}
-
-function scheduleStatusRender() {
-  if (pendingSyncStatusRender) {
-    window.clearTimeout(pendingSyncStatusRender)
-  }
-
-  pendingSyncStatusRender = window.setTimeout(() => {
-    pendingSyncStatusRender = 0
-    render()
-  }, 180)
 }
 
 async function hydrateAccount() {
@@ -9326,20 +9306,25 @@ function markGameOwned(id: string, editionStatus: EditionStatus) {
     pendingTradePromptTimeout = 0
     if (state.justOwnedGameId === id) {
       state.justOwnedGameId = null
+      let needsRender = false
       if (state.authToken) {
         if (isAddingDuplicate) {
           state.tradePromptGameId = id
           state.tradePromptIsDuplicate = true
           state.tradePromptPickingCopy = false
+          needsRender = true
         } else if (!getRecord(id).forTrade) {
           const hasWanted = Object.values(state.library).some((r) => (r as GameRecord).status === 'wanted')
           if (hasWanted) {
             state.tradePromptGameId = id
             state.tradePromptIsDuplicate = false
+            needsRender = true
           }
         }
       }
-      render()
+      if (needsRender) {
+        render()
+      }
     }
   }, 1300)
 
