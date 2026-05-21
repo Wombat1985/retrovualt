@@ -7619,23 +7619,12 @@ function render() {
 }
 
 function scheduleDeferredStartupWork() {
-  const enableBackdrop = () => {
-    if (state.backdropReady) {
-      return
-    }
-
-    state.backdropReady = true
-    syncBackdropWall(getFilteredGames().slice(0, state.visibleGameCount), getCatalog())
-  }
-
   if (typeof window.requestIdleCallback === 'function') {
     window.requestIdleCallback(() => {
-      enableBackdrop()
       void initMobileBannerAd()
     })
   } else {
     setTimeout(() => {
-      enableBackdrop()
       void initMobileBannerAd()
     }, 900)
   }
