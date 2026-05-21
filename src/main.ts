@@ -219,6 +219,16 @@ type DashboardSummary = {
   }
 }
 
+type HeroStatsSnapshot = {
+  accountEmail: string
+  ownedCount: number
+  wantedCount: number
+  ownedTrackedValueUsd: number
+  ownedCompleteValueUsd: number
+  wishlistValueUsd: number
+  completionPercentage: number
+}
+
 type OnboardingStep = {
   label: string
   detail: string
@@ -281,6 +291,7 @@ const TRADE_OPPORTUNITY_SEEN_KEY = 'retro-game-collector-trade-opportunities-see
 const TRADE_HIDE_ARCHIVED_KEY = 'retro-game-collector-trade-hide-archived'
 const PUBLIC_COMMUNITY_STATS_STORAGE_KEY = 'retro-game-collector-community-stats'
 const RECENT_VIEWED_STORAGE_KEY = 'retro-game-collector-recent-viewed'
+const HERO_STATS_STORAGE_KEY = 'retro-game-collector-hero-stats'
 const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
@@ -471,6 +482,7 @@ const state = {
   hideArchivedTrades: loadHideArchivedTrades(),
   publicCommunityStats: loadPublicCommunityStatsCache(),
   recentViewedGameIds: loadRecentViewedGameIds(),
+  cachedHeroStats: loadHeroStatsSnapshot(),
   visitStreak: recordDailyVisit(),
   activityEvents: loadActivityEvents(),
   cachedOwnedGames: [] as CatalogEntry[],
@@ -633,6 +645,53 @@ function saveRecentViewedGameIds() {
     localStorage.setItem(RECENT_VIEWED_STORAGE_KEY, JSON.stringify(state.recentViewedGameIds.slice(0, 24)))
   } catch {
     // Continue-hunting memory should never block the vault.
+  }
+}
+
+function loadHeroStatsSnapshot(): HeroStatsSnapshot | null {
+  try {
+    const raw = localStorage.getItem(HERO_STATS_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const accountEmail = typeof parsed.accountEmail === 'string' ? parsed.accountEmail : ''
+    const ownedCount = typeof parsed.ownedCount === 'number' ? parsed.ownedCount : null
+    const wantedCount = typeof parsed.wantedCount === 'number' ? parsed.wantedCount : null
+    const ownedTrackedValueUsd = typeof parsed.ownedTrackedValueUsd === 'number' ? parsed.ownedTrackedValueUsd : null
+    const ownedCompleteValueUsd = typeof parsed.ownedCompleteValueUsd === 'number' ? parsed.ownedCompleteValueUsd : null
+    const wishlistValueUsd = typeof parsed.wishlistValueUsd === 'number' ? parsed.wishlistValueUsd : null
+    const completionPercentage = typeof parsed.completionPercentage === 'number' ? parsed.completionPercentage : null
+
+    if (
+      ownedCount === null ||
+      wantedCount === null ||
+      ownedTrackedValueUsd === null ||
+      ownedCompleteValueUsd === null ||
+      wishlistValueUsd === null ||
+      completionPercentage === null
+    ) {
+      return null
+    }
+
+    return {
+      accountEmail,
+      ownedCount,
+      wantedCount,
+      ownedTrackedValueUsd,
+      ownedCompleteValueUsd,
+      wishlistValueUsd,
+      completionPercentage,
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveHeroStatsSnapshot(snapshot: HeroStatsSnapshot) {
+  state.cachedHeroStats = snapshot
+  try {
+    localStorage.setItem(HERO_STATS_STORAGE_KEY, JSON.stringify(snapshot))
+  } catch {
+    // Top hero stats cache should never block startup.
   }
 }
 
@@ -2582,6 +2641,62 @@ function getLibraryStatsKey() {
   return `${catalogCacheKey}:${libraryRevision}`
 }
 
+function hasCompleteCatalogLoaded() {
+  return (
+    state.catalogMeta.length > 0 &&
+    state.generatedCatalog.length > 0 &&
+    state.loadedConsoles.length >= state.catalogMeta.length &&
+    !state.catalogLoadError
+  )
+}
+
+function getInstantLibraryCounts() {
+  let ownedCount = 0
+  let wantedCount = 0
+
+  for (const record of Object.values(state.library)) {
+    if (record.status === 'owned') {
+      ownedCount += 1
+    } else if (record.status === 'wanted') {
+      wantedCount += 1
+    }
+  }
+
+  return { ownedCount, wantedCount }
+}
+
+function updateHeroStatsSnapshot(summary: DashboardSummary) {
+  if (!hasCompleteCatalogLoaded()) {
+    return
+  }
+
+  const nextSnapshot: HeroStatsSnapshot = {
+    accountEmail: state.accountEmail || '',
+    ownedCount: summary.ownedGames.length,
+    wantedCount: summary.wantedGames.length,
+    ownedTrackedValueUsd: summary.ownedTrackedValue,
+    ownedCompleteValueUsd: summary.ownedCompleteValue,
+    wishlistValueUsd: summary.wishlistValue,
+    completionPercentage: summary.completionPercentage,
+  }
+
+  const current = state.cachedHeroStats
+  if (
+    current &&
+    current.accountEmail === nextSnapshot.accountEmail &&
+    current.ownedCount === nextSnapshot.ownedCount &&
+    current.wantedCount === nextSnapshot.wantedCount &&
+    current.ownedTrackedValueUsd === nextSnapshot.ownedTrackedValueUsd &&
+    current.ownedCompleteValueUsd === nextSnapshot.ownedCompleteValueUsd &&
+    current.wishlistValueUsd === nextSnapshot.wishlistValueUsd &&
+    current.completionPercentage === nextSnapshot.completionPercentage
+  ) {
+    return
+  }
+
+  saveHeroStatsSnapshot(nextSnapshot)
+}
+
 function getDashboardSummary(catalog: CatalogEntry[]) {
   const key = `${getLibraryStatsKey()}:${state.regionFilter}`
 
@@ -2611,6 +2726,7 @@ function getDashboardSummary(catalog: CatalogEntry[]) {
     collectorRank: getCollectorRank(),
   }
   dashboardSummaryCacheKey = key
+  updateHeroStatsSnapshot(dashboardSummaryCache)
 
   return dashboardSummaryCache
 }
@@ -6971,7 +7087,15 @@ function renderNow() {
   const accountIdentity = getAccountIdentityLabel()
   const compactCatalogWindow = useCompactCatalogWindow()
   const isSignedIn = Boolean(state.authToken)
-  const heroStatsReady = !isSignedIn || !state.accountHydrationPending
+  const heroStatsReady = !isSignedIn || (!state.accountHydrationPending && hasCompleteCatalogLoaded())
+  const instantCounts = getInstantLibraryCounts()
+  const cachedHeroStats = state.cachedHeroStats && state.cachedHeroStats.accountEmail === (state.accountEmail || '') ? state.cachedHeroStats : null
+  const heroOwnedCount = heroStatsReady ? ownedGames.length : (cachedHeroStats?.ownedCount ?? instantCounts.ownedCount)
+  const heroWantedCount = heroStatsReady ? wantedGames.length : (cachedHeroStats?.wantedCount ?? instantCounts.wantedCount)
+  const heroCompletionPercentage = heroStatsReady ? completionPercentage : (cachedHeroStats?.completionPercentage ?? completionPercentage)
+  const heroWishlistValueUsd = heroStatsReady ? wishlistValue : (cachedHeroStats?.wishlistValueUsd ?? wishlistValue)
+  const heroEstimatedSellValueUsd = heroStatsReady ? estimatedSellValue : (cachedHeroStats?.ownedTrackedValueUsd ?? estimatedSellValue)
+  const heroCollectionPremiumUsd = heroStatsReady ? ownedCompleteValue : (cachedHeroStats?.ownedCompleteValueUsd ?? ownedCompleteValue)
   const hasTrackedGames = ownedGames.length + wantedGames.length > 0
   const catalogStatusText = state.isCatalogLoading
     ? `Loading the library. ${loadedConsoleCount} of ${totalConsoleCount} console lists are ready so far.`
@@ -7026,23 +7150,23 @@ function renderNow() {
               ? `
                 <article class="hero-stat-card hero-stat-card--count">
                   <span class="stat-label">Owned</span>
-                  <strong class="hero-stat-value hero-stat-value--count">${heroStatsReady ? ownedGames.length.toLocaleString() : '...'}</strong>
-                  <span class="stat-note">${heroStatsReady ? `${completionPercentage}% collection completion` : 'Loading your account totals...'}</span>
+                  <strong class="hero-stat-value hero-stat-value--count">${heroOwnedCount.toLocaleString()}</strong>
+                  <span class="stat-note">${heroCompletionPercentage}% collection completion</span>
                 </article>
                 <article class="hero-stat-card hero-stat-card--count">
                   <span class="stat-label">Wishlist</span>
-                  <strong class="hero-stat-value hero-stat-value--count">${heroStatsReady ? wantedGames.length.toLocaleString() : '...'}</strong>
-                  <span class="stat-note">${heroStatsReady ? `${formatPrice(wishlistValue)} target value` : 'Waiting for the saved wanted list...'}</span>
+                  <strong class="hero-stat-value hero-stat-value--count">${heroWantedCount.toLocaleString()}</strong>
+                  <span class="stat-note">${formatPrice(heroWishlistValueUsd)} target value</span>
                 </article>
                 <article class="hero-stat-card hero-stat-card--money">
                   <span class="stat-label">Estimated sell value</span>
-                  <strong class="hero-stat-value hero-stat-value--money">${heroStatsReady ? formatPrice(estimatedSellValue) : '...'}</strong>
-                  <span class="stat-note">${heroStatsReady ? `Uses your loose/complete ownership choices in ${selectedCurrency.code}` : 'Working out your saved ownership mix...'}</span>
+                  <strong class="hero-stat-value hero-stat-value--money">${formatPrice(heroEstimatedSellValueUsd)}</strong>
+                  <span class="stat-note">Uses your loose/complete ownership choices in ${selectedCurrency.code}</span>
                 </article>
                 <article class="hero-stat-card hero-stat-card--money">
                   <span class="stat-label">Collection premium</span>
-                  <strong class="hero-stat-value hero-stat-value--money">${heroStatsReady ? formatPrice(ownedCompleteValue) : '...'}</strong>
-                  <span class="stat-note">${heroStatsReady ? `Complete market total in ${selectedCurrency.code}` : 'Pulling in your saved collection value...'}</span>
+                  <strong class="hero-stat-value hero-stat-value--money">${formatPrice(heroCollectionPremiumUsd)}</strong>
+                  <span class="stat-note">Complete market total in ${selectedCurrency.code}</span>
                 </article>
               `
               : `
