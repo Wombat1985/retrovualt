@@ -23,6 +23,15 @@ export type SyncStatePayload = {
   barcodeMappings: Record<string, string>
   deletedGameIds?: string[]
   activityEvents?: unknown[]
+  heroStats?: {
+    accountEmail?: string
+    ownedCount: number
+    wantedCount: number
+    ownedTrackedValueUsd: number
+    ownedCompleteValueUsd: number
+    wishlistValueUsd: number
+    completionPercentage: number
+  } | null
   clientUpdatedAt?: string
   version?: number
   profile?: {

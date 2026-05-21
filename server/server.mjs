@@ -620,6 +620,40 @@ function getTrackedLibraryRecordCount(library) {
   ).length
 }
 
+function normalizeHeroStats(rawHeroStats) {
+  if (!rawHeroStats || typeof rawHeroStats !== 'object') {
+    return null
+  }
+
+  const ownedCount = Number(rawHeroStats.ownedCount)
+  const wantedCount = Number(rawHeroStats.wantedCount)
+  const ownedTrackedValueUsd = Number(rawHeroStats.ownedTrackedValueUsd)
+  const ownedCompleteValueUsd = Number(rawHeroStats.ownedCompleteValueUsd)
+  const wishlistValueUsd = Number(rawHeroStats.wishlistValueUsd)
+  const completionPercentage = Number(rawHeroStats.completionPercentage)
+
+  if (
+    !Number.isFinite(ownedCount) ||
+    !Number.isFinite(wantedCount) ||
+    !Number.isFinite(ownedTrackedValueUsd) ||
+    !Number.isFinite(ownedCompleteValueUsd) ||
+    !Number.isFinite(wishlistValueUsd) ||
+    !Number.isFinite(completionPercentage)
+  ) {
+    return null
+  }
+
+  return {
+    accountEmail: typeof rawHeroStats.accountEmail === 'string' ? rawHeroStats.accountEmail.trim().toLowerCase().slice(0, 320) : '',
+    ownedCount: Math.max(0, Math.round(ownedCount)),
+    wantedCount: Math.max(0, Math.round(wantedCount)),
+    ownedTrackedValueUsd: Math.max(0, ownedTrackedValueUsd),
+    ownedCompleteValueUsd: Math.max(0, ownedCompleteValueUsd),
+    wishlistValueUsd: Math.max(0, wishlistValueUsd),
+    completionPercentage: Math.max(0, Math.min(100, Math.round(completionPercentage))),
+  }
+}
+
 function normalizeDeletedGameIds(rawDeletedGameIds) {
   if (!Array.isArray(rawDeletedGameIds)) {
     return []
@@ -855,6 +889,7 @@ function createDefaultSyncState() {
     barcodeMappings: {},
     deletedGameIds: [],
     activityEvents: [],
+    heroStats: null,
     clientUpdatedAt: new Date().toISOString(),
     version: 3,
     profile: {
@@ -2182,6 +2217,7 @@ const server = createServer(async (request, response) => {
       const nextBarcodeMappings = Object.fromEntries(Object.entries(rawBarcodes).slice(0, MAX_BARCODE_MAPPINGS))
       const nextDeletedGameIds = normalizeDeletedGameIds(body.deletedGameIds)
       const nextActivityEvents = Array.isArray(body.activityEvents) ? body.activityEvents.slice(0, 250) : user.syncState?.activityEvents ?? []
+      const nextHeroStats = normalizeHeroStats(body.heroStats) ?? user.syncState?.heroStats ?? null
       const currentLibrary = user.syncState?.library && typeof user.syncState.library === 'object' ? user.syncState.library : {}
       const currentDeletedGameIds = normalizeDeletedGameIds(user.syncState?.deletedGameIds)
       const currentTrackedCount = getTrackedLibraryRecordCount(currentLibrary)
@@ -2228,6 +2264,7 @@ const server = createServer(async (request, response) => {
         barcodeMappings: mergeSyncBarcodeMappings(user.syncState?.barcodeMappings, nextBarcodeMappings),
         deletedGameIds: mergedDeletedGameIds.slice(0, MAX_LIBRARY_ENTRIES),
         activityEvents: nextActivityEvents,
+        heroStats: nextHeroStats,
         clientUpdatedAt: typeof body.clientUpdatedAt === 'string' ? body.clientUpdatedAt : new Date().toISOString(),
         version: typeof body.version === 'number' ? body.version : 3,
         profile: body.profile ?? user.syncState?.profile ?? { displayName: user.displayName ?? '', shelfTagline: '' },

@@ -695,6 +695,35 @@ function saveHeroStatsSnapshot(snapshot: HeroStatsSnapshot) {
   }
 }
 
+function getHeroStatsSnapshotForSync() {
+  if (hasCompleteCatalogLoaded()) {
+    const dashboard = getDashboardSummary(getCatalog())
+    return {
+      accountEmail: state.accountEmail || '',
+      ownedCount: dashboard.ownedGames.length,
+      wantedCount: dashboard.wantedGames.length,
+      ownedTrackedValueUsd: dashboard.ownedTrackedValue,
+      ownedCompleteValueUsd: dashboard.ownedCompleteValue,
+      wishlistValueUsd: dashboard.wishlistValue,
+      completionPercentage: dashboard.completionPercentage,
+    } satisfies HeroStatsSnapshot
+  }
+
+  if (state.cachedHeroStats && state.cachedHeroStats.accountEmail === (state.accountEmail || '')) {
+    return state.cachedHeroStats
+  }
+
+  return {
+    accountEmail: state.accountEmail || '',
+    ownedCount: getInstantLibraryCounts().ownedCount,
+    wantedCount: getInstantLibraryCounts().wantedCount,
+    ownedTrackedValueUsd: 0,
+    ownedCompleteValueUsd: 0,
+    wishlistValueUsd: 0,
+    completionPercentage: 0,
+  } satisfies HeroStatsSnapshot
+}
+
 function rememberRecentViewedGame(gameId: string) {
   state.recentViewedGameIds = [gameId, ...state.recentViewedGameIds.filter((id) => id !== gameId)].slice(0, 24)
   saveRecentViewedGameIds()
@@ -3880,6 +3909,7 @@ function getSyncPayload() {
     barcodeMappings: state.barcodeMappings,
     deletedGameIds: state.deletedGameIds,
     activityEvents: state.activityEvents,
+    heroStats: getHeroStatsSnapshotForSync(),
     clientUpdatedAt: new Date().toISOString(),
     version: 3,
     profile: {
@@ -4029,6 +4059,15 @@ function applyRemoteSyncState(syncState: {
   barcodeMappings: Record<string, string>
   deletedGameIds?: string[]
   activityEvents?: unknown[]
+  heroStats?: {
+    accountEmail?: string
+    ownedCount?: unknown
+    wantedCount?: unknown
+    ownedTrackedValueUsd?: unknown
+    ownedCompleteValueUsd?: unknown
+    wishlistValueUsd?: unknown
+    completionPercentage?: unknown
+  } | null
   profile?: {
     displayName?: string
     shelfTagline?: string
@@ -4073,6 +4112,28 @@ function applyRemoteSyncState(syncState: {
   const remoteDeletedGameIds = Array.isArray(syncState.deletedGameIds)
     ? [...new Set(syncState.deletedGameIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0).map((id) => id.trim()))].slice(0, MAX_LIBRARY_ENTRIES)
     : []
+  const rawHeroStats = syncState.heroStats && typeof syncState.heroStats === 'object' ? syncState.heroStats : null
+  const remoteHeroStats =
+    rawHeroStats &&
+    typeof rawHeroStats.ownedCount === 'number' &&
+    typeof rawHeroStats.wantedCount === 'number' &&
+    typeof rawHeroStats.ownedTrackedValueUsd === 'number' &&
+    typeof rawHeroStats.ownedCompleteValueUsd === 'number' &&
+    typeof rawHeroStats.wishlistValueUsd === 'number' &&
+    typeof rawHeroStats.completionPercentage === 'number'
+      ? {
+          accountEmail:
+            typeof rawHeroStats.accountEmail === 'string' && rawHeroStats.accountEmail.trim().length > 0
+              ? rawHeroStats.accountEmail.trim().toLowerCase()
+              : (state.accountEmail || '').toLowerCase(),
+          ownedCount: rawHeroStats.ownedCount,
+          wantedCount: rawHeroStats.wantedCount,
+          ownedTrackedValueUsd: rawHeroStats.ownedTrackedValueUsd,
+          ownedCompleteValueUsd: rawHeroStats.ownedCompleteValueUsd,
+          wishlistValueUsd: rawHeroStats.wishlistValueUsd,
+          completionPercentage: rawHeroStats.completionPercentage,
+        } satisfies HeroStatsSnapshot
+      : null
 
   const shouldMerge = options.mergeWithLocal && hasLocalCollectionData()
   state.deletedGameIds = shouldMerge ? mergeDeletedGameIds(remoteDeletedGameIds) : remoteDeletedGameIds
@@ -4082,6 +4143,10 @@ function applyRemoteSyncState(syncState: {
   )
   state.customCatalog = shouldMerge ? mergeCustomCatalogData(remoteCustomCatalog) : remoteCustomCatalog
   state.activityEvents = shouldMerge ? mergeActivityEvents(remoteActivityEvents) : remoteActivityEvents.slice(0, MAX_ACTIVITY_EVENTS)
+
+  if (remoteHeroStats && remoteHeroStats.accountEmail === (state.accountEmail || '').toLowerCase()) {
+    saveHeroStatsSnapshot(remoteHeroStats)
+  }
 
   if (typeof syncState.currencyCode === 'string' && currencyOptions.some((currency) => currency.code === syncState.currencyCode)) {
     state.currencyCode = options.mergeWithLocal && state.currencyCode ? state.currencyCode : syncState.currencyCode
