@@ -294,6 +294,7 @@ const RECENT_VIEWED_STORAGE_KEY = 'retro-game-collector-recent-viewed'
 const HERO_STATS_STORAGE_KEY = 'retro-game-collector-hero-stats'
 const DEFAULT_CATALOG_TOTAL_GAMES = 40593
 const DEFAULT_CATALOG_TOTAL_CONSOLES = 100
+const STARTUP_VISUAL_SETTLE_MS = 20000
 const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
@@ -400,6 +401,9 @@ let bodyScrollLockY = 0
 let selectedGameModalRenderedId: string | null = null
 const prewarmedDetailCoverUrls = new Set<string>()
 let renderedBackdropSignature = ''
+let backgroundVisualRefreshReady = false
+let pendingBackgroundCatalogRefresh = false
+let pendingBackgroundFullRefresh = false
 
 type FocusSnapshot = {
   id: string
@@ -4424,9 +4428,9 @@ async function fetchTradeAvailabilityForGames(
 
     state.tradeAvailabilityByGameId = nextCounts
     if (rerenderMode === 'full') {
-      render()
+      requestBackgroundFullRefresh()
     } else if (rerenderMode === 'catalog') {
-      renderCatalogOnly()
+      requestBackgroundCatalogRefresh()
     }
     return true
   } catch {
@@ -4474,11 +4478,11 @@ async function fetchTradeWantedDemandForGames(
 
     state.tradeWantedByGameId = nextCounts
     if (rerenderMode === 'full') {
-      render()
+      requestBackgroundFullRefresh()
     } else if (rerenderMode === 'catalog') {
-      renderCatalogOnly()
+      requestBackgroundCatalogRefresh()
     } else if (rerenderMode === 'details' && state.selectedGameId && missingIds.includes(state.selectedGameId)) {
-      render()
+      requestBackgroundFullRefresh()
     }
     return true
   } catch {
@@ -4550,9 +4554,9 @@ function scheduleCollectorInsightRefresh() {
     ]).then((results) => {
       if (results.some(Boolean)) {
         if (state.selectedGameId || state.tradeView || state.ownershipPickerGameId || state.customEntryOpen || state.authView !== 'none') {
-          render()
+          requestBackgroundFullRefresh()
         } else {
-          renderCatalogOnly()
+          requestBackgroundCatalogRefresh()
         }
       }
     })
@@ -7634,6 +7638,61 @@ function scheduleDeferredStartupWork() {
   }, 1500)
 }
 
+function flushDeferredBackgroundRefresh() {
+  if (pendingBackgroundFullRefresh) {
+    pendingBackgroundFullRefresh = false
+    pendingBackgroundCatalogRefresh = false
+    render()
+    return
+  }
+
+  if (pendingBackgroundCatalogRefresh) {
+    pendingBackgroundCatalogRefresh = false
+    renderCatalogOnly()
+  }
+}
+
+function allowBackgroundVisualRefresh() {
+  if (backgroundVisualRefreshReady) {
+    return
+  }
+
+  backgroundVisualRefreshReady = true
+  flushDeferredBackgroundRefresh()
+}
+
+function requestBackgroundCatalogRefresh() {
+  if (backgroundVisualRefreshReady) {
+    renderCatalogOnly()
+    return
+  }
+
+  pendingBackgroundCatalogRefresh = true
+}
+
+function requestBackgroundFullRefresh() {
+  if (backgroundVisualRefreshReady) {
+    render()
+    return
+  }
+
+  pendingBackgroundFullRefresh = true
+}
+
+function scheduleStartupVisualSettle() {
+  const unlock = () => {
+    allowBackgroundVisualRefresh()
+    window.removeEventListener('pointerdown', unlock)
+    window.removeEventListener('keydown', unlock)
+    window.removeEventListener('touchstart', unlock)
+  }
+
+  window.addEventListener('pointerdown', unlock, { once: true, passive: true })
+  window.addEventListener('keydown', unlock, { once: true })
+  window.addEventListener('touchstart', unlock, { once: true, passive: true })
+  window.setTimeout(unlock, STARTUP_VISUAL_SETTLE_MS)
+}
+
 function currentTradePanelContent() {
   if (state.tradeThreadId) return renderTradeThread()
   if (state.tradeProfileUserId) return renderTradeProfile()
@@ -10451,10 +10510,10 @@ async function loadGeneratedCatalog() {
         state.catalogLoadError = false
         invalidateCatalogCache()
         scheduleCatalogSnapshotSave()
-        renderCatalogOnly()
+        requestBackgroundCatalogRefresh()
       } catch {
         state.catalogLoadError = true
-        renderCatalogOnly()
+        requestBackgroundCatalogRefresh()
       }
     }
 
@@ -10733,6 +10792,7 @@ window.addEventListener('pagehide', stopLiveBarcodeScan)
 window.addEventListener('pagehide', stopTradeNotificationPoll)
 
 render()
+scheduleStartupVisualSettle()
 
 // Back-to-top button — lives outside #app so it survives innerHTML replacement
 const backToTopEl = document.createElement('button')
