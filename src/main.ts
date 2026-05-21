@@ -492,6 +492,7 @@ const state = {
   coverScanMatches: [] as CoverMatchSuggestion[],
   barcodeLinkCode: null as string | null,
   barcodeSearch: '',
+  backdropReady: false,
   isCatalogLoading: true,
   catalogLoadError: false,
   viewMode: 'grid' as 'grid' | 'shelf',
@@ -3337,6 +3338,10 @@ function getBackdropGames(visibleGames: CatalogEntry[], catalog: CatalogEntry[])
 }
 
 function renderBackdropWall(visibleGames: CatalogEntry[], catalog: CatalogEntry[]) {
+  if (!state.backdropReady) {
+    return ''
+  }
+
   const games = getBackdropGames(visibleGames, catalog)
 
   if (games.length === 0) {
@@ -7333,6 +7338,33 @@ function render() {
   })
 }
 
+function scheduleDeferredStartupWork() {
+  const enableBackdrop = () => {
+    if (state.backdropReady) {
+      return
+    }
+
+    state.backdropReady = true
+    render()
+  }
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => {
+      enableBackdrop()
+      void initMobileBannerAd()
+    })
+  } else {
+    setTimeout(() => {
+      enableBackdrop()
+      void initMobileBannerAd()
+    }, 900)
+  }
+
+  setTimeout(() => {
+    startTradeNotificationPoll()
+  }, 1500)
+}
+
 function currentTradePanelContent() {
   if (state.tradeThreadId) return renderTradeThread()
   if (state.tradeProfileUserId) return renderTradeProfile()
@@ -10123,28 +10155,10 @@ function unregisterServiceWorker() {
 }
 
 async function loadGeneratedCatalog() {
-  const cachedSnapshot = await readCatalogSnapshot()
-  const hasCompleteCachedCatalog =
-    Boolean(cachedSnapshot?.generatedCatalog.length) &&
-    Boolean(cachedSnapshot?.catalogMeta.length) &&
-    (cachedSnapshot?.loadedConsoles.length ?? 0) >= (cachedSnapshot?.catalogMeta.length ?? 0)
-  const shouldFetchLiteCatalog = !hasCompleteCachedCatalog
-
-  if (cachedSnapshot) {
-    state.generatedCatalog = cachedSnapshot.generatedCatalog
-    state.catalogMeta = cachedSnapshot.catalogMeta
-    state.loadedConsoles = cachedSnapshot.loadedConsoles
-    state.catalogLoadError = false
-    state.isCatalogLoading = false
-    invalidateCatalogCache()
-    render()
-  }
-
+  const cachedSnapshotPromise = readCatalogSnapshot()
   try {
     const metaPromise = fetch('/catalogs/retro-catalog-meta.json')
-    const startupPromise = shouldFetchLiteCatalog
-      ? fetch('/catalogs/retro-catalog-startup.json')
-      : Promise.resolve<Response | null>(null)
+    const startupPromise = fetch('/catalogs/retro-catalog-startup.json')
 
     const startupResponse = await startupPromise
 
@@ -10156,7 +10170,7 @@ async function loadGeneratedCatalog() {
         ? parsedStartup.map(normalizeCatalogEntry).filter(isCatalogEntry)
         : normalizePackedLiteCatalog(parsedStartup)
 
-      if (startupCatalog.length && !cachedSnapshot?.generatedCatalog.length) {
+      if (startupCatalog.length && !state.generatedCatalog.length) {
         state.generatedCatalog = dedupeCatalog(startupCatalog)
         state.loadedConsoles = [...new Set(state.generatedCatalog.map((entry) => entry.console))]
         state.catalogLoadError = false
@@ -10164,6 +10178,22 @@ async function loadGeneratedCatalog() {
         invalidateCatalogCache()
         render()
       }
+    }
+
+    const cachedSnapshot = await cachedSnapshotPromise
+    const hasCompleteCachedCatalog =
+      Boolean(cachedSnapshot?.generatedCatalog.length) &&
+      Boolean(cachedSnapshot?.catalogMeta.length) &&
+      (cachedSnapshot?.loadedConsoles.length ?? 0) >= (cachedSnapshot?.catalogMeta.length ?? 0)
+
+    if (cachedSnapshot && hasCompleteCachedCatalog) {
+      state.generatedCatalog = cachedSnapshot.generatedCatalog
+      state.catalogMeta = cachedSnapshot.catalogMeta
+      state.loadedConsoles = cachedSnapshot.loadedConsoles
+      state.catalogLoadError = false
+      state.isCatalogLoading = false
+      invalidateCatalogCache()
+      render()
     }
 
     const metaResponse = await metaPromise
@@ -10217,34 +10247,56 @@ async function loadGeneratedCatalog() {
 
     state.catalogMeta = parsedMeta
 
-    if (shouldFetchLiteCatalog) {
-      const liteResponse = await fetch('/catalogs/retro-catalog-lite.json')
-
-      if (!liteResponse?.ok) {
-        throw new Error(`Catalog request failed: ${liteResponse?.status ?? 'unknown'}`)
-      }
-
-      const liteText = await liteResponse.text()
-      await new Promise<void>((resolve) => setTimeout(resolve, 0))
-      const parsedLite = liteText ? JSON.parse(liteText) as unknown : []
-      const liteCatalog = Array.isArray(parsedLite)
-        ? parsedLite.map(normalizeCatalogEntry).filter(isCatalogEntry)
-        : normalizePackedLiteCatalog(parsedLite)
-
-      if (liteCatalog.length) {
-        state.generatedCatalog = dedupeCatalog(liteCatalog)
-        state.loadedConsoles = [...new Set(parsedMeta.map((entry) => entry.console))]
-        invalidateCatalogCache()
-      }
-    } else if (!hasCompleteWarmCatalog) {
-      state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
-      state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
-      invalidateCatalogCache()
-      await ensureConsoleCatalogLoaded(state.consoleFilter)
-    } else {
+    if (hasCompleteWarmCatalog) {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? state.generatedCatalog
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? state.loadedConsoles
       invalidateCatalogCache()
+    } else if (cachedSnapshot?.generatedCatalog.length) {
+      state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
+      state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
+      invalidateCatalogCache()
+      void ensureConsoleCatalogLoaded(state.consoleFilter)
+    } else {
+      const hydrateFullCatalog = async () => {
+        try {
+          const liteResponse = await fetch('/catalogs/retro-catalog-lite.json')
+
+          if (!liteResponse.ok) {
+            throw new Error(`Catalog request failed: ${liteResponse.status}`)
+          }
+
+          const liteText = await liteResponse.text()
+          await new Promise<void>((resolve) => setTimeout(resolve, 0))
+          const parsedLite = liteText ? JSON.parse(liteText) as unknown : []
+          const liteCatalog = Array.isArray(parsedLite)
+            ? parsedLite.map(normalizeCatalogEntry).filter(isCatalogEntry)
+            : normalizePackedLiteCatalog(parsedLite)
+
+          if (!liteCatalog.length) {
+            return
+          }
+
+          state.generatedCatalog = dedupeCatalog(liteCatalog)
+          state.loadedConsoles = [...new Set(parsedMeta.map((entry) => entry.console))]
+          state.catalogLoadError = false
+          invalidateCatalogCache()
+          scheduleCatalogSnapshotSave()
+          render()
+        } catch {
+          state.catalogLoadError = true
+          render()
+        }
+      }
+
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(() => {
+          void hydrateFullCatalog()
+        })
+      } else {
+        setTimeout(() => {
+          void hydrateFullCatalog()
+        }, 600)
+      }
     }
 
     state.catalogLoadError = false
@@ -10414,8 +10466,7 @@ window.addEventListener('scroll', () => {
 }, { passive: true })
 
 void loadGeneratedCatalog()   // static files — different server, start immediately
-void initMobileBannerAd()
-startTradeNotificationPoll()
+scheduleDeferredStartupWork()
 
 // Defer backend hits so the page paints before hitting Render (which may be cold-starting)
 if ('requestIdleCallback' in window) {
