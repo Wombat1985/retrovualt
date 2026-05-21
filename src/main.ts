@@ -399,6 +399,7 @@ let bodyScrollLocked = false
 let bodyScrollLockY = 0
 let selectedGameModalRenderedId: string | null = null
 const prewarmedDetailCoverUrls = new Set<string>()
+let renderedBackdropSignature = ''
 
 type FocusSnapshot = {
   id: string
@@ -3489,13 +3490,13 @@ function getBackdropGames(visibleGames: CatalogEntry[], catalog: CatalogEntry[])
   return picks
 }
 
-function renderBackdropWall(visibleGames: CatalogEntry[], catalog: CatalogEntry[]) {
-  if (!state.backdropReady) {
-    return ''
-  }
+function getBackdropSignature(games: CatalogEntry[]) {
+  return games
+    .map((game) => `${game.id}|${game.coverUrl || ''}|${game.title}|${game.console}|${game.region}`)
+    .join('||')
+}
 
-  const games = getBackdropGames(visibleGames, catalog)
-
+function renderBackdropWallFromGames(games: CatalogEntry[]) {
   if (games.length === 0) {
     return ''
   }
@@ -3514,6 +3515,51 @@ function renderBackdropWall(visibleGames: CatalogEntry[], catalog: CatalogEntry[
       </div>
     </div>
   `
+}
+
+function renderBackdropWall(visibleGames: CatalogEntry[], catalog: CatalogEntry[]) {
+  if (!state.backdropReady) {
+    return ''
+  }
+
+  return renderBackdropWallFromGames(getBackdropGames(visibleGames, catalog))
+}
+
+function syncBackdropWall(visibleGames: CatalogEntry[], catalog: CatalogEntry[]) {
+  const backdrop = app.querySelector('.collection-backdrop')
+
+  if (!state.backdropReady) {
+    if (backdrop) {
+      backdrop.remove()
+    }
+    renderedBackdropSignature = ''
+    return
+  }
+
+  const games = getBackdropGames(visibleGames, catalog)
+  const signature = getBackdropSignature(games)
+
+  if (!games.length) {
+    if (backdrop) {
+      backdrop.remove()
+    }
+    renderedBackdropSignature = ''
+    return
+  }
+
+  if (backdrop && renderedBackdropSignature === signature) {
+    return
+  }
+
+  const nextBackdropMarkup = renderBackdropWallFromGames(games)
+
+  if (backdrop) {
+    backdrop.outerHTML = nextBackdropMarkup
+  } else {
+    app.insertAdjacentHTML('afterbegin', nextBackdropMarkup)
+  }
+
+  renderedBackdropSignature = signature
 }
 
 function getCoverFallbackAttributes(game: CatalogEntry) {
@@ -4462,7 +4508,11 @@ function scheduleCollectorInsightRefresh() {
         : Promise.resolve(false),
     ]).then((results) => {
       if (results.some(Boolean)) {
-        render()
+        if (state.selectedGameId || state.tradeView || state.ownershipPickerGameId || state.customEntryOpen || state.authView !== 'none') {
+          render()
+        } else {
+          renderCatalogOnly()
+        }
       }
     })
   }, 160)
@@ -7389,6 +7439,8 @@ function renderNow() {
     </div>
   `
 
+  renderedBackdropSignature = state.backdropReady ? getBackdropSignature(getBackdropGames(visibleGames, catalog)) : ''
+
   bindEvents()
   hydrateSelectedGameCover()
   setupDetailCoverPrewarmObserver()
@@ -7529,7 +7581,7 @@ function scheduleDeferredStartupWork() {
     }
 
     state.backdropReady = true
-    render()
+    syncBackdropWall(getFilteredGames().slice(0, state.visibleGameCount), getCatalog())
   }
 
   if (typeof window.requestIdleCallback === 'function') {
@@ -7632,7 +7684,6 @@ function renderCatalogOnlyNow() {
   const filters = app.querySelector('.filters')
   const catalogSection = app.querySelector('.catalog-section')
   const viewSummary = app.querySelector('.view-summary')
-  const backdrop = app.querySelector('.collection-backdrop')
   const toolbarConsole = app.querySelector<HTMLSelectElement>('#console-filter')
   const toolbarRegion = app.querySelector<HTMLSelectElement>('#region-filter')
   const toolbarSort = app.querySelector<HTMLSelectElement>('#sort-mode')
@@ -7649,15 +7700,7 @@ function renderCatalogOnlyNow() {
   filters.outerHTML = renderFiltersSection()
   catalogSection.outerHTML = renderCatalogSection(filteredGames, visibleGames)
 
-  const nextBackdropMarkup = renderBackdropWall(visibleGames, catalog)
-
-  if (backdrop && nextBackdropMarkup) {
-    backdrop.outerHTML = nextBackdropMarkup
-  } else if (backdrop && !nextBackdropMarkup) {
-    backdrop.remove()
-  } else if (!backdrop && nextBackdropMarkup) {
-    app.insertAdjacentHTML('afterbegin', nextBackdropMarkup)
-  }
+  syncBackdropWall(visibleGames, catalog)
 
   if (toolbarConsole) {
     toolbarConsole.value = state.consoleFilter
