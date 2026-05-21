@@ -451,6 +451,7 @@ const state = {
   authToken: loadAuthToken(),
   accountEmail: loadAuthProfile().email,
   accountDisplayName: loadAuthProfile().displayName,
+  accountHydrationPending: Boolean(loadAuthToken()),
   syncStatus: loadAuthToken() ? 'Restoring account session...' : 'Saved on this device',
   authView: getInitialAuthView(),
   authLoading: false,
@@ -802,6 +803,7 @@ function loadAuthToken() {
 
 function saveAuthToken(token: string) {
   state.authToken = token
+  state.accountHydrationPending = Boolean(token)
   localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token)
 }
 
@@ -1002,6 +1004,7 @@ function recordDailyVisit() {
 
 function clearAuthToken() {
   state.authToken = ''
+  state.accountHydrationPending = false
   localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
 }
 
@@ -4039,9 +4042,11 @@ function scheduleStatusRender() {
 
 async function hydrateAccount() {
   if (!state.authToken) {
+    state.accountHydrationPending = false
     return
   }
 
+  state.accountHydrationPending = true
   state.syncStatus = 'Checking account...'
 
   try {
@@ -4059,6 +4064,7 @@ async function hydrateAccount() {
     }
   }
 
+  state.accountHydrationPending = false
   render()
   void fetchTradeNotifications()
 }
@@ -6965,6 +6971,7 @@ function renderNow() {
   const accountIdentity = getAccountIdentityLabel()
   const compactCatalogWindow = useCompactCatalogWindow()
   const isSignedIn = Boolean(state.authToken)
+  const heroStatsReady = !isSignedIn || !state.accountHydrationPending
   const hasTrackedGames = ownedGames.length + wantedGames.length > 0
   const catalogStatusText = state.isCatalogLoading
     ? `Loading the library. ${loadedConsoleCount} of ${totalConsoleCount} console lists are ready so far.`
@@ -7019,23 +7026,23 @@ function renderNow() {
               ? `
                 <article class="hero-stat-card hero-stat-card--count">
                   <span class="stat-label">Owned</span>
-                  <strong class="hero-stat-value hero-stat-value--count">${ownedGames.length}</strong>
-                  <span class="stat-note">${completionPercentage}% collection completion</span>
+                  <strong class="hero-stat-value hero-stat-value--count">${heroStatsReady ? ownedGames.length.toLocaleString() : '...'}</strong>
+                  <span class="stat-note">${heroStatsReady ? `${completionPercentage}% collection completion` : 'Loading your account totals...'}</span>
                 </article>
                 <article class="hero-stat-card hero-stat-card--count">
                   <span class="stat-label">Wishlist</span>
-                  <strong class="hero-stat-value hero-stat-value--count">${wantedGames.length}</strong>
-                  <span class="stat-note">${formatPrice(wishlistValue)} target value</span>
+                  <strong class="hero-stat-value hero-stat-value--count">${heroStatsReady ? wantedGames.length.toLocaleString() : '...'}</strong>
+                  <span class="stat-note">${heroStatsReady ? `${formatPrice(wishlistValue)} target value` : 'Waiting for the saved wanted list...'}</span>
                 </article>
                 <article class="hero-stat-card hero-stat-card--money">
                   <span class="stat-label">Estimated sell value</span>
-                  <strong class="hero-stat-value hero-stat-value--money">${formatPrice(estimatedSellValue)}</strong>
-                  <span class="stat-note">Uses your loose/complete ownership choices in ${selectedCurrency.code}</span>
+                  <strong class="hero-stat-value hero-stat-value--money">${heroStatsReady ? formatPrice(estimatedSellValue) : '...'}</strong>
+                  <span class="stat-note">${heroStatsReady ? `Uses your loose/complete ownership choices in ${selectedCurrency.code}` : 'Working out your saved ownership mix...'}</span>
                 </article>
                 <article class="hero-stat-card hero-stat-card--money">
                   <span class="stat-label">Collection premium</span>
-                  <strong class="hero-stat-value hero-stat-value--money">${formatPrice(ownedCompleteValue)}</strong>
-                  <span class="stat-note">Complete market total in ${selectedCurrency.code}</span>
+                  <strong class="hero-stat-value hero-stat-value--money">${heroStatsReady ? formatPrice(ownedCompleteValue) : '...'}</strong>
+                  <span class="stat-note">${heroStatsReady ? `Complete market total in ${selectedCurrency.code}` : 'Pulling in your saved collection value...'}</span>
                 </article>
               `
               : `
@@ -9551,6 +9558,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       state.authSuccess = 'Account created. Your collection is being synced.'
       applyRemoteSyncState(payload.syncState, { mergeWithLocal: true })
       await syncToCloud()
+      state.accountHydrationPending = false
       state.syncStatus = 'Your collection is synced to your account'
       state.authView = 'none'
       void fetchTradeNotifications()
@@ -9572,6 +9580,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       saveAuthProfile(payload.user.email, payload.user.displayName ?? '')
       applyRemoteSyncState(payload.syncState, { mergeWithLocal: true })
       await syncToCloud()
+      state.accountHydrationPending = false
       state.syncStatus = 'Your collection is synced to your account'
       state.authSuccess = 'Signed in successfully.'
       state.authView = 'none'
@@ -9619,6 +9628,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       const payload = await updateAccountProfile(state.authToken, displayName)
       saveAuthProfile(payload.user.email, payload.user.displayName ?? displayName)
       applyRemoteSyncState(payload.syncState)
+      state.accountHydrationPending = false
       state.authSuccess = 'Account settings saved.'
       state.syncStatus = 'Your collection is synced to your account'
       return
@@ -10480,7 +10490,14 @@ if ('requestIdleCallback' in window) {
     void trackPageView(Boolean(loadAuthToken()))
   }, 1200)
 }
-setTimeout(() => { void hydrateAccount() }, 1500)
+
+if (state.authToken) {
+  window.requestAnimationFrame(() => {
+    window.setTimeout(() => {
+      void hydrateAccount()
+    }, 80)
+  })
+}
 
 
 
