@@ -292,6 +292,8 @@ const TRADE_HIDE_ARCHIVED_KEY = 'retro-game-collector-trade-hide-archived'
 const PUBLIC_COMMUNITY_STATS_STORAGE_KEY = 'retro-game-collector-community-stats'
 const RECENT_VIEWED_STORAGE_KEY = 'retro-game-collector-recent-viewed'
 const HERO_STATS_STORAGE_KEY = 'retro-game-collector-hero-stats'
+const DEFAULT_CATALOG_TOTAL_GAMES = 40593
+const DEFAULT_CATALOG_TOTAL_CONSOLES = 100
 const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
@@ -473,6 +475,8 @@ const state = {
   library: loadLibrary(),
   generatedCatalog: [] as CatalogEntry[],
   catalogMeta: [] as CatalogConsoleMeta[],
+  catalogTotalGames: DEFAULT_CATALOG_TOTAL_GAMES,
+  catalogTotalConsoles: DEFAULT_CATALOG_TOTAL_CONSOLES,
   loadedConsoles: [] as string[],
   customCatalog: loadCustomCatalog(),
   barcodeMappings: loadBarcodeMappings(),
@@ -695,12 +699,14 @@ function saveHeroStatsSnapshot(snapshot: HeroStatsSnapshot) {
 }
 
 function getHeroStatsSnapshotForSync() {
+  const counts = getInstantLibraryCounts()
+
   if (hasCompleteCatalogLoaded()) {
     const dashboard = getDashboardSummary(getCatalog())
     return {
       accountEmail: state.accountEmail || '',
-      ownedCount: dashboard.ownedGames.length,
-      wantedCount: dashboard.wantedGames.length,
+      ownedCount: counts.ownedCount,
+      wantedCount: counts.wantedCount,
       ownedTrackedValueUsd: dashboard.ownedTrackedValue,
       ownedCompleteValueUsd: dashboard.ownedCompleteValue,
       wishlistValueUsd: dashboard.wishlistValue,
@@ -714,8 +720,8 @@ function getHeroStatsSnapshotForSync() {
 
   return {
     accountEmail: state.accountEmail || '',
-    ownedCount: getInstantLibraryCounts().ownedCount,
-    wantedCount: getInstantLibraryCounts().wantedCount,
+    ownedCount: counts.ownedCount,
+    wantedCount: counts.wantedCount,
     ownedTrackedValueUsd: 0,
     ownedCompleteValueUsd: 0,
     wishlistValueUsd: 0,
@@ -2688,15 +2694,30 @@ function getInstantLibraryCounts() {
   return { ownedCount, wantedCount }
 }
 
+function getHeroCollectionCounts() {
+  const instantCounts = getInstantLibraryCounts()
+  const cachedHeroStats =
+    state.cachedHeroStats && state.cachedHeroStats.accountEmail === (state.accountEmail || '')
+      ? state.cachedHeroStats
+      : null
+
+  return {
+    ownedCount: Math.max(instantCounts.ownedCount, cachedHeroStats?.ownedCount ?? 0),
+    wantedCount: Math.max(instantCounts.wantedCount, cachedHeroStats?.wantedCount ?? 0),
+    cachedHeroStats,
+  }
+}
+
 function updateHeroStatsSnapshot(summary: DashboardSummary) {
   if (!hasCompleteCatalogLoaded()) {
     return
   }
 
+  const counts = getInstantLibraryCounts()
   const nextSnapshot: HeroStatsSnapshot = {
     accountEmail: state.accountEmail || '',
-    ownedCount: summary.ownedGames.length,
-    wantedCount: summary.wantedGames.length,
+    ownedCount: counts.ownedCount,
+    wantedCount: counts.wantedCount,
     ownedTrackedValueUsd: summary.ownedTrackedValue,
     ownedCompleteValueUsd: summary.ownedCompleteValue,
     wishlistValueUsd: summary.wishlistValue,
@@ -7118,8 +7139,6 @@ function renderNow() {
   const filteredGames = getFilteredGames()
   const visibleGames = filteredGames.slice(0, state.visibleGameCount)
   const dashboard = getDashboardSummary(catalog)
-  const ownedGames = dashboard.ownedGames
-  const wantedGames = dashboard.wantedGames
   const ownedTrackedValue = dashboard.ownedTrackedValue
   const ownedCompleteValue = dashboard.ownedCompleteValue
   const estimatedSellValue = ownedTrackedValue
@@ -7127,26 +7146,26 @@ function renderNow() {
   const wishlistValue = dashboard.wishlistValue
   const consoleCount = new Set(catalog.map((game) => game.console)).size
   const loadedConsoleCount = state.loadedConsoles.length
-  const totalConsoleCount = state.catalogMeta.length || consoleCount
+  const totalConsoleCount = state.catalogMeta.length || state.catalogTotalConsoles || consoleCount
+  const totalCatalogGames = state.catalogTotalGames || catalog.length || DEFAULT_CATALOG_TOTAL_GAMES
   const selectedCurrency = getSelectedCurrency()
   const accountIdentity = getAccountIdentityLabel()
   const compactCatalogWindow = useCompactCatalogWindow()
   const isSignedIn = Boolean(state.authToken)
   const heroStatsReady = !isSignedIn || (!state.accountHydrationPending && hasCompleteCatalogLoaded())
-  const instantCounts = getInstantLibraryCounts()
-  const cachedHeroStats = state.cachedHeroStats && state.cachedHeroStats.accountEmail === (state.accountEmail || '') ? state.cachedHeroStats : null
-  const heroOwnedCount = heroStatsReady ? ownedGames.length : (cachedHeroStats?.ownedCount ?? instantCounts.ownedCount)
-  const heroWantedCount = heroStatsReady ? wantedGames.length : (cachedHeroStats?.wantedCount ?? instantCounts.wantedCount)
+  const { ownedCount: directOwnedCount, wantedCount: directWantedCount, cachedHeroStats } = getHeroCollectionCounts()
+  const heroOwnedCount = directOwnedCount
+  const heroWantedCount = directWantedCount
   const heroCompletionPercentage = heroStatsReady ? completionPercentage : (cachedHeroStats?.completionPercentage ?? completionPercentage)
   const heroWishlistValueUsd = heroStatsReady ? wishlistValue : (cachedHeroStats?.wishlistValueUsd ?? wishlistValue)
   const heroEstimatedSellValueUsd = heroStatsReady ? estimatedSellValue : (cachedHeroStats?.ownedTrackedValueUsd ?? estimatedSellValue)
   const heroCollectionPremiumUsd = heroStatsReady ? ownedCompleteValue : (cachedHeroStats?.ownedCompleteValueUsd ?? ownedCompleteValue)
-  const hasTrackedGames = ownedGames.length + wantedGames.length > 0
+  const hasTrackedGames = directOwnedCount + directWantedCount > 0
   const catalogStatusText = state.isCatalogLoading
     ? `Loading the library. ${loadedConsoleCount} of ${totalConsoleCount} console lists are ready so far.`
     : state.catalogLoadError
       ? `Using the latest reference snapshot from ${priceSnapshotDate} while the rest of the catalog catches up.`
-      : `${catalog.length} games across ${consoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
+      : `${totalCatalogGames} games across ${totalConsoleCount || consoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
 
   const preCatalogCollectorMarkup = ''
 
@@ -7217,12 +7236,12 @@ function renderNow() {
               : `
                 <article class="hero-stat-card hero-stat-card--count">
                   <span class="stat-label">Library</span>
-                  <strong class="hero-stat-value hero-stat-value--count">${catalog.length.toLocaleString()}</strong>
+                  <strong class="hero-stat-value hero-stat-value--count">${totalCatalogGames.toLocaleString()}</strong>
                   <span class="stat-note">games ready to browse</span>
                 </article>
                 <article class="hero-stat-card hero-stat-card--count">
                   <span class="stat-label">Systems</span>
-                  <strong class="hero-stat-value hero-stat-value--count">${consoleCount}</strong>
+                  <strong class="hero-stat-value hero-stat-value--count">${totalConsoleCount}</strong>
                   <span class="stat-note">retro consoles covered</span>
                 </article>
                 <article class="hero-stat-card hero-stat-card--guest">
@@ -10394,6 +10413,11 @@ async function loadGeneratedCatalog() {
       throw new Error('Catalog metadata payload was invalid.')
     }
 
+    state.catalogTotalGames =
+      typeof (parsed as { totalGames?: unknown }).totalGames === 'number'
+        ? (parsed as { totalGames: number }).totalGames
+        : state.catalogTotalGames
+
     const parsedMeta = ((parsed as { consoles: unknown[] }).consoles as unknown[])
       .flatMap((entry) => {
         if (!entry || typeof entry !== 'object') {
@@ -10424,6 +10448,7 @@ async function loadGeneratedCatalog() {
       })
 
     const nextMetaSignature = getCatalogMetaSignature(parsedMeta)
+    state.catalogTotalConsoles = parsedMeta.length || state.catalogTotalConsoles
     const hasCompleteWarmCatalog =
       Boolean(cachedSnapshot?.generatedCatalog.length) &&
       cachedSnapshot?.metaSignature === nextMetaSignature &&
