@@ -742,19 +742,8 @@ async function ensurePublicCommunityStatsLoaded() {
   publicCommunityStatsFetchPromise = (async () => {
     try {
       const stats = await getPublicCommunityStats()
-      const changed =
-        !state.publicCommunityStats ||
-        state.publicCommunityStats.userCount !== stats.userCount ||
-        state.publicCommunityStats.trackedGamesCount !== stats.trackedGamesCount ||
-        state.publicCommunityStats.tradeListingCount !== stats.tradeListingCount ||
-        state.publicCommunityStats.generatedAt !== stats.generatedAt
-
       state.publicCommunityStats = stats
       savePublicCommunityStatsCache(stats)
-
-      if (changed) {
-        render()
-      }
     } catch {
       // Public social proof should never block the vault.
     } finally {
@@ -10362,6 +10351,36 @@ async function loadGeneratedCatalog() {
   try {
     const metaPromise = fetch('/catalogs/retro-catalog-meta.json')
     const startupPromise = fetch('/catalogs/retro-catalog-startup.json')
+    const hydrateFullCatalog = async (parsedMeta: CatalogConsoleMeta[]) => {
+      try {
+        const liteResponse = await fetch('/catalogs/retro-catalog-lite.json')
+
+        if (!liteResponse.ok) {
+          throw new Error(`Catalog request failed: ${liteResponse.status}`)
+        }
+
+        const liteText = await liteResponse.text()
+        await new Promise<void>((resolve) => setTimeout(resolve, 0))
+        const parsedLite = liteText ? JSON.parse(liteText) as unknown : []
+        const liteCatalog = Array.isArray(parsedLite)
+          ? parsedLite.map(normalizeCatalogEntry).filter(isCatalogEntry)
+          : normalizePackedLiteCatalog(parsedLite)
+
+        if (!liteCatalog.length) {
+          return
+        }
+
+        state.generatedCatalog = dedupeCatalog(liteCatalog)
+        state.loadedConsoles = [...new Set(parsedMeta.map((entry) => entry.console))]
+        state.catalogLoadError = false
+        invalidateCatalogCache()
+        scheduleCatalogSnapshotSave()
+        renderCatalogOnly()
+      } catch {
+        state.catalogLoadError = true
+        renderCatalogOnly()
+      }
+    }
 
     const startupResponse = await startupPromise
 
@@ -10464,46 +10483,23 @@ async function loadGeneratedCatalog() {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
       invalidateCatalogCache()
-      void ensureConsoleCatalogLoaded(state.consoleFilter)
-    } else {
-      const hydrateFullCatalog = async () => {
-        try {
-          const liteResponse = await fetch('/catalogs/retro-catalog-lite.json')
-
-          if (!liteResponse.ok) {
-            throw new Error(`Catalog request failed: ${liteResponse.status}`)
-          }
-
-          const liteText = await liteResponse.text()
-          await new Promise<void>((resolve) => setTimeout(resolve, 0))
-          const parsedLite = liteText ? JSON.parse(liteText) as unknown : []
-          const liteCatalog = Array.isArray(parsedLite)
-            ? parsedLite.map(normalizeCatalogEntry).filter(isCatalogEntry)
-            : normalizePackedLiteCatalog(parsedLite)
-
-          if (!liteCatalog.length) {
-            return
-          }
-
-          state.generatedCatalog = dedupeCatalog(liteCatalog)
-          state.loadedConsoles = [...new Set(parsedMeta.map((entry) => entry.console))]
-          state.catalogLoadError = false
-          invalidateCatalogCache()
-          scheduleCatalogSnapshotSave()
-          render()
-        } catch {
-          state.catalogLoadError = true
-          render()
-        }
-      }
-
       if (typeof window.requestIdleCallback === 'function') {
         window.requestIdleCallback(() => {
-          void hydrateFullCatalog()
+          void hydrateFullCatalog(parsedMeta)
         })
       } else {
         setTimeout(() => {
-          void hydrateFullCatalog()
+          void hydrateFullCatalog(parsedMeta)
+        }, 600)
+      }
+    } else {
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(() => {
+          void hydrateFullCatalog(parsedMeta)
+        })
+      } else {
+        setTimeout(() => {
+          void hydrateFullCatalog(parsedMeta)
         }, 600)
       }
     }
@@ -10517,7 +10513,7 @@ async function loadGeneratedCatalog() {
     state.catalogLoadError = true
   } finally {
     state.isCatalogLoading = false
-    render()
+    renderCatalogOnly()
   }
 }
 
