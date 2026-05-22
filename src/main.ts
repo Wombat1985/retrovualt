@@ -785,11 +785,11 @@ function renderHeroAudienceCard() {
   return `
     <aside class="${heroAudienceClasses}" data-hero-community-card>
       <span class="hero-audience-card__label">Collector network</span>
-      <strong class="hero-audience-card__value">${headline}</strong>
-      <p class="hero-audience-card__copy">${supportingCopy}</p>
+      <strong class="hero-audience-card__value" data-hero-community-headline>${headline}</strong>
+      <p class="hero-audience-card__copy" data-hero-community-copy>${supportingCopy}</p>
       <div class="hero-audience-card__meta">
-        <span>${trackedGamesText}</span>
-        <span>${tradeListingsText}</span>
+        <span data-hero-community-tracked>${trackedGamesText}</span>
+        <span data-hero-community-trades>${tradeListingsText}</span>
       </div>
     </aside>
   `
@@ -799,7 +799,35 @@ function patchPublicCommunityStatSurfaces() {
   const heroCard = app.querySelector<HTMLElement>('[data-hero-community-card]')
 
   if (heroCard) {
-    heroCard.outerHTML = renderHeroAudienceCard()
+    const stats = state.publicCommunityStats
+    const signedIn = Boolean(state.authToken)
+    const headline = stats
+      ? `${stats.userCount.toLocaleString()} collectors signed up`
+      : 'Collector count loading'
+    const supportingCopy = signedIn
+      ? 'That is your pool for trade replies, wanted matches, and collector activity.'
+      : 'Real collectors are already tracking games here and listing duplicates for trade.'
+    const trackedGamesText = stats
+      ? `${stats.trackedGamesCount.toLocaleString()} games tracked`
+      : 'Library activity loading'
+    const tradeListingsText = stats
+      ? `${stats.tradeListingCount.toLocaleString()} trade listings live`
+      : 'Trade listing count loading'
+    const headlineEl = heroCard.querySelector<HTMLElement>('[data-hero-community-headline]')
+    const copyEl = heroCard.querySelector<HTMLElement>('[data-hero-community-copy]')
+    const trackedEl = heroCard.querySelector<HTMLElement>('[data-hero-community-tracked]')
+    const tradesEl = heroCard.querySelector<HTMLElement>('[data-hero-community-trades]')
+
+    if (headlineEl && copyEl && trackedEl && tradesEl) {
+      headlineEl.textContent = headline
+      copyEl.textContent = supportingCopy
+      trackedEl.textContent = trackedGamesText
+      tradesEl.textContent = tradeListingsText
+      heroCard.classList.toggle('hero-audience-card--signed-in', signedIn)
+      heroCard.classList.toggle('hero-audience-card--guest', !signedIn)
+    } else {
+      heroCard.outerHTML = renderHeroAudienceCard()
+    }
   }
 }
 
