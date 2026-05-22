@@ -352,7 +352,7 @@ a {
   grid-column: 2;
   position: relative;
   align-self: start;
-  min-height: 220px;
+  min-height: 24px;
 }
 
 .hero-bottom {
