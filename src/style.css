@@ -350,7 +350,9 @@ a {
 
 .hero-audience-slot {
   grid-column: 2;
+  position: relative;
   align-self: start;
+  min-height: 220px;
 }
 
 .hero-bottom {
@@ -458,6 +460,8 @@ a {
 }
 
 .hero-audience-card--hero {
+  position: absolute;
+  inset: -272px 0 auto 0;
   width: 100%;
   margin: 0;
 }
@@ -5253,6 +5257,8 @@ a {
 
   .hero-audience-slot {
     order: 3;
+    position: static;
+    min-height: 0;
   }
 
   .hero-bottom {
@@ -5289,6 +5295,8 @@ a {
   }
 
   .hero-audience-card--hero {
+    position: static;
+    inset: auto;
     width: 100%;
     margin: 0;
   }
