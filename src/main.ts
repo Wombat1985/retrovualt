@@ -780,7 +780,7 @@ function renderHeroAudienceCard() {
     : 'Trade listing count loading'
 
   return `
-    <aside class="hero-audience-card" data-hero-community-card>
+    <aside class="hero-audience-card hero-audience-card--hero" data-hero-community-card>
       <span class="hero-audience-card__label">Collector network</span>
       <strong class="hero-audience-card__value">${headline}</strong>
       <p class="hero-audience-card__copy">${supportingCopy}</p>
@@ -7274,31 +7274,27 @@ function renderNow() {
           <a href="/" class="site-logo" aria-label="Retro Vault Elite home">
             <img class="site-logo__image" src="/retro-vault-elite-logo.png" alt="Retro Vault Elite" width="320" height="320" decoding="async" fetchpriority="high" />
           </a>
-          <div class="hero-copy-layout">
-            <div class="hero-copy-main">
-              <h1>${isSignedIn ? 'Your collection' : 'Track your collection, build a wanted list, and trade duplicates with other collectors.'}</h1>
-              <p class="hero-text">
-                ${isSignedIn
-                  ? 'Search the library, update owned and wanted games, and keep everything in one place.'
-                  : 'Search the library, open any game, and decide later if you want to save your collection, keep a wanted list, or trade duplicates.'}
-              </p>
-              <p class="hero-authority">${isSignedIn ? 'Search first, then open any game to update it.' : 'Built for collectors who care about condition, variants, paid price, and duplicate tracking.'}</p>
-              <p class="hero-text hero-text--tiny">${catalogStatusText}${isSignedIn ? ' Collection values convert from USD market data using ECB reference rates from 30 April 2026.' : ''}</p>
-              ${
-                state.authToken
-                  ? `<p class="account-status-pill"><span>Signed in</span><strong>${escapeHtml(accountIdentity)}</strong></p>`
-                  : '<p class="account-status-pill account-status-pill--guest"><span>Guest Mode</span><strong>Save your vault across devices.</strong></p>'
-              }
-              <div class="hero-actions">
-                <button class="install-button" type="button" data-action="browse-library">Browse Games Library</button>
-                ${state.authToken ? `<button class="secondary-button trade-inbox-btn trade-inbox-btn--hero" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button><button class="secondary-button" type="button" data-action="open-account-settings">Account Settings</button>` : '<button class="secondary-button" type="button" data-action="open-register">Create Free Vault</button><button class="secondary-button" type="button" data-action="open-login">Sign In</button>'}
-                <button class="secondary-button" type="button" data-action="open-scanner">Scan Barcode</button>
-                <button class="secondary-button" type="button" data-action="browse-tradeable-now">Ready to Trade</button>
-              </div>
-              <p class="hero-action-note">${isSignedIn ? 'Open a game to mark it owned, wanted, favorite, or for trade.' : 'No account needed &mdash; browse first, save your collection later.'}</p>
-            </div>
-            ${renderHeroAudienceCard()}
+          <h1>${isSignedIn ? 'Your collection' : 'Track your collection, build a wanted list, and trade duplicates with other collectors.'}</h1>
+          <p class="hero-text">
+            ${isSignedIn
+              ? 'Search the library, update owned and wanted games, and keep everything in one place.'
+              : 'Search the library, open any game, and decide later if you want to save your collection, keep a wanted list, or trade duplicates.'}
+          </p>
+          <p class="hero-authority">${isSignedIn ? 'Search first, then open any game to update it.' : 'Built for collectors who care about condition, variants, paid price, and duplicate tracking.'}</p>
+          <p class="hero-text hero-text--tiny">${catalogStatusText}${isSignedIn ? ' Collection values convert from USD market data using ECB reference rates from 30 April 2026.' : ''}</p>
+          ${renderHeroAudienceCard()}
+          ${
+            state.authToken
+              ? `<p class="account-status-pill"><span>Signed in</span><strong>${escapeHtml(accountIdentity)}</strong></p>`
+              : '<p class="account-status-pill account-status-pill--guest"><span>Guest Mode</span><strong>Save your vault across devices.</strong></p>'
+          }
+          <div class="hero-actions">
+            <button class="install-button" type="button" data-action="browse-library">Browse Games Library</button>
+            ${state.authToken ? `<button class="secondary-button trade-inbox-btn trade-inbox-btn--hero" data-action="trade-open-inbox" type="button">Trade Inbox${state.tradeInboxFreshOpportunityIds.size > 0 ? ' <span class="trade-inbox-badge trade-inbox-badge--fresh">New</span>' : ''}${(state.tradePending + state.tradeUnread) > 0 ? ` <span class="trade-inbox-badge">${state.tradePending + state.tradeUnread}</span>` : ''}</button><button class="secondary-button" type="button" data-action="open-account-settings">Account Settings</button>` : '<button class="secondary-button" type="button" data-action="open-register">Create Free Vault</button><button class="secondary-button" type="button" data-action="open-login">Sign In</button>'}
+            <button class="secondary-button" type="button" data-action="open-scanner">Scan Barcode</button>
+            <button class="secondary-button" type="button" data-action="browse-tradeable-now">Ready to Trade</button>
           </div>
+          <p class="hero-action-note">${isSignedIn ? 'Open a game to mark it owned, wanted, favorite, or for trade.' : 'No account needed &mdash; browse first, save your collection later.'}</p>
         </div>
         <div class="hero-stats">
           ${

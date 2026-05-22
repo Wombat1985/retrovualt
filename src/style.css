@@ -344,17 +344,6 @@ a {
   max-width: 680px;
 }
 
-.hero-copy-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-  align-items: start;
-  gap: 16px;
-}
-
-.hero-copy-main {
-  min-width: 0;
-}
-
 .hero-stats {
   grid-column: 2;
 }
@@ -461,6 +450,12 @@ a {
   color: var(--text);
   font-size: 0.82rem;
   line-height: 1.2;
+}
+
+.hero-audience-card--hero {
+  float: right;
+  width: min(100%, 360px);
+  margin: 6px 0 16px 22px;
 }
 
 /* ── Kicker / eyebrow labels ────────────────────────── */
@@ -5077,11 +5072,6 @@ a {
     grid-column: 1;
   }
 
-  .hero-copy-layout {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
   .view-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5269,10 +5259,6 @@ a {
     width: min(164px, 44vw);
   }
 
-  .hero-copy-layout {
-    gap: 8px;
-  }
-
   .hero-audience-card {
     min-height: 0;
     padding: 14px 15px;
@@ -5291,6 +5277,12 @@ a {
     display: grid;
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .hero-audience-card--hero {
+    float: none;
+    width: 100%;
+    margin: 10px 0 14px;
   }
 
   .hero-copy h1 {
