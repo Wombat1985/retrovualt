@@ -466,6 +466,10 @@ a {
   margin: 0;
 }
 
+.hero-audience-card--signed-in {
+  inset: -372px 0 auto 0;
+}
+
 /* ── Kicker / eyebrow labels ────────────────────────── */
 
 .kicker,

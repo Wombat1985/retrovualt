@@ -766,6 +766,11 @@ async function ensurePublicCommunityStatsLoaded() {
 function renderHeroAudienceCard() {
   const stats = state.publicCommunityStats
   const signedIn = Boolean(state.authToken)
+  const heroAudienceClasses = [
+    'hero-audience-card',
+    'hero-audience-card--hero',
+    signedIn ? 'hero-audience-card--signed-in' : 'hero-audience-card--guest',
+  ].join(' ')
   const headline = stats
     ? `${stats.userCount.toLocaleString()} collectors signed up`
     : 'Collector count loading'
@@ -780,7 +785,7 @@ function renderHeroAudienceCard() {
     : 'Trade listing count loading'
 
   return `
-    <aside class="hero-audience-card hero-audience-card--hero" data-hero-community-card>
+    <aside class="${heroAudienceClasses}" data-hero-community-card>
       <span class="hero-audience-card__label">Collector network</span>
       <strong class="hero-audience-card__value">${headline}</strong>
       <p class="hero-audience-card__copy">${supportingCopy}</p>
