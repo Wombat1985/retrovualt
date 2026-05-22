@@ -10488,6 +10488,7 @@ function unregisterServiceWorker() {
 
 async function loadGeneratedCatalog() {
   const cachedSnapshotPromise = readCatalogSnapshot()
+  let bootstrappedVisibleCatalog = false
   try {
     const metaPromise = fetch('/catalogs/retro-catalog-meta.json')
     const startupPromise = fetch('/catalogs/retro-catalog-startup.json')
@@ -10538,7 +10539,8 @@ async function loadGeneratedCatalog() {
         state.catalogLoadError = false
         state.isCatalogLoading = false
         invalidateCatalogCache()
-        render()
+        renderCatalogOnly()
+        bootstrappedVisibleCatalog = true
       }
     }
 
@@ -10555,7 +10557,8 @@ async function loadGeneratedCatalog() {
       state.catalogLoadError = false
       state.isCatalogLoading = false
       invalidateCatalogCache()
-      render()
+      renderCatalogOnly()
+      bootstrappedVisibleCatalog = true
     }
 
     const metaResponse = await metaPromise
@@ -10653,7 +10656,9 @@ async function loadGeneratedCatalog() {
     state.catalogLoadError = true
   } finally {
     state.isCatalogLoading = false
-    renderCatalogOnly()
+    if (!bootstrappedVisibleCatalog) {
+      renderCatalogOnly()
+    }
   }
 }
 
