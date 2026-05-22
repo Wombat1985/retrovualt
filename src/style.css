@@ -312,6 +312,21 @@ a {
   }
 }
 
+@media (max-width: 1380px) and (min-width: 721px) {
+  .hero-audience-slot {
+    position: static;
+    min-height: 0;
+  }
+
+  .hero-audience-card--hero,
+  .hero-audience-card--signed-in {
+    position: static;
+    inset: auto;
+    width: 100%;
+    margin: 10px 0 0;
+  }
+}
+
 .hero-panel::before {
   content: '';
   position: absolute;
