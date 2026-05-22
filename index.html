@@ -199,6 +199,94 @@
         width: min(100%, 1080px);
       }
 
+      .app-shell__panel--loading {
+        padding: 22px;
+        border-radius: 30px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: linear-gradient(180deg, rgba(8, 13, 22, 0.74), rgba(8, 13, 22, 0.82));
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+        backdrop-filter: blur(18px);
+      }
+
+      .app-shell__loading-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .app-shell__loading-copy,
+      .app-shell__loading-side {
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .app-shell__loading-copy .app-shell__lead {
+        margin-top: 0;
+        max-width: 620px;
+      }
+
+      .app-shell__loading-search {
+        display: grid;
+        gap: 10px;
+        margin-top: 6px;
+        padding: 18px;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(8, 12, 18, 0.34);
+      }
+
+      .app-shell__loading-label {
+        margin: 0;
+        color: #f5f7fb;
+        font-size: 0.98rem;
+        font-weight: 700;
+      }
+
+      .app-shell__loading-input {
+        height: 50px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(3, 7, 14, 0.86);
+      }
+
+      .app-shell__loading-side {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .app-shell__loading-card {
+        min-height: 110px;
+        padding: 16px;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(8, 12, 18, 0.34);
+      }
+
+      .app-shell__loading-bar {
+        display: block;
+        height: 14px;
+        border-radius: 999px;
+        background: rgba(255, 214, 110, 0.16);
+      }
+
+      .app-shell__loading-bar--short {
+        width: 34%;
+      }
+
+      .app-shell__loading-bar--value {
+        width: 68%;
+        height: 28px;
+        margin-top: 14px;
+      }
+
+      .app-shell__loading-bar--note {
+        width: 82%;
+        margin-top: 14px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
       .app-shell__eyebrow {
         margin: 0 0 14px;
         color: #f1c95f;
@@ -519,6 +607,18 @@
           padding: 28px 16px 40px;
         }
 
+        .app-shell__panel--loading {
+          padding: 18px;
+        }
+
+        .app-shell__loading-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .app-shell__loading-side {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
         .app-shell__lead {
           font-size: 1.05rem;
         }
@@ -546,137 +646,49 @@
   <body>
     <div id="app">
       <main class="app-shell">
-        <div class="app-shell__panel">
+        <div class="app-shell__panel app-shell__panel--loading">
           <a href="/" class="site-logo" aria-label="Retro Vault Elite home">
             <img class="site-logo__image" src="/retro-vault-elite-logo.png" alt="Retro Vault Elite" width="320" height="320" decoding="async" fetchpriority="high" />
           </a>
-          <h1>Track your collection, build a wanted list, and trade duplicates with other collectors.</h1>
-          <p class="app-shell__lead">
-            Retro Vault Elite keeps your collection, wanted list, paid prices, duplicates, and tradeable copies together in one place that feels built for collectors instead of spreadsheets and price-only lookups.
-          </p>
-          <p class="app-shell__authority">Built for serious collectors who track condition, paid price, wanted games, duplicates, and trade-ready copies.</p>
-          <div class="app-shell__proof" aria-label="Product highlights">
-            <div class="app-shell__proof-item">
-              <strong>Track what you own</strong>
-              <span>Owned, wanted, favorites, price paid, condition, edition, and collection progress stay together.</span>
-            </div>
-            <div class="app-shell__proof-item">
-              <strong>Build a wanted list</strong>
-              <span>Keep a clean hunt list so you know what to look for the second you spot a shelf.</span>
-            </div>
-            <div class="app-shell__proof-item">
-              <strong>Mark duplicates for trade</strong>
-              <span>Turn extra copies into trade listings and surface collector matches without leaving the vault.</span>
-            </div>
-            <div class="app-shell__proof-item">
-              <strong>Keep moving when databases miss</strong>
-              <span>Add missing games yourself, including imports, odd variants, and other collector-only edge cases.</span>
-            </div>
-          </div>
-          <section class="app-shell__compare" aria-label="Why collectors use Retro Vault Elite">
-            <div class="app-shell__compare-intro">
-              <small>Why collectors stay</small>
-              <h2>More than a price lookup. This is where the whole collection lives.</h2>
-              <p>Price reference matters, but serious collecting is also condition, duplicates, upgrades, variants, wanted targets, notes, and knowing who has the game you still need.</p>
-            </div>
-            <div class="app-shell__compare-grid">
-              <article class="app-shell__compare-card">
-                <small>Track exact copies</small>
-                <strong>Keep loose, boxed, manual, CiB, sealed, graded, and duplicate copies separate.</strong>
-                <p>Collectors do not own one flat number. They own specific copies.</p>
-              </article>
-              <article class="app-shell__compare-card">
-                <small>Build upgrade plans</small>
-                <strong>Move from loose to complete without losing what you already own.</strong>
-                <p>Track paid prices, condition, and what still needs upgrading on the shelf.</p>
-              </article>
-              <article class="app-shell__compare-card">
-                <small>Use a real wanted list</small>
-                <strong>Wanted games tie into alerts, trade matches, and the next thing you should hunt.</strong>
-                <p>Your list should help you act, not just sit there.</p>
-              </article>
-              <article class="app-shell__compare-card">
-                <small>Trade from the vault</small>
-                <strong>Mark duplicates for trade, find collector matches, and keep the conversation tied to the game.</strong>
-                <p>Trading is part of the collection flow, not hidden off to the side.</p>
-              </article>
-            </div>
-            <div class="app-shell__compare-note">
-              <strong>Retro Vault Elite is for collectors who want one place to track, upgrade, value, and trade their games, not just check a number and leave.</strong>
-            </div>
-          </section>
-          <div class="app-shell__actions">
-            <a class="app-shell__button app-shell__button--primary" href="/">Browse Games Library</a>
-            <a class="app-shell__button" href="/">Create Free Vault</a>
-            <a class="app-shell__button" href="/">Sign In</a>
-            <a class="app-shell__button" href="/">Scan Barcode</a>
-            <a class="app-shell__button" href="/">Ready to Trade</a>
-          </div>
-          <p class="app-shell__action-note">No account needed &mdash; search games before creating a vault.</p>
-          <div class="app-shell__trust" aria-label="Trust badges">
-            <span class="app-shell__trust-badge">No Download Needed</span>
-            <span class="app-shell__trust-badge">Desktop &amp; Mobile</span>
-            <span class="app-shell__trust-badge">Collector Built</span>
-            <span class="app-shell__trust-badge">Private Trading</span>
-          </div>
-          <section class="app-shell__mini-preview" aria-label="Popular games collectors are tracking">
-            <div>
-              <p class="app-shell__eyebrow">Popular games collectors are tracking</p>
-              <p class="app-shell__action-note" style="margin-top:0;color:#d2dae8;">See real titles faster, not just platform names.</p>
-            </div>
-            <div class="app-shell__mini-preview-grid">
-              <article class="app-shell__mini-card"><div class="app-shell__mini-card-art" aria-hidden="true"></div><span>SNES</span><strong>Super Mario World</strong></article>
-              <article class="app-shell__mini-card"><div class="app-shell__mini-card-art" aria-hidden="true"></div><span>Game Boy</span><strong>Pokemon Red</strong></article>
-              <article class="app-shell__mini-card"><div class="app-shell__mini-card-art" aria-hidden="true"></div><span>Mega Drive</span><strong>Sonic 2</strong></article>
-              <article class="app-shell__mini-card"><div class="app-shell__mini-card-art" aria-hidden="true"></div><span>PS1</span><strong>Final Fantasy VII</strong></article>
-            </div>
-          </section>
-          <section class="app-shell__systems" aria-label="Featured systems">
-            <p class="app-shell__eyebrow">Featured systems</p>
-            <div class="app-shell__systems-list">
-              <a class="app-shell__chip" href="/nes-collection-tracker.html">NES</a>
-              <a class="app-shell__chip" href="/snes-collection-tracker.html">SNES</a>
-              <a class="app-shell__chip" href="/nintendo-64-collection-tracker.html">N64</a>
-              <a class="app-shell__chip" href="/game-boy-collection-tracker.html">Game Boy</a>
-              <a class="app-shell__chip" href="/sega-genesis-collection-tracker.html">Mega Drive</a>
-              <a class="app-shell__chip" href="/playstation-collection-tracker.html">PS1</a>
-              <a class="app-shell__chip" href="/playstation-2-collection-tracker.html">PS2</a>
-              <a class="app-shell__chip" href="/gamecube-collection-tracker.html">GameCube</a>
-            </div>
-          </section>
-          <nav class="app-shell__link-groups" aria-label="Popular retro collector pages">
-            <section class="app-shell__group" aria-labelledby="app-shell-core">
-              <h2 id="app-shell-core">Collector tools</h2>
-              <ul>
-                <li><a href="/retro-game-collection-tracker.html">Retro game collection tracker</a></li>
-                <li><a href="/retro-game-price-tracker.html">Retro game price tracker</a></li>
-                <li><a href="/video-game-collection-tracker.html">Video game collection tracker</a></li>
-                <li><a href="/best-retro-game-collection-tracker.html">Best retro game collection tracker</a></li>
-                <li><a href="/retro-console-collection-tracker.html">Retro console collection tracker</a></li>
-                <li><a href="/about.html">About Retro Vault Elite</a></li>
-              </ul>
+          <div class="app-shell__loading-grid">
+            <section class="app-shell__loading-copy" aria-label="Loading Retro Vault Elite">
+              <p class="app-shell__eyebrow">Retro Vault Elite</p>
+              <h1>Loading Retro Vault Elite...</h1>
+              <p class="app-shell__lead">Getting the library, search, and collection tools ready.</p>
+              <div class="app-shell__trust" aria-label="Trust badges">
+                <span class="app-shell__trust-badge">No Download Needed</span>
+                <span class="app-shell__trust-badge">Desktop &amp; Mobile</span>
+                <span class="app-shell__trust-badge">Collector Built</span>
+                <span class="app-shell__trust-badge">Private Trading</span>
+              </div>
+              <section class="app-shell__loading-search" aria-label="Library search loading">
+                <p class="app-shell__loading-label">Search the games library</p>
+                <div class="app-shell__loading-input" aria-hidden="true"></div>
+              </section>
             </section>
-            <section class="app-shell__group" aria-labelledby="app-shell-consoles">
-              <h2 id="app-shell-consoles">Console pages</h2>
-              <ul>
-                <li><a href="/nes-collection-tracker.html">NES collection tracker</a></li>
-                <li><a href="/snes-collection-tracker.html">SNES collection tracker</a></li>
-                <li><a href="/game-boy-collection-tracker.html">Game Boy collection tracker</a></li>
-                <li><a href="/sega-genesis-collection-tracker.html">Sega Genesis collection tracker</a></li>
-                <li><a href="/playstation-2-collection-tracker.html">PlayStation 2 collection tracker</a></li>
-              </ul>
+            <section class="app-shell__loading-side" aria-hidden="true">
+              <article class="app-shell__loading-card">
+                <span class="app-shell__loading-bar app-shell__loading-bar--short"></span>
+                <span class="app-shell__loading-bar app-shell__loading-bar--value"></span>
+                <span class="app-shell__loading-bar app-shell__loading-bar--note"></span>
+              </article>
+              <article class="app-shell__loading-card">
+                <span class="app-shell__loading-bar app-shell__loading-bar--short"></span>
+                <span class="app-shell__loading-bar app-shell__loading-bar--value"></span>
+                <span class="app-shell__loading-bar app-shell__loading-bar--note"></span>
+              </article>
+              <article class="app-shell__loading-card">
+                <span class="app-shell__loading-bar app-shell__loading-bar--short"></span>
+                <span class="app-shell__loading-bar app-shell__loading-bar--value"></span>
+                <span class="app-shell__loading-bar app-shell__loading-bar--note"></span>
+              </article>
+              <article class="app-shell__loading-card">
+                <span class="app-shell__loading-bar app-shell__loading-bar--short"></span>
+                <span class="app-shell__loading-bar app-shell__loading-bar--value"></span>
+                <span class="app-shell__loading-bar app-shell__loading-bar--note"></span>
+              </article>
             </section>
-            <section class="app-shell__group" aria-labelledby="app-shell-guides">
-              <h2 id="app-shell-guides">Guides and trust</h2>
-              <ul>
-                <li><a href="/cib-game-value-tracker.html">CIB game value tracker</a></li>
-                <li><a href="/loose-vs-cib-game-value.html">Loose vs CIB game value</a></li>
-                <li><a href="/how-to-value-retro-game-collection.html">How to value a retro game collection</a></li>
-                <li><a href="/best-retro-games-to-collect.html">Best retro games to collect</a></li>
-                <li><a href="/data-sources.html">Data sources</a></li>
-              </ul>
-            </section>
-          </nav>
+          </div>
         </div>
       </main>
     </div>
