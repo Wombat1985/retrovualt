@@ -4996,13 +4996,13 @@ function renderHeroSearchBlock() {
       </div>
       <div class="hero-search__controls">
         <label class="hero-search__field" for="hero-search-input">
-          <span class="sr-only">Search the games library</span>
           <input
             id="hero-search-input"
             type="search"
             value="${escapeHtml(heroSearchValue)}"
             placeholder="Search Mario, Zelda, Pokemon, Sonic..."
             autocomplete="off"
+            aria-label="Search the games library"
           />
         </label>
         <button class="install-button hero-search__button" type="button" data-action="submit-hero-search">Search Games</button>
