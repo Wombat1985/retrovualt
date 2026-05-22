@@ -312,7 +312,7 @@ a {
   }
 }
 
-@media (max-width: 1380px) and (min-width: 721px) {
+@media (max-width: 1720px) and (min-width: 721px) {
   .hero-audience-slot {
     position: static;
     min-height: 0;
