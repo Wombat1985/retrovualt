@@ -5729,6 +5729,9 @@ function renderControlSummary(resultCount: number, visibleCount: number) {
 function renderViewSummary(filteredGames: CatalogEntry[]) {
   const ownedGames = filteredGames.filter((game) => getRecord(game.id).status === 'owned')
   const wantedGames = filteredGames.filter((game) => getRecord(game.id).status === 'wanted')
+  const totalCounts = getInstantLibraryCounts()
+  const hiddenOwnedCount = Math.max(0, totalCounts.ownedCount - ownedGames.length)
+  const hiddenWantedCount = Math.max(0, totalCounts.wantedCount - wantedGames.length)
   const ownedTrackedValue = ownedGames.reduce((total, game) => total + getReferencePrice(game), 0)
   const paidTotal = ownedGames.reduce((total, game) => total + (getRecord(game.id).pricePaid ?? 0), 0)
   const marketEdge = ownedTrackedValue - paidTotal
@@ -5737,22 +5740,22 @@ function renderViewSummary(filteredGames: CatalogEntry[]) {
   return `
     <section class="view-summary">
       <article>
-        <span class="stat-label">Owned in this view</span>
+        <span class="stat-label">Owned shown here</span>
         <strong>${ownedGames.length.toLocaleString()}</strong>
-        <span class="stat-note">${completeOwned.toLocaleString()} complete copies tracked</span>
+        <span class="stat-note">${hiddenOwnedCount > 0 ? `${hiddenOwnedCount.toLocaleString()} owned game${hiddenOwnedCount === 1 ? '' : 's'} outside this view` : `${completeOwned.toLocaleString()} complete copies tracked`}</span>
       </article>
       <article>
-        <span class="stat-label">Wanted in this view</span>
+        <span class="stat-label">Wanted shown here</span>
         <strong>${wantedGames.length.toLocaleString()}</strong>
-        <span class="stat-note">${formatPrice(wantedGames.reduce((total, game) => total + getReferencePrice(game), 0))} target value</span>
+        <span class="stat-note">${hiddenWantedCount > 0 ? `${hiddenWantedCount.toLocaleString()} wanted game${hiddenWantedCount === 1 ? '' : 's'} outside this view` : `${formatPrice(wantedGames.reduce((total, game) => total + getReferencePrice(game), 0))} target value`}</span>
       </article>
       <article>
-        <span class="stat-label">Tracked value in this view</span>
+        <span class="stat-label">Tracked value shown here</span>
         <strong>${formatPrice(ownedTrackedValue)}</strong>
         <span class="stat-note">Based on your loose or complete ownership choices</span>
       </article>
       <article>
-        <span class="stat-label">Paid total in this view</span>
+        <span class="stat-label">Paid total shown here</span>
         <strong>${formatPrice(paidTotal)}</strong>
         <span class="stat-note">${paidTotal ? `${marketEdge >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(marketEdge))}` : 'Add paid prices to compare pickups versus market'}</span>
       </article>
