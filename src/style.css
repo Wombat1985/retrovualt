@@ -344,12 +344,15 @@ a {
   max-width: 680px;
 }
 
-.hero-brand-row {
+.hero-copy-layout {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   align-items: start;
   gap: 16px;
-  margin-bottom: 8px;
+}
+
+.hero-copy-main {
+  min-width: 0;
 }
 
 .hero-stats {
@@ -5074,7 +5077,7 @@ a {
     grid-column: 1;
   }
 
-  .hero-brand-row {
+  .hero-copy-layout {
     grid-template-columns: 1fr;
     gap: 10px;
   }
@@ -5266,7 +5269,7 @@ a {
     width: min(164px, 44vw);
   }
 
-  .hero-brand-row {
+  .hero-copy-layout {
     gap: 8px;
   }
 
