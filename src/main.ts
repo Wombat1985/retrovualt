@@ -7282,7 +7282,6 @@ function renderNow() {
           </p>
           <p class="hero-authority">${isSignedIn ? 'Search first, then open any game to update it.' : 'Built for collectors who care about condition, variants, paid price, and duplicate tracking.'}</p>
           <p class="hero-text hero-text--tiny">${catalogStatusText}${isSignedIn ? ' Collection values convert from USD market data using ECB reference rates from 30 April 2026.' : ''}</p>
-          ${renderHeroAudienceCard()}
           ${
             state.authToken
               ? `<p class="account-status-pill"><span>Signed in</span><strong>${escapeHtml(accountIdentity)}</strong></p>`
@@ -7344,6 +7343,9 @@ function renderNow() {
                 </article>
               `
           }
+        </div>
+        <div class="hero-audience-slot">
+          ${renderHeroAudienceCard()}
         </div>
         <div class="hero-bottom">
           ${renderHeroTrustBadges()}

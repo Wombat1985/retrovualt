@@ -348,6 +348,11 @@ a {
   grid-column: 2;
 }
 
+.hero-audience-slot {
+  grid-column: 2;
+  align-self: start;
+}
+
 .hero-bottom {
   grid-column: 1 / -1;
   display: grid;
@@ -453,9 +458,8 @@ a {
 }
 
 .hero-audience-card--hero {
-  float: right;
-  width: min(100%, 360px);
-  margin: 6px 0 16px 22px;
+  width: 100%;
+  margin: 0;
 }
 
 /* ── Kicker / eyebrow labels ────────────────────────── */
@@ -5068,6 +5072,7 @@ a {
 
   .hero-copy,
   .hero-stats,
+  .hero-audience-slot,
   .hero-bottom {
     grid-column: 1;
   }
@@ -5246,8 +5251,12 @@ a {
     order: 2;
   }
 
-  .hero-bottom {
+  .hero-audience-slot {
     order: 3;
+  }
+
+  .hero-bottom {
+    order: 4;
     gap: 10px;
   }
 
@@ -5280,9 +5289,8 @@ a {
   }
 
   .hero-audience-card--hero {
-    float: none;
     width: 100%;
-    margin: 10px 0 14px;
+    margin: 0;
   }
 
   .hero-copy h1 {
