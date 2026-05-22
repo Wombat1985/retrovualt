@@ -402,8 +402,6 @@ let selectedGameModalRenderedId: string | null = null
 const prewarmedDetailCoverUrls = new Set<string>()
 let renderedBackdropSignature = ''
 let backgroundVisualRefreshReady = false
-let pendingBackgroundCatalogRefresh = false
-let pendingBackgroundFullRefresh = false
 
 type FocusSnapshot = {
   id: string
@@ -4332,7 +4330,7 @@ async function hydrateAccount() {
   }
 
   state.accountHydrationPending = false
-  render()
+  requestBackgroundFullRefresh()
   void fetchTradeNotifications()
 }
 
@@ -4344,7 +4342,7 @@ async function fetchTradeNotifications() {
     state.tradeUnread = result.unreadCount
     state.tradePending = result.pendingCount ?? 0
     if (state.tradePending + state.tradeUnread !== prevTotal) {
-      render()
+      requestBackgroundFullRefresh()
     }
   } catch {
     // silent — badge just stays at 0
@@ -7646,59 +7644,30 @@ function scheduleDeferredStartupWork() {
   }, 1500)
 }
 
-function flushDeferredBackgroundRefresh() {
-  if (pendingBackgroundFullRefresh) {
-    pendingBackgroundFullRefresh = false
-    pendingBackgroundCatalogRefresh = false
-    render()
-    return
-  }
-
-  if (pendingBackgroundCatalogRefresh) {
-    pendingBackgroundCatalogRefresh = false
-    renderCatalogOnly()
-  }
-}
-
 function allowBackgroundVisualRefresh() {
   if (backgroundVisualRefreshReady) {
     return
   }
 
   backgroundVisualRefreshReady = true
-  flushDeferredBackgroundRefresh()
 }
 
 function requestBackgroundCatalogRefresh() {
   if (backgroundVisualRefreshReady) {
     renderCatalogOnly()
-    return
   }
-
-  pendingBackgroundCatalogRefresh = true
 }
 
 function requestBackgroundFullRefresh() {
   if (backgroundVisualRefreshReady) {
     render()
-    return
   }
-
-  pendingBackgroundFullRefresh = true
 }
 
 function scheduleStartupVisualSettle() {
-  const unlock = () => {
+  window.setTimeout(() => {
     allowBackgroundVisualRefresh()
-    window.removeEventListener('pointerdown', unlock)
-    window.removeEventListener('keydown', unlock)
-    window.removeEventListener('touchstart', unlock)
-  }
-
-  window.addEventListener('pointerdown', unlock, { once: true, passive: true })
-  window.addEventListener('keydown', unlock, { once: true })
-  window.addEventListener('touchstart', unlock, { once: true, passive: true })
-  window.setTimeout(unlock, STARTUP_VISUAL_SETTLE_MS)
+  }, STARTUP_VISUAL_SETTLE_MS)
 }
 
 function currentTradePanelContent() {
