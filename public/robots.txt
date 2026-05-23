@@ -15,14 +15,5 @@ Allow: /trading-safety.html
 Disallow: /admin.html
 Disallow: /promote.html
 Disallow: /catalogs/
-Disallow: /*-collection-tracker.html
-Disallow: /retro-games.html
-Disallow: /best-retro-games-to-collect.html
-Disallow: /cib-game-value-tracker.html
-Disallow: /complete-in-box-value-guide.html
-Disallow: /game-boy-collection-checklist.html
-Disallow: /nes-collection-checklist.html
-Disallow: /sell-retro-game-collection-value.html
-Disallow: /snes-rarity-list.html
 
 Sitemap: https://retrovaultelite.com/sitemap.xml
