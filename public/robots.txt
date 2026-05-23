@@ -1,7 +1,6 @@
 User-agent: *
 Allow: /
 Allow: /retro-game-collection-tracker.html
-Allow: /retro-console-collection-tracker.html
 Allow: /retro-game-price-tracker.html
 Allow: /how-to-value-retro-game-collection.html
 Allow: /loose-vs-cib-game-value.html
