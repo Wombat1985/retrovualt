@@ -820,12 +820,20 @@ function mergeStartupLibrary(localLibrary: Record<string, GameRecord>, startupLi
   )
 }
 
+function getCurrentVaultStartupSnapshot() {
+  if (!state.authToken || !state.accountEmail) {
+    return null
+  }
+
+  return loadVaultStartupSnapshot(state.accountEmail.trim().toLowerCase())
+}
+
 function buildVaultStartupSnapshotFromCurrentState() {
   if (!state.authToken || !state.accountEmail) {
     return null
   }
 
-  const existingSnapshot = loadVaultStartupSnapshot(state.accountEmail.trim().toLowerCase())
+  const existingSnapshot = getCurrentVaultStartupSnapshot()
   const existingOwnedById = new Map((existingSnapshot?.ownedGames ?? []).map((game) => [game.id, game]))
   const existingWantedById = new Map((existingSnapshot?.wantedGames ?? []).map((game) => [game.id, game]))
 
@@ -2300,13 +2308,25 @@ function getCatalog() {
     state.customCatalog.length,
     state.loadedConsoles.join('|'),
     state.customCatalog.map((game) => game.id).join('|'),
+    state.authToken ? (state.accountEmail || '').toLowerCase() : '',
+    state.authToken && !hasCompleteCatalogLoaded() ? 'startup' : 'live',
   ].join(':')
 
   if (catalogCache && catalogCacheKey === key) {
     return catalogCache
   }
 
-  const catalogEntries = applyCatalogEnhancements([...state.generatedCatalog, ...sampleCatalog, ...state.customCatalog])
+  const startupSnapshot = state.authToken && !hasCompleteCatalogLoaded() ? getCurrentVaultStartupSnapshot() : null
+  const startupCatalog = startupSnapshot
+    ? [...startupSnapshot.ownedGames, ...startupSnapshot.wantedGames]
+    : []
+
+  const catalogEntries = applyCatalogEnhancements([
+    ...startupCatalog,
+    ...state.generatedCatalog,
+    ...sampleCatalog,
+    ...state.customCatalog,
+  ])
   catalogCache = dedupeCatalog(catalogEntries)
   catalogByIdCache = new Map(catalogCache.map((game) => [game.id, game]))
   catalogCacheKey = key
