@@ -1,0 +1,77 @@
+{
+  "type": "short_ad",
+  "name": "Retro Vault Elite Short Ad",
+  "baseUrl": "https://www.retrovaultelite.com/",
+  "voiceoverScript": [
+    "Still juggling spreadsheets and collector apps that miss half your stuff?",
+    "Retro Vault Elite lets you track what you own, what you want, and the oddball titles other databases skip.",
+    "It is early, collector-first, and getting better from real community feedback."
+  ],
+  "youtubeTitleOptions": [
+    "Retro Vault Elite | Collector-First Retro Game Tracker",
+    "Track Your Retro Collection Better",
+    "Retro Vault Elite Short Demo"
+  ],
+  "youtubeDescription": "A short promotional cut for Retro Vault Elite, focused on the vault, wanted tracking, custom entries, and collector-first design.",
+  "socialPostText": {
+    "instagram": "Built for collectors. Track what you own, what you want, and the oddball stuff other databases miss.",
+    "reddit": "Short update clip for Retro Vault Elite showing the vault, wanted tracking, and custom entry flow.",
+    "x": "Retro Vault Elite in 20 seconds: collector-first tracking, wanted games, and custom entries."
+  },
+  "thumbnailTextIdeas": [
+    "Collector-First",
+    "Track Retro Better",
+    "Built for the Weird Stuff"
+  ],
+  "defaultFormats": ["vertical_1080x1920", "square_1080x1080"],
+  "capture": {
+    "viewport": { "width": 1600, "height": 900 },
+    "fps": 30,
+    "browserChannel": "msedge"
+  },
+  "scenes": [
+    {
+      "id": "hook",
+      "durationMs": 7000,
+      "overlay": { "headline": "Built for collectors", "subheadline": "Not another checklist" },
+      "caption": "Retro Vault Elite is built around the way collectors actually browse and track games.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1700 },
+        { "type": "smoothScroll", "by": 380, "durationMs": 2400 },
+        { "type": "wait", "ms": 1800 }
+      ]
+    },
+    {
+      "id": "search",
+      "durationMs": 7000,
+      "overlay": { "headline": "Track owned and wanted", "subheadline": "Fast search. Clean details." },
+      "caption": "Search fast, open details, and build a wanted list without leaving the vault.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1200 },
+        { "type": "click", "selector": "#search-input" },
+        { "type": "type", "selector": "#search-input", "text": "Metroid", "delay": 55 },
+        { "type": "wait", "ms": 1200 },
+        { "type": "click", "selector": ".catalog-grid .game-card:first-child .ghost-button[data-action='open-details']" },
+        { "type": "wait", "ms": 2200 }
+      ]
+    },
+    {
+      "id": "custom",
+      "durationMs": 8000,
+      "overlay": { "headline": "Missing game? Add it.", "subheadline": "Built from collector feedback" },
+      "caption": "Custom entries and trade beta work are being built from community feedback.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1300 },
+        { "type": "click", "selector": "[data-action='open-custom-entry']" },
+        { "type": "wait", "ms": 1000 },
+        { "type": "type", "selector": "input[name='title']", "text": "Collector's Cut Demo", "delay": 45 },
+        { "type": "wait", "ms": 2200 },
+        { "type": "click", "selector": "[data-action='close-custom-entry']" },
+        { "type": "wait", "ms": 800 }
+      ]
+    }
+  ]
+}

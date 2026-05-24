@@ -2,13 +2,73 @@
   command = "npm install && npm run build"
   publish = "dist"
 
-# Meta file: short cache so clients notice catalog updates within an hour
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = true
+  minify = true
+
+[build.processing.js]
+  bundle = false
+  minify = true
+
+[build.processing.html]
+  pretty_urls = true
+
+# Security and performance headers on every response
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=self"
+    # CSP: allow own origin + Google Fonts, Analytics, AdSense, and the Render backend
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://pagead2.googlesyndication.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://retro-vault-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com; frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; object-src 'none'; base-uri 'self'"
+
+# ── Hashed JS/CSS/image assets — immutable, 1 year ────────────────────────────
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# ── Background image — cache 30 days ─────────────────────────────────────────
+[[headers]]
+  for = "/retro-room-bg.png"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000, stale-while-revalidate=86400"
+
+# ── Icons and static images — cache 30 days ──────────────────────────────────
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/*.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000, stale-while-revalidate=86400"
+
+# ── Startup catalog: shown on first paint — cache 1 day ──────────────────────
+[[headers]]
+  for = "/catalogs/retro-catalog-startup.json"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+# ── Meta file: short cache so clients notice catalog updates within an hour ───
 [[headers]]
   for = "/catalogs/retro-catalog-meta.json"
   [headers.values]
     Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
 
-# Individual console catalogs: cache for a week (IndexedDB handles freshness)
+# ── Full lite catalog (13 MB) — cache 7 days; IndexedDB handles freshness ────
+[[headers]]
+  for = "/catalogs/retro-catalog-lite.json"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
+
+# ── Individual console catalogs — cache 7 days ───────────────────────────────
 [[headers]]
   for = "/catalogs/catalog-*.json"
   [headers.values]

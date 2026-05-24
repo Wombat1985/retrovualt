@@ -39,6 +39,7 @@
     <meta name="apple-mobile-web-app-title" content="Retro Vault Elite" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://retro-vault-backend.onrender.com" />
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Russo+One&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Russo+One&display=swap" /></noscript>
     <link rel="preload" href="/catalogs/retro-catalog-meta.json" as="fetch" crossorigin="anonymous" />
@@ -71,11 +72,6 @@
         ]
       }
     </script>
-    <script
-      async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5824811414274116"
-      crossorigin="anonymous"
-    ></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-N3BEJV5KZ"></script>
     <script>
       window.dataLayer = window.dataLayer || []
@@ -83,7 +79,7 @@
         dataLayer.push(arguments)
       }
       gtag('js', new Date())
-      gtag('config', 'G-N3BEJV5KZ')
+      gtag('config', 'G-N3BEJV5KZ', { 'send_page_view': false })
     </script>
     <style>
       :root {
@@ -123,9 +119,16 @@
       body::before {
         background:
           linear-gradient(90deg, rgba(7, 11, 20, 0.74), rgba(7, 11, 20, 0.3) 36%, rgba(7, 11, 20, 0.66) 100%),
+          linear-gradient(180deg, rgba(255, 184, 88, 0.12), rgba(255, 184, 88, 0) 32%, rgba(9, 17, 27, 0.45) 100%);
+        opacity: 0.96;
+        transition: background 0.4s ease;
+      }
+
+      body.bg-loaded::before {
+        background:
+          linear-gradient(90deg, rgba(7, 11, 20, 0.74), rgba(7, 11, 20, 0.3) 36%, rgba(7, 11, 20, 0.66) 100%),
           linear-gradient(180deg, rgba(255, 184, 88, 0.12), rgba(255, 184, 88, 0) 32%, rgba(9, 17, 27, 0.45) 100%),
           url('/retro-room-bg.png') center center / cover no-repeat;
-        opacity: 0.96;
       }
 
       body::after {
@@ -148,6 +151,13 @@
   </head>
   <body>
     <div id="app"></div>
+    <script>
+      // Defer 1.57 MB background image — load after first paint so it doesn't block the critical path
+      var _bg = new Image();
+      _bg.onload = function() { document.body.classList.add('bg-loaded'); };
+      _bg.src = '/retro-room-bg.png';
+    </script>
+    <link rel="modulepreload" href="/src/main.ts" />
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

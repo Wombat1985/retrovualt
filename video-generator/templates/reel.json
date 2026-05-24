@@ -1,0 +1,71 @@
+{
+  "extends": "short-ad.json",
+  "type": "reel",
+  "name": "Instagram Reel",
+  "voiceoverScript": [
+    "Track what you own. Track what you want. Add the weird stuff too.",
+    "Retro Vault Elite is built for collectors, not just casual checklists.",
+    "It is early, but it is getting sharper fast."
+  ],
+  "youtubeTitleOptions": [
+    "Retro Vault Elite Reel",
+    "Retro Collection Tracker Reel",
+    "Collector-First Reel"
+  ],
+  "socialPostText": {
+    "instagram": "Track what you own. Track what you want. Add the weird stuff too.",
+    "reddit": "Quick Reel-style cut for Retro Vault Elite.",
+    "x": "Collector-first retro collection tracking in a quick Reel cut."
+  },
+  "thumbnailTextIdeas": [
+    "Track. Want. Collect.",
+    "For Collectors",
+    "The Weird Stuff Too"
+  ],
+  "defaultFormats": ["vertical_1080x1920", "feed_1080x1350"],
+  "scenes": [
+    {
+      "id": "hook",
+      "durationMs": 5000,
+      "overlay": { "headline": "Track what you own", "subheadline": "Keep the collection together" },
+      "caption": "Retro Vault Elite is built to keep your collection and your wanted list in one place.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1500 },
+        { "type": "smoothScroll", "by": 280, "durationMs": 1800 },
+        { "type": "wait", "ms": 1000 }
+      ]
+    },
+    {
+      "id": "search",
+      "durationMs": 6000,
+      "overlay": { "headline": "Find games fast", "subheadline": "Search without breaking the flow" },
+      "caption": "Search quickly, jump into details, and keep moving.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1200 },
+        { "type": "click", "selector": "#search-input" },
+        { "type": "type", "selector": "#search-input", "text": "Mario", "delay": 50 },
+        { "type": "wait", "ms": 1500 },
+        { "type": "click", "selector": ".catalog-grid .game-card:first-child .ghost-button[data-action='open-details']" },
+        { "type": "wait", "ms": 1700 }
+      ]
+    },
+    {
+      "id": "custom",
+      "durationMs": 6000,
+      "overlay": { "headline": "Add the weird stuff too", "subheadline": "Custom entries are built in" },
+      "caption": "When a database misses something, you can add it and keep cataloging.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1300 },
+        { "type": "click", "selector": "[data-action='open-custom-entry']" },
+        { "type": "wait", "ms": 1000 },
+        { "type": "type", "selector": "input[name='title']", "text": "Oddball Import Demo", "delay": 45 },
+        { "type": "wait", "ms": 1600 },
+        { "type": "click", "selector": "[data-action='close-custom-entry']" },
+        { "type": "wait", "ms": 700 }
+      ]
+    }
+  ]
+}

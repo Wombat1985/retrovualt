@@ -132,5 +132,10 @@
       </footer>
     </main>
     <script src="/analytics.js" defer></script>
+    <div id="rv-cookie-bar" role="region" aria-label="Cookie notice" style="position:fixed;bottom:0;left:0;right:0;background:rgba(8,17,27,0.97);border-top:1px solid rgba(255,255,255,0.1);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:'Segoe UI',Arial,sans-serif;font-size:0.83rem;color:#c2d4e8;z-index:9999;box-shadow:0 -4px 20px rgba(0,0,0,0.4);">
+      <span>This site uses cookies — including Google AdSense for advertising and Google Analytics for traffic. <a href="/privacy.html" style="color:#f4a43b;text-decoration:underline;">Privacy policy</a> &nbsp;·&nbsp; <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" style="color:#f4a43b;text-decoration:underline;">Opt out of personalised ads</a>.</span>
+      <button onclick="document.getElementById('rv-cookie-bar').remove();localStorage.setItem('rv-ck','1')" style="margin-left:auto;background:#f4a43b;color:#08111b;border:none;border-radius:6px;padding:7px 18px;font-size:0.83rem;font-weight:700;cursor:pointer;white-space:nowrap;">Got it</button>
+    </div>
+    <script>if(localStorage.getItem('rv-ck')){var _b=document.getElementById('rv-cookie-bar');if(_b)_b.style.display='none';}</script>
   </body>
 </html>

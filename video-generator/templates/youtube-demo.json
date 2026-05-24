@@ -1,0 +1,130 @@
+{
+  "type": "full_youtube_demo",
+  "name": "Retro Vault Elite YouTube Demo",
+  "baseUrl": "https://www.retrovaultelite.com/",
+  "voiceoverScript": [
+    "Retro Vault Elite is built for retro game collectors who want something cleaner than a spreadsheet and more collector-first than a generic checklist.",
+    "You can browse full retro libraries, search fast, open detailed game views, and keep track of what you own and what you still want.",
+    "The vault is built around the way collectors actually think, including condition, editions, values, and the oddball titles that get missed elsewhere.",
+    "Missing something obscure? Add your own private entry and keep moving instead of waiting around for someone else to approve it.",
+    "Barcode and ID tools are built in, and the next step is making the beta trade system feel naturally connected to the vault.",
+    "It is still early, but it keeps getting better from collector feedback, which is exactly how it should grow."
+  ],
+  "youtubeTitleOptions": [
+    "Retro Vault Elite Demo | A Collector-First Retro Game Tracker",
+    "I Built a Retro Game Collection Tracker for Serious Collectors",
+    "Retro Vault Elite Walkthrough | Tracking, Wanted Lists, and Trade Beta"
+  ],
+  "youtubeDescription": "A walkthrough of Retro Vault Elite, a collector-first retro game collection tracker built around owned games, wanted games, custom entries, prices, and a beta trade direction shaped by community feedback.",
+  "socialPostText": {
+    "youtube": "A full walkthrough of Retro Vault Elite and the collector-first features added recently.",
+    "reddit": "A proper walkthrough of Retro Vault Elite for collectors who wanted to see how the vault, custom entries, pricing, and trade direction fit together.",
+    "x": "Retro Vault Elite walkthrough: collection tracking, wanted games, custom entries, pricing, and where the trade beta is heading."
+  },
+  "thumbnailTextIdeas": [
+    "Built for Collectors",
+    "Track Retro Better",
+    "Retro Vault Demo",
+    "Wanted. Owned. Trade."
+  ],
+  "defaultFormats": ["landscape_1080p"],
+  "capture": {
+    "viewport": { "width": 1600, "height": 900 },
+    "fps": 30,
+    "browserChannel": "msedge"
+  },
+  "scenes": [
+    {
+      "id": "hero",
+      "durationMs": 12000,
+      "overlay": { "headline": "Built for retro collectors", "subheadline": "Track, search, and browse without spreadsheet chaos" },
+      "caption": "Retro Vault Elite puts your collection and your wanted list in one place.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1800 },
+        { "type": "smoothScroll", "by": 540, "durationMs": 4200 },
+        { "type": "wait", "ms": 2200 },
+        { "type": "smoothScroll", "by": -540, "durationMs": 2400 }
+      ]
+    },
+    {
+      "id": "search",
+      "durationMs": 12000,
+      "overlay": { "headline": "Find games fast", "subheadline": "Search by title and jump straight into detail" },
+      "caption": "Search is quick enough for broad vault browsing and precise enough for real collecting sessions.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1500 },
+        { "type": "click", "selector": "#search-input" },
+        { "type": "type", "selector": "#search-input", "text": "Chrono Trigger", "delay": 60 },
+        { "type": "wait", "ms": 2000 },
+        { "type": "click", "selector": ".catalog-grid .game-card:first-child .ghost-button[data-action='open-details']" },
+        { "type": "wait", "ms": 3200 },
+        { "type": "click", "selector": ".modal-close" },
+        { "type": "wait", "ms": 1400 }
+      ]
+    },
+    {
+      "id": "wanted",
+      "durationMs": 12000,
+      "overlay": { "headline": "Track what you still want", "subheadline": "Wanted games stay tied to the same vault flow" },
+      "caption": "Mark titles as wanted and keep your hunt list inside the same collector view.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1500 },
+        { "type": "click", "selector": "#search-input" },
+        { "type": "type", "selector": "#search-input", "text": "Zelda", "delay": 60 },
+        { "type": "wait", "ms": 1800 },
+        { "type": "click", "selector": ".catalog-grid .game-card:first-child .ghost-button[data-action='toggle-wanted']" },
+        { "type": "wait", "ms": 3000 },
+        { "type": "click", "selector": ".catalog-grid .game-card:first-child .ghost-button[data-action='open-details']" },
+        { "type": "wait", "ms": 2500 }
+      ]
+    },
+    {
+      "id": "custom",
+      "durationMs": 14000,
+      "overlay": { "headline": "Add the weird stuff too", "subheadline": "Custom entries keep obscure games from stopping the flow" },
+      "caption": "If the database misses something obscure, you can add it and keep cataloging right away.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1400 },
+        { "type": "click", "selector": "[data-action='open-custom-entry']" },
+        { "type": "wait", "ms": 1200 },
+        { "type": "type", "selector": "input[name='title']", "text": "Space Dungeon Homebrew", "delay": 50 },
+        { "type": "type", "selector": "input[name='console']", "text": "NES", "delay": 40 },
+        { "type": "type", "selector": "input[name='region']", "text": "North America", "delay": 40 },
+        { "type": "wait", "ms": 3500 },
+        { "type": "click", "selector": "[data-action='close-custom-entry']" },
+        { "type": "wait", "ms": 2200 }
+      ]
+    },
+    {
+      "id": "scanner",
+      "durationMs": 10000,
+      "overlay": { "headline": "Barcode and ID tools", "subheadline": "Built for collectors dealing with real-world variants" },
+      "caption": "Barcode and ID linking is built in, with more collector-grade matching still being improved.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1300 },
+        { "type": "click", "selector": "[data-action='open-scanner']" },
+        { "type": "wait", "ms": 1800 },
+        { "type": "hover", "selector": ".scanner-modal .card-actions .toggle-button:nth-of-type(2)" },
+        { "type": "wait", "ms": 1200 },
+        { "type": "wait", "ms": 3500 }
+      ]
+    },
+    {
+      "id": "trade-beta",
+      "durationMs": 10000,
+      "overlay": { "headline": "Trade beta is on the way", "subheadline": "Collector feedback is shaping how it surfaces inside the vault" },
+      "caption": "The beta trade direction is being built into the vault itself so it feels natural instead of bolted on.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1600 },
+        { "type": "smoothScroll", "by": 860, "durationMs": 4200 },
+        { "type": "wait", "ms": 2600 }
+      ]
+    }
+  ]
+}

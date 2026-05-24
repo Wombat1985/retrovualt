@@ -22,9 +22,16 @@
     "outreach:night": "node scripts/outreach-runner.mjs --nightly",
     "outreach:prep": "node scripts/outreach-runner.mjs --nightly --open-all",
     "catalog:enrich-years:ps": "powershell -ExecutionPolicy Bypass -File scripts/enrich-retro-years.ps1",
-    "load:test": "node scripts/load-test.mjs"
+    "load:test": "node scripts/load-test.mjs",
+    "video:capture": "node video-generator/scripts/capture-site.js",
+    "video:captions": "node video-generator/scripts/generate-captions.js",
+    "video:generate": "node video-generator/scripts/generate-video.js",
+    "video:demo": "node video-generator/scripts/generate-video.js --type full_youtube_demo",
+    "video:short": "node video-generator/scripts/generate-video.js --type short_ad"
   },
   "devDependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "playwright": "^1.59.1",
     "typescript": "~6.0.2",
     "vite": "^8.0.4"
   },

@@ -30,6 +30,79 @@ If you want the frontend to point somewhere other than `http://127.0.0.1:8787`, 
 npm run build
 ```
 
+## Generate short-form promo videos
+
+This repo already includes a working browser-capture + FFmpeg pipeline under [C:\Users\krist\OneDrive\Desktop\retro-game-collector\video-generator](C:\Users\krist\OneDrive\Desktop\retro-game-collector\video-generator). The short-form batch system builds on that instead of creating a second video stack.
+
+Editable config lives in:
+
+- [C:\Users\krist\OneDrive\Desktop\retro-game-collector\video-assets\short-form-videos.json](C:\Users\krist\OneDrive\Desktop\retro-game-collector\video-assets\short-form-videos.json)
+
+What you can edit there:
+
+- hook text
+- scene captions
+- voiceover text
+- YouTube title and description copy
+- Reddit and X post copy
+- base URL
+- demo account credentials for auth-required videos
+
+Before the first run:
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+Optional:
+
+- Drop a licensed `.mp3`, `.wav`, `.m4a`, `.aac`, or `.ogg` track into [C:\Users\krist\OneDrive\Desktop\retro-game-collector\video-assets\music](C:\Users\krist\OneDrive\Desktop\retro-game-collector\video-assets\music). If you do not, the system falls back to generated retro audio.
+- Update the demo account credentials in the config if you want the trade/auth videos to log into a different account.
+
+Generate all 10 vertical videos:
+
+```bash
+node video-generator/scripts/generate-short-form-batch.js
+```
+
+Generate just one video:
+
+```bash
+node video-generator/scripts/generate-short-form-batch.js --only 4
+```
+
+Skip the demo-account seed step:
+
+```bash
+node video-generator/scripts/generate-short-form-batch.js --skipAuthSeed
+```
+
+Outputs land here:
+
+- final vertical videos: [C:\Users\krist\OneDrive\Desktop\retro-game-collector\generated-videos](C:\Users\krist\OneDrive\Desktop\retro-game-collector\generated-videos)
+- working capture/render runs: [C:\Users\krist\OneDrive\Desktop\retro-game-collector\video-generator\exports](C:\Users\krist\OneDrive\Desktop\retro-game-collector\video-generator\exports)
+
+The batch also writes:
+
+- `captions.txt`
+- `reddit-ad-titles.txt`
+- `youtube-shorts-descriptions.txt`
+- `x-posts.txt`
+
+All final videos are exported as `1080x1920` MP4 files named:
+
+- `01-collection-tracker.mp4`
+- `02-duplicates-for-trade.mp4`
+- `03-wanted-list.mp4`
+- `04-trade-matches.mp4`
+- `05-no-more-spreadsheets.mp4`
+- `06-collector-vision.mp4`
+- `07-feature-feedback.mp4`
+- `08-discogs-for-games.mp4`
+- `09-private-user-trading.mp4`
+- `10-built-for-collectors.mp4`
+
 ## Sync mobile builds
 
 ```bash

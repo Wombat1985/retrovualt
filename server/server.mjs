@@ -573,13 +573,10 @@ function isAdminRequest(request, url) {
 }
 
 function timingSafeStringEqual(a, b) {
-  const left = Buffer.from(a)
-  const right = Buffer.from(b)
-
-  if (left.length !== right.length) {
-    return false
-  }
-
+  // Hash both values to a fixed length before comparing so an early-exit on
+  // length mismatch can't be used to determine the correct key length.
+  const left  = createHash('sha256').update(String(a)).digest()
+  const right = createHash('sha256').update(String(b)).digest()
   return timingSafeEqual(left, right)
 }
 

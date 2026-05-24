@@ -1,0 +1,69 @@
+{
+  "extends": "short-ad.json",
+  "type": "beta_announcement",
+  "name": "Beta Announcement",
+  "voiceoverScript": [
+    "Retro Vault Elite is still early, but it is moving fast because collector feedback is driving the updates.",
+    "Pricing, custom entries, IDs, speed work, and the trade beta are all being pushed forward in public.",
+    "If you collect, now is a good time to jump in and help shape it."
+  ],
+  "youtubeTitleOptions": [
+    "Retro Vault Elite Beta Update",
+    "Collector-First Beta Announcement",
+    "Retro Vault Elite | Early Beta Update"
+  ],
+  "youtubeDescription": "A short beta announcement cut for Retro Vault Elite, focused on recent collector-first updates and the early trade direction.",
+  "socialPostText": {
+    "instagram": "Still early. Moving fast. Built from collector feedback.",
+    "reddit": "Quick beta update for Retro Vault Elite. A lot of the recent work has come straight from collector feedback.",
+    "x": "Retro Vault Elite beta update: faster vault, fresh pricing, custom entries, IDs, and more collector-first fixes."
+  },
+  "thumbnailTextIdeas": [
+    "Beta Update",
+    "Built in Public",
+    "Collector Feedback"
+  ],
+  "defaultFormats": ["vertical_1080x1920", "square_1080x1080"],
+  "scenes": [
+    {
+      "id": "hook",
+      "durationMs": 6000,
+      "overlay": { "headline": "Collector-first beta", "subheadline": "Built from real feedback" },
+      "caption": "Retro Vault Elite keeps improving in public, with collectors shaping what gets built next.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1600 },
+        { "type": "smoothScroll", "by": 300, "durationMs": 2200 },
+        { "type": "wait", "ms": 1500 }
+      ]
+    },
+    {
+      "id": "custom",
+      "durationMs": 7000,
+      "overlay": { "headline": "Missing titles? Add them.", "subheadline": "Keep cataloging instead of getting stuck" },
+      "caption": "Custom entries are there so obscure and missing games do not break your flow.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1400 },
+        { "type": "click", "selector": "[data-action='open-custom-entry']" },
+        { "type": "wait", "ms": 1200 },
+        { "type": "type", "selector": "input[name='title']", "text": "Japan-only Test Press", "delay": 50 },
+        { "type": "wait", "ms": 2000 },
+        { "type": "click", "selector": "[data-action='close-custom-entry']" },
+        { "type": "wait", "ms": 900 }
+      ]
+    },
+    {
+      "id": "trade-beta",
+      "durationMs": 7000,
+      "overlay": { "headline": "Trade beta is being tested", "subheadline": "Wanted games will connect to it" },
+      "caption": "The beta trade direction is to make wanted games and trade interest feel connected inside the vault.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1500 },
+        { "type": "smoothScroll", "by": 760, "durationMs": 3000 },
+        { "type": "wait", "ms": 1700 }
+      ]
+    }
+  ]
+}

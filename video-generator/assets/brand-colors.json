@@ -1,0 +1,13 @@
+{
+  "background": "#09111B",
+  "panel": "#101A2A",
+  "panelSoft": "#162235",
+  "text": "#F4F8FF",
+  "muted": "#A8B8CA",
+  "accent": "#F79B32",
+  "accent2": "#FFD66E",
+  "danger": "#FF8F8F",
+  "good": "#58D8AA",
+  "brandRed": "#FF2A33",
+  "brandBlue": "#0E1730"
+}

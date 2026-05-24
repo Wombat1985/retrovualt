@@ -1,9 +1,11 @@
 import { Capacitor } from '@capacitor/core'
 import { AdMob, BannerAd, MaxAdContentRating, TrackingAuthorizationStatus } from '@capgo/capacitor-admob'
 
-const TEST_MODE = true
-const ANDROID_BANNER_AD_UNIT = 'ca-app-pub-3940256099942544/6300978111'
-const IOS_BANNER_AD_UNIT = 'ca-app-pub-3940256099942544/2435281174'
+// TEST_MODE uses Google's sample ad unit IDs (no revenue).
+// Set your real ad unit IDs below before releasing to the app stores.
+const TEST_MODE = !import.meta.env.PROD
+const ANDROID_BANNER_AD_UNIT = import.meta.env.VITE_ADMOB_ANDROID_BANNER ?? 'ca-app-pub-3940256099942544/6300978111'
+const IOS_BANNER_AD_UNIT     = import.meta.env.VITE_ADMOB_IOS_BANNER     ?? 'ca-app-pub-3940256099942544/2435281174'
 
 let started = false
 let bannerShown = false

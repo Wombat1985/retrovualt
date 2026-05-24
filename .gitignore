@@ -27,3 +27,8 @@ dist-ssr
 android/keystore.properties
 server/data/
 server/*.log
+
+# Generated video exports and raw media assets
+generated-videos/
+video-assets/
+video-generator/exports/

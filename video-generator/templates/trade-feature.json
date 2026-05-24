@@ -1,0 +1,68 @@
+{
+  "extends": "short-ad.json",
+  "type": "trade_feature",
+  "name": "Trade Feature Beta",
+  "voiceoverScript": [
+    "Retro Vault Elite is turning the vault into a place where trade interest can surface naturally while you browse.",
+    "Mark what you want, spot tradable titles, and keep the whole collector flow in one place.",
+    "The trade side is still early, but it is being shaped directly by collector feedback."
+  ],
+  "youtubeTitleOptions": [
+    "Retro Vault Elite Trade Beta | Collector-to-Collector Direction",
+    "Trade Feature Beta | Retro Vault Elite",
+    "Wanted Games and Trade Beta in Retro Vault Elite"
+  ],
+  "youtubeDescription": "A short trade-focused promo for Retro Vault Elite, showing how wanted tracking and the beta trade direction are being connected back into the vault.",
+  "socialPostText": {
+    "instagram": "Wanted lists, tradable games, and a trade beta being built right into the vault.",
+    "reddit": "Quick trade beta update clip for Retro Vault Elite. The goal is to make trade opportunities feel natural while you browse.",
+    "x": "Trade beta update: wanted games and collector-to-collector trade direction inside the Retro Vault Elite vault."
+  },
+  "thumbnailTextIdeas": [
+    "Trade Beta",
+    "Wanted to Trade",
+    "Collectors Trading"
+  ],
+  "defaultFormats": ["vertical_1080x1920", "landscape_1080p"],
+  "scenes": [
+    {
+      "id": "hook",
+      "durationMs": 6000,
+      "overlay": { "headline": "Trade starts in the vault", "subheadline": "No separate marketplace headache" },
+      "caption": "Retro Vault Elite is testing a trade flow that feels connected to normal collecting.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1500 },
+        { "type": "smoothScroll", "by": 320, "durationMs": 2100 },
+        { "type": "wait", "ms": 1600 }
+      ]
+    },
+    {
+      "id": "wanted",
+      "durationMs": 7000,
+      "overlay": { "headline": "Mark what you want", "subheadline": "Keep the hunt list close" },
+      "caption": "Wanted games stay tied to the same vault flow, ready for future trade interest.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1400 },
+        { "type": "click", "selector": "#search-input" },
+        { "type": "type", "selector": "#search-input", "text": "Castlevania", "delay": 55 },
+        { "type": "wait", "ms": 1500 },
+        { "type": "click", "selector": ".catalog-grid .game-card:first-child .ghost-button[data-action='toggle-wanted']" },
+        { "type": "wait", "ms": 2300 }
+      ]
+    },
+    {
+      "id": "trade-beta",
+      "durationMs": 7000,
+      "overlay": { "headline": "Trade beta is growing", "subheadline": "Built from real collector feedback" },
+      "caption": "The trade side is still early, but the direction is to make matching and requests feel seamless.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1500 },
+        { "type": "smoothScroll", "by": 780, "durationMs": 3200 },
+        { "type": "wait", "ms": 1800 }
+      ]
+    }
+  ]
+}

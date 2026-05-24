@@ -1,0 +1,21 @@
+{
+  "extends": "collection-tracker.json",
+  "type": "reddit_demo",
+  "name": "Reddit Demo",
+  "youtubeTitleOptions": [
+    "Retro Vault Elite Reddit Update",
+    "What Changed in Retro Vault Elite",
+    "Collector Feedback Update | Retro Vault Elite"
+  ],
+  "youtubeDescription": "A Reddit-friendly update cut for Retro Vault Elite focused on collector feedback, vault speed, missing games, and custom entries.",
+  "socialPostText": {
+    "reddit": "A fresh update clip for Retro Vault Elite focused on what has changed from collector feedback.",
+    "x": "Retro Vault Elite update clip: faster vault, wanted tracking, and custom entries for the weird stuff."
+  },
+  "thumbnailTextIdeas": [
+    "Fresh Update",
+    "Built from Feedback",
+    "Worth Another Look"
+  ],
+  "defaultFormats": ["landscape_1080p", "square_1080x1080"]
+}

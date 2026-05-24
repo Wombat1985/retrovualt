@@ -1,0 +1,89 @@
+{
+  "extends": "youtube-demo.json",
+  "type": "collection_tracker",
+  "name": "Collection Tracker Focus",
+  "voiceoverScript": [
+    "Retro Vault Elite is built for collectors who want to keep the whole collection in one place.",
+    "Track what you own, what you still want, and the oddball titles that usually fall through the cracks.",
+    "It is made to feel faster and cleaner than juggling a spreadsheet and three different apps."
+  ],
+  "youtubeTitleOptions": [
+    "Retro Vault Elite | Collection Tracker Walkthrough",
+    "Track Your Retro Collection in One Place",
+    "Retro Vault Elite Collection Tracker Demo"
+  ],
+  "youtubeDescription": "A collection-tracker-focused walkthrough of Retro Vault Elite, showing search, wanted games, custom entries, and the collector-first vault flow.",
+  "socialPostText": {
+    "youtube": "A tighter walkthrough focused on the collection tracking side of Retro Vault Elite.",
+    "reddit": "A collection-tracker-focused update clip for Retro Vault Elite. Search, wanted games, and custom entries are the main focus here.",
+    "x": "Track your retro collection, wanted list, and obscure finds in one place with Retro Vault Elite."
+  },
+  "thumbnailTextIdeas": [
+    "Track It All",
+    "Collection Tracker",
+    "One Vault"
+  ],
+  "defaultFormats": ["landscape_1080p", "feed_1080x1350"],
+  "scenes": [
+    {
+      "id": "hero",
+      "durationMs": 9000,
+      "overlay": { "headline": "One vault for the collection", "subheadline": "Owned, wanted, and collector detail" },
+      "caption": "Retro Vault Elite keeps the collection and the wanted list together in one clean flow.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1600 },
+        { "type": "smoothScroll", "by": 420, "durationMs": 3000 },
+        { "type": "wait", "ms": 1800 }
+      ]
+    },
+    {
+      "id": "search",
+      "durationMs": 9000,
+      "overlay": { "headline": "Find what you need fast", "subheadline": "Built for real browsing sessions" },
+      "caption": "Search is fast enough to browse big libraries without losing the collector feel.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1400 },
+        { "type": "click", "selector": "#search-input" },
+        { "type": "type", "selector": "#search-input", "text": "Mega Man", "delay": 55 },
+        { "type": "wait", "ms": 1500 },
+        { "type": "click", "selector": ".catalog-grid .game-card:first-child .ghost-button[data-action='open-details']" },
+        { "type": "wait", "ms": 2200 },
+        { "type": "click", "selector": ".modal-close" },
+        { "type": "wait", "ms": 900 }
+      ]
+    },
+    {
+      "id": "wanted",
+      "durationMs": 8000,
+      "overlay": { "headline": "Keep the hunt list alive", "subheadline": "Wanted games stay inside the vault" },
+      "caption": "Wanted tracking is built into the same place you already browse and catalog.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1400 },
+        { "type": "click", "selector": "#search-input" },
+        { "type": "type", "selector": "#search-input", "text": "Zelda", "delay": 55 },
+        { "type": "wait", "ms": 1500 },
+        { "type": "click", "selector": ".catalog-grid .game-card:first-child .ghost-button[data-action='toggle-wanted']" },
+        { "type": "wait", "ms": 2200 }
+      ]
+    },
+    {
+      "id": "custom",
+      "durationMs": 9000,
+      "overlay": { "headline": "Add the missing stuff", "subheadline": "Do not let obscure games stop you" },
+      "caption": "Custom entries keep you moving when the official database misses something strange or niche.",
+      "actions": [
+        { "type": "goto", "path": "/" },
+        { "type": "wait", "ms": 1400 },
+        { "type": "click", "selector": "[data-action='open-custom-entry']" },
+        { "type": "wait", "ms": 1200 },
+        { "type": "type", "selector": "input[name='title']", "text": "Lost Prototype Sample", "delay": 50 },
+        { "type": "wait", "ms": 2600 },
+        { "type": "click", "selector": "[data-action='close-custom-entry']" },
+        { "type": "wait", "ms": 900 }
+      ]
+    }
+  ]
+}
