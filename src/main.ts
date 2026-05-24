@@ -765,7 +765,7 @@ function loadVaultStartupSnapshots() {
         const savedAt = typeof snapshot.savedAt === 'string' ? snapshot.savedAt : ''
         const accountEmail = typeof snapshot.accountEmail === 'string' ? snapshot.accountEmail.trim().toLowerCase() : email.trim().toLowerCase()
 
-        if (!accountEmail || !savedAt || (!ownedGames.length && !wantedGames.length && !Object.keys(library).length)) {
+        if (!accountEmail || !savedAt) {
           return []
         }
 
@@ -818,6 +818,66 @@ function mergeStartupLibrary(localLibrary: Record<string, GameRecord>, startupLi
       return [[id, normalizeGameRecord(record)]]
     }),
   )
+}
+
+function buildVaultStartupSnapshotFromCurrentState() {
+  if (!state.authToken || !state.accountEmail) {
+    return null
+  }
+
+  const existingSnapshot = loadVaultStartupSnapshot(state.accountEmail.trim().toLowerCase())
+  const existingOwnedById = new Map((existingSnapshot?.ownedGames ?? []).map((game) => [game.id, game]))
+  const existingWantedById = new Map((existingSnapshot?.wantedGames ?? []).map((game) => [game.id, game]))
+
+  const startupLibrary = Object.fromEntries(
+    Object.entries(state.library).flatMap(([id, record]) => {
+      const safeRecord = normalizeGameRecord(record)
+
+      if (safeRecord.status !== 'owned' && safeRecord.status !== 'wanted') {
+        return []
+      }
+
+      return [[id, safeRecord]]
+    }),
+  )
+
+  const ownedGames: CatalogEntry[] = []
+  const wantedGames: CatalogEntry[] = []
+
+  for (const [id, record] of Object.entries(startupLibrary)) {
+    const game =
+      getGameById(id) ??
+      existingOwnedById.get(id) ??
+      existingWantedById.get(id) ??
+      null
+
+    if (!game) {
+      continue
+    }
+
+    if (record.status === 'owned') {
+      ownedGames.push(game)
+    } else if (record.status === 'wanted') {
+      wantedGames.push(game)
+    }
+  }
+
+  return {
+    accountEmail: state.accountEmail.trim().toLowerCase(),
+    library: startupLibrary,
+    ownedGames,
+    wantedGames,
+    savedAt: new Date().toISOString(),
+  } satisfies VaultStartupSnapshot
+}
+
+function persistVaultStartupSnapshotFromCurrentState() {
+  const snapshot = buildVaultStartupSnapshotFromCurrentState()
+  if (!snapshot) {
+    return
+  }
+
+  saveVaultStartupSnapshot(snapshot)
 }
 
 function getHeroStatsSnapshotForSync() {
@@ -1043,6 +1103,7 @@ function flushLibrarySave() {
   }
 
   localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
+  persistVaultStartupSnapshotFromCurrentState()
 }
 
 function loadCustomCatalog(): CatalogEntry[] {
@@ -1062,6 +1123,7 @@ function loadCustomCatalog(): CatalogEntry[] {
 
 function saveCustomCatalog() {
   localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
+  persistVaultStartupSnapshotFromCurrentState()
   scheduleCloudSync()
 }
 
@@ -1392,6 +1454,7 @@ function saveLocalCollectionState() {
   localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
   localStorage.setItem(DELETED_GAME_IDS_STORAGE_KEY, JSON.stringify(state.deletedGameIds))
   saveActivityEvents()
+  persistVaultStartupSnapshotFromCurrentState()
 }
 
 function loadBarcodeMappings() {
@@ -4505,6 +4568,7 @@ function applyRemoteSyncState(syncState: {
   localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
   localStorage.setItem(DELETED_GAME_IDS_STORAGE_KEY, JSON.stringify(state.deletedGameIds))
   saveActivityEvents()
+  persistVaultStartupSnapshotFromCurrentState()
 }
 
 function scheduleCloudSync() {
