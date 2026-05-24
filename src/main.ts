@@ -2933,12 +2933,40 @@ function getFilteredGames() {
   }
 
   const searchValue = state.search.trim()
+  const startupSnapshot = state.authToken && !hasCompleteCatalogLoaded() ? getCurrentVaultStartupSnapshot() : null
+  const startupOwnedCatalog = startupSnapshot?.ownedGames ?? []
+  const startupWantedCatalog = startupSnapshot?.wantedGames ?? []
+  const shouldUseOwnedStartupCatalog =
+    Boolean(startupSnapshot) &&
+    state.consoleFilter === 'All consoles' &&
+    state.regionFilter === 'All regions' &&
+    state.yearFilter === 'All years' &&
+    state.releaseTypeFilter === 'All release types' &&
+    state.letterFilter === '' &&
+    !searchValue &&
+    state.ownershipFilter === 'owned' &&
+    startupOwnedCatalog.length > 0
+  const shouldUseWantedStartupCatalog =
+    Boolean(startupSnapshot) &&
+    state.consoleFilter === 'All consoles' &&
+    state.regionFilter === 'All regions' &&
+    state.yearFilter === 'All years' &&
+    state.releaseTypeFilter === 'All release types' &&
+    state.letterFilter === '' &&
+    !searchValue &&
+    state.ownershipFilter === 'wanted' &&
+    startupWantedCatalog.length > 0
+
   const activeCatalog =
-    state.consoleFilter === 'All consoles'
-      ? getCatalog()
-      : state.consoleFilter === LEGENDS_FILTER
-        ? deduplicateLegends(getCatalog().filter(isLegendGame))
-        : getCatalog().filter((game) => game.console === state.consoleFilter)
+    shouldUseOwnedStartupCatalog
+      ? startupOwnedCatalog
+      : shouldUseWantedStartupCatalog
+        ? startupWantedCatalog
+        : state.consoleFilter === 'All consoles'
+          ? getCatalog()
+          : state.consoleFilter === LEGENDS_FILTER
+            ? deduplicateLegends(getCatalog().filter(isLegendGame))
+            : getCatalog().filter((game) => game.console === state.consoleFilter)
 
   filteredGamesCache = activeCatalog
     .filter((game) => state.regionFilter === 'All regions' || game.region === state.regionFilter)
