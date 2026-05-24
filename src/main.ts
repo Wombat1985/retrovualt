@@ -371,8 +371,13 @@ const appElement = document.querySelector<HTMLDivElement>('#app')
 const initialAuthToken = loadAuthToken()
 const initialAuthProfile = loadAuthProfile()
 const initialLibrary = loadLibrary()
+const initialHeroStats = loadHeroStatsSnapshot()
 const initialSignedInOwnedCount = Object.values(initialLibrary).filter((record) => normalizeGameRecord(record).status === 'owned').length
-const shouldStartInVaultView = Boolean(initialAuthToken) && initialSignedInOwnedCount > 0
+const initialSnapshotOwnedCount =
+  initialHeroStats && initialHeroStats.accountEmail === initialAuthProfile.email
+    ? initialHeroStats.ownedCount
+    : 0
+const shouldStartInVaultView = Boolean(initialAuthToken) && Math.max(initialSignedInOwnedCount, initialSnapshotOwnedCount) > 0
 let catalogCache: CatalogEntry[] | null = null
 let catalogCacheKey = ''
 let catalogByIdCache = new Map<string, CatalogEntry>()
@@ -1009,6 +1014,16 @@ function getOwnedRecordCount(library: Record<string, GameRecord> = state.library
   return Object.values(library).reduce((total, record) => total + (normalizeGameRecord(record).status === 'owned' ? 1 : 0), 0)
 }
 
+function getOwnedVaultHintCount(library: Record<string, GameRecord> = state.library) {
+  const directOwnedCount = getOwnedRecordCount(library)
+  const cachedOwnedCount =
+    state.cachedHeroStats && state.cachedHeroStats.accountEmail === (state.accountEmail || '')
+      ? state.cachedHeroStats.ownedCount
+      : 0
+
+  return Math.max(directOwnedCount, cachedOwnedCount)
+}
+
 function isGuestDiscoveryDefaultActive() {
   return (
     state.consoleFilter === LEGENDS_FILTER &&
@@ -1032,7 +1047,7 @@ function applyGuestDiscoveryDefaultView() {
 }
 
 function applySignedInVaultDefaultView(force = false) {
-  if (!state.authToken || getOwnedRecordCount() === 0) {
+  if (!state.authToken || getOwnedVaultHintCount() === 0) {
     return
   }
 
