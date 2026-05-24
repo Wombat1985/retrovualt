@@ -3078,7 +3078,7 @@ function updateHeroStatsSnapshot(summary: DashboardSummary) {
 }
 
 function updateVaultStartupSnapshot(summary: DashboardSummary) {
-  if (!state.authToken || !hasCompleteCatalogLoaded() || !state.accountEmail) {
+  if (!state.authToken || !state.accountEmail) {
     return
   }
 
@@ -10822,6 +10822,7 @@ async function loadGeneratedCatalog() {
         state.loadedConsoles = [...new Set(parsedMeta.map((entry) => entry.console))]
         state.catalogLoadError = false
         invalidateCatalogCache()
+        persistVaultStartupSnapshotFromCurrentState()
         scheduleCatalogSnapshotSave()
         requestBackgroundCatalogRefresh()
       } catch {
@@ -10868,6 +10869,7 @@ async function loadGeneratedCatalog() {
         state.catalogLoadError = false
         state.isCatalogLoading = false
         invalidateCatalogCache()
+        persistVaultStartupSnapshotFromCurrentState()
         if (!prefersVaultStartup) {
           renderCatalogOnly()
           bootstrappedVisibleCatalog = true
@@ -10888,6 +10890,7 @@ async function loadGeneratedCatalog() {
       state.catalogLoadError = false
       state.isCatalogLoading = false
       invalidateCatalogCache()
+      persistVaultStartupSnapshotFromCurrentState()
       renderCatalogOnly()
       bootstrappedVisibleCatalog = true
     }
@@ -10953,10 +10956,12 @@ async function loadGeneratedCatalog() {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? state.generatedCatalog
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? state.loadedConsoles
       invalidateCatalogCache()
+      persistVaultStartupSnapshotFromCurrentState()
     } else if (cachedSnapshot?.generatedCatalog.length) {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
       invalidateCatalogCache()
+      persistVaultStartupSnapshotFromCurrentState()
       if (prefersVaultStartup) {
         void hydrateFullCatalog(parsedMeta)
       } else if (typeof window.requestIdleCallback === 'function') {
@@ -11104,6 +11109,7 @@ async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad
     state.generatedCatalog = dedupeCatalog([...state.generatedCatalog, ...consoleEntries])
     state.loadedConsoles = [...state.loadedConsoles, consoleName]
     invalidateCatalogCache()
+    persistVaultStartupSnapshotFromCurrentState()
     state.catalogLoadError = false
     scheduleCatalogSnapshotSave()
   })()
