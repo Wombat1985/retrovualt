@@ -229,6 +229,13 @@ type HeroStatsSnapshot = {
   completionPercentage: number
 }
 
+type VaultStartupSnapshot = {
+  accountEmail: string
+  ownedGames: CatalogEntry[]
+  wantedGames: CatalogEntry[]
+  savedAt: string
+}
+
 type OnboardingStep = {
   label: string
   detail: string
@@ -292,6 +299,7 @@ const TRADE_HIDE_ARCHIVED_KEY = 'retro-game-collector-trade-hide-archived'
 const PUBLIC_COMMUNITY_STATS_STORAGE_KEY = 'retro-game-collector-community-stats'
 const RECENT_VIEWED_STORAGE_KEY = 'retro-game-collector-recent-viewed'
 const HERO_STATS_STORAGE_KEY = 'retro-game-collector-hero-stats'
+const VAULT_STARTUP_STORAGE_KEY = 'retro-game-collector-vault-startup'
 const DEFAULT_CATALOG_TOTAL_GAMES = 40593
 const DEFAULT_CATALOG_TOTAL_CONSOLES = 100
 const STARTUP_VISUAL_SETTLE_MS = 20000
@@ -372,12 +380,18 @@ const initialAuthToken = loadAuthToken()
 const initialAuthProfile = loadAuthProfile()
 const initialLibrary = loadLibrary()
 const initialHeroStats = loadHeroStatsSnapshot()
+const initialVaultStartupSnapshot = loadVaultStartupSnapshot((initialAuthProfile.email || '').trim().toLowerCase())
+const initialVaultStartupCatalog = initialVaultStartupSnapshot
+  ? dedupeCatalog([...initialVaultStartupSnapshot.ownedGames, ...initialVaultStartupSnapshot.wantedGames])
+  : []
 const initialSignedInOwnedCount = Object.values(initialLibrary).filter((record) => normalizeGameRecord(record).status === 'owned').length
 const initialSnapshotOwnedCount =
-  initialHeroStats && initialHeroStats.accountEmail === initialAuthProfile.email
+  initialHeroStats && initialHeroStats.accountEmail === (initialAuthProfile.email || '').trim().toLowerCase()
     ? initialHeroStats.ownedCount
     : 0
-const shouldStartInVaultView = Boolean(initialAuthToken) && Math.max(initialSignedInOwnedCount, initialSnapshotOwnedCount) > 0
+const initialStartupVaultOwnedCount = initialVaultStartupSnapshot?.ownedGames.length ?? 0
+const shouldStartInVaultView =
+  Boolean(initialAuthToken) && Math.max(initialSignedInOwnedCount, initialSnapshotOwnedCount, initialStartupVaultOwnedCount) > 0
 let catalogCache: CatalogEntry[] | null = null
 let catalogCacheKey = ''
 let catalogByIdCache = new Map<string, CatalogEntry>()
@@ -486,11 +500,11 @@ const state = {
   newsletterStatus: '',
   resetToken: getPasswordResetToken(),
   library: initialLibrary,
-  generatedCatalog: [] as CatalogEntry[],
+  generatedCatalog: initialVaultStartupCatalog,
   catalogMeta: [] as CatalogConsoleMeta[],
   catalogTotalGames: DEFAULT_CATALOG_TOTAL_GAMES,
   catalogTotalConsoles: DEFAULT_CATALOG_TOTAL_CONSOLES,
-  loadedConsoles: [] as string[],
+  loadedConsoles: [...new Set(initialVaultStartupCatalog.map((entry) => entry.console))],
   customCatalog: loadCustomCatalog(),
   barcodeMappings: loadBarcodeMappings(),
   deletedGameIds: loadDeletedGameIds(),
@@ -708,6 +722,74 @@ function saveHeroStatsSnapshot(snapshot: HeroStatsSnapshot) {
     localStorage.setItem(HERO_STATS_STORAGE_KEY, JSON.stringify(snapshot))
   } catch {
     // Top hero stats cache should never block startup.
+  }
+}
+
+function loadVaultStartupSnapshots() {
+  try {
+    const raw = localStorage.getItem(VAULT_STARTUP_STORAGE_KEY)
+    if (!raw) return {} as Record<string, VaultStartupSnapshot>
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+
+    if (!parsed || typeof parsed !== 'object') {
+      return {} as Record<string, VaultStartupSnapshot>
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).flatMap(([email, value]) => {
+        if (!value || typeof value !== 'object') {
+          return []
+        }
+
+        const snapshot = value as Record<string, unknown>
+        const ownedGames = Array.isArray(snapshot.ownedGames)
+          ? snapshot.ownedGames.map(normalizeCatalogEntry).filter(isCatalogEntry)
+          : []
+        const wantedGames = Array.isArray(snapshot.wantedGames)
+          ? snapshot.wantedGames.map(normalizeCatalogEntry).filter(isCatalogEntry)
+          : []
+        const savedAt = typeof snapshot.savedAt === 'string' ? snapshot.savedAt : ''
+        const accountEmail = typeof snapshot.accountEmail === 'string' ? snapshot.accountEmail.trim().toLowerCase() : email.trim().toLowerCase()
+
+        if (!accountEmail || !savedAt || (!ownedGames.length && !wantedGames.length)) {
+          return []
+        }
+
+        return [[
+          accountEmail,
+          {
+            accountEmail,
+            ownedGames,
+            wantedGames,
+            savedAt,
+          } satisfies VaultStartupSnapshot,
+        ]]
+      }),
+    )
+  } catch {
+    return {} as Record<string, VaultStartupSnapshot>
+  }
+}
+
+function loadVaultStartupSnapshot(accountEmail: string) {
+  if (!accountEmail) {
+    return null
+  }
+
+  const normalizedEmail = accountEmail.trim().toLowerCase()
+  return loadVaultStartupSnapshots()[normalizedEmail] ?? null
+}
+
+function saveVaultStartupSnapshot(snapshot: VaultStartupSnapshot) {
+  try {
+    const snapshots = loadVaultStartupSnapshots()
+    snapshots[snapshot.accountEmail.trim().toLowerCase()] = {
+      ...snapshot,
+      accountEmail: snapshot.accountEmail.trim().toLowerCase(),
+    }
+    localStorage.setItem(VAULT_STARTUP_STORAGE_KEY, JSON.stringify(snapshots))
+  } catch {
+    // Startup vault cache should never block the app.
   }
 }
 
@@ -2885,6 +2967,19 @@ function updateHeroStatsSnapshot(summary: DashboardSummary) {
   saveHeroStatsSnapshot(nextSnapshot)
 }
 
+function updateVaultStartupSnapshot(summary: DashboardSummary) {
+  if (!state.authToken || !hasCompleteCatalogLoaded() || !state.accountEmail) {
+    return
+  }
+
+  saveVaultStartupSnapshot({
+    accountEmail: state.accountEmail.trim().toLowerCase(),
+    ownedGames: summary.ownedGames,
+    wantedGames: summary.wantedGames,
+    savedAt: new Date().toISOString(),
+  })
+}
+
 function getDashboardSummary(catalog: CatalogEntry[]) {
   const key = `${getLibraryStatsKey()}:${state.regionFilter}`
 
@@ -2915,6 +3010,7 @@ function getDashboardSummary(catalog: CatalogEntry[]) {
   }
   dashboardSummaryCacheKey = key
   updateHeroStatsSnapshot(dashboardSummaryCache)
+  updateVaultStartupSnapshot(dashboardSummaryCache)
 
   return dashboardSummaryCache
 }
