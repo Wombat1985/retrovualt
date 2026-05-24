@@ -231,6 +231,7 @@ type HeroStatsSnapshot = {
 
 type VaultStartupSnapshot = {
   accountEmail: string
+  library: Record<string, GameRecord>
   ownedGames: CatalogEntry[]
   wantedGames: CatalogEntry[]
   savedAt: string
@@ -378,9 +379,12 @@ const SEARCH_RENDER_DELAY_MS = 180
 const appElement = document.querySelector<HTMLDivElement>('#app')
 const initialAuthToken = loadAuthToken()
 const initialAuthProfile = loadAuthProfile()
-const initialLibrary = loadLibrary()
+const initialStoredLibrary = loadLibrary()
 const initialHeroStats = loadHeroStatsSnapshot()
 const initialVaultStartupSnapshot = loadVaultStartupSnapshot((initialAuthProfile.email || '').trim().toLowerCase())
+const initialLibrary = initialVaultStartupSnapshot
+  ? mergeStartupLibrary(initialStoredLibrary, initialVaultStartupSnapshot.library)
+  : initialStoredLibrary
 const initialVaultStartupCatalog = initialVaultStartupSnapshot
   ? dedupeCatalog([...initialVaultStartupSnapshot.ownedGames, ...initialVaultStartupSnapshot.wantedGames])
   : []
@@ -742,6 +746,16 @@ function loadVaultStartupSnapshots() {
         }
 
         const snapshot = value as Record<string, unknown>
+        const library =
+          snapshot.library && typeof snapshot.library === 'object'
+            ? Object.fromEntries(
+                Object.entries(snapshot.library as Record<string, unknown>).flatMap(([id, record]) =>
+                  typeof id === 'string' && id.trim().length > 0
+                    ? [[id, normalizeGameRecord(record)]]
+                    : [],
+                ),
+              )
+            : {}
         const ownedGames = Array.isArray(snapshot.ownedGames)
           ? snapshot.ownedGames.map(normalizeCatalogEntry).filter(isCatalogEntry)
           : []
@@ -751,7 +765,7 @@ function loadVaultStartupSnapshots() {
         const savedAt = typeof snapshot.savedAt === 'string' ? snapshot.savedAt : ''
         const accountEmail = typeof snapshot.accountEmail === 'string' ? snapshot.accountEmail.trim().toLowerCase() : email.trim().toLowerCase()
 
-        if (!accountEmail || !savedAt || (!ownedGames.length && !wantedGames.length)) {
+        if (!accountEmail || !savedAt || (!ownedGames.length && !wantedGames.length && !Object.keys(library).length)) {
           return []
         }
 
@@ -759,6 +773,7 @@ function loadVaultStartupSnapshots() {
           accountEmail,
           {
             accountEmail,
+            library,
             ownedGames,
             wantedGames,
             savedAt,
@@ -791,6 +806,18 @@ function saveVaultStartupSnapshot(snapshot: VaultStartupSnapshot) {
   } catch {
     // Startup vault cache should never block the app.
   }
+}
+
+function mergeStartupLibrary(localLibrary: Record<string, GameRecord>, startupLibrary: Record<string, GameRecord>) {
+  return Object.fromEntries(
+    Object.entries({ ...startupLibrary, ...localLibrary }).flatMap(([id, record]) => {
+      if (typeof id !== 'string' || !id.trim()) {
+        return []
+      }
+
+      return [[id, normalizeGameRecord(record)]]
+    }),
+  )
 }
 
 function getHeroStatsSnapshotForSync() {
@@ -2972,8 +2999,21 @@ function updateVaultStartupSnapshot(summary: DashboardSummary) {
     return
   }
 
+  const startupLibrary = Object.fromEntries(
+    Object.entries(state.library).flatMap(([id, record]) => {
+      const safeRecord = normalizeGameRecord(record)
+
+      if (safeRecord.status !== 'owned' && safeRecord.status !== 'wanted') {
+        return []
+      }
+
+      return [[id, safeRecord]]
+    }),
+  )
+
   saveVaultStartupSnapshot({
     accountEmail: state.accountEmail.trim().toLowerCase(),
+    library: startupLibrary,
     ownedGames: summary.ownedGames,
     wantedGames: summary.wantedGames,
     savedAt: new Date().toISOString(),
