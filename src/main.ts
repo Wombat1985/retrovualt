@@ -7667,7 +7667,7 @@ function renderNow() {
       <header class="hero-panel">
         <div class="hero-copy">
           <a href="/" class="site-logo" aria-label="Retro Vault Elite home">
-            <img class="site-logo__image" src="/logo.svg" alt="Retro Vault Elite" width="268" height="48" decoding="async" fetchpriority="high" />
+            <img class="site-logo__image" src="/retro-vault-elite-logo.png" alt="Retro Vault Elite" width="320" height="320" decoding="async" fetchpriority="high" />
           </a>
           <h1>${isSignedIn ? 'Your collection' : 'Track your collection, build a wanted list, and trade duplicates with other collectors.'}</h1>
           <p class="hero-text">
