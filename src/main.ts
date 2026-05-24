@@ -368,6 +368,11 @@ const COMPACT_VISIBLE_GAME_COUNT = 32
 const COMPACT_VISIBLE_GAME_INCREMENT = 32
 const SEARCH_RENDER_DELAY_MS = 180
 const appElement = document.querySelector<HTMLDivElement>('#app')
+const initialAuthToken = loadAuthToken()
+const initialAuthProfile = loadAuthProfile()
+const initialLibrary = loadLibrary()
+const initialSignedInOwnedCount = Object.values(initialLibrary).filter((record) => normalizeGameRecord(record).status === 'owned').length
+const shouldStartInVaultView = Boolean(initialAuthToken) && initialSignedInOwnedCount > 0
 let catalogCache: CatalogEntry[] | null = null
 let catalogCacheKey = ''
 let catalogByIdCache = new Map<string, CatalogEntry>()
@@ -454,20 +459,20 @@ const currencyOptions = [
 const state = {
   search: '',
   heroSearchDraft: '',
-  consoleFilter: LEGENDS_FILTER,
+  consoleFilter: shouldStartInVaultView ? 'All consoles' : LEGENDS_FILTER,
   regionFilter: 'All regions',
   yearFilter: 'All years',
   releaseTypeFilter: 'All release types' as ReleaseTypeFilter,
-  ownershipFilter: 'all' as OwnershipFilter,
+  ownershipFilter: (shouldStartInVaultView ? 'owned' : 'all') as OwnershipFilter,
   sortMode: 'title' as SortMode,
   letterFilter: '',
   visibleGameCount: getInitialVisibleGameCount(),
   currencyCode: loadCurrencyCode(),
-  authToken: loadAuthToken(),
-  accountEmail: loadAuthProfile().email,
-  accountDisplayName: loadAuthProfile().displayName,
-  accountHydrationPending: Boolean(loadAuthToken()),
-  syncStatus: loadAuthToken() ? 'Restoring account session...' : 'Saved on this device',
+  authToken: initialAuthToken,
+  accountEmail: initialAuthProfile.email,
+  accountDisplayName: initialAuthProfile.displayName,
+  accountHydrationPending: Boolean(initialAuthToken),
+  syncStatus: initialAuthToken ? 'Restoring account session...' : 'Saved on this device',
   authView: getInitialAuthView(),
   authLoading: false,
   authError: '',
@@ -475,7 +480,7 @@ const state = {
   authEmailDraft: '',
   newsletterStatus: '',
   resetToken: getPasswordResetToken(),
-  library: loadLibrary(),
+  library: initialLibrary,
   generatedCatalog: [] as CatalogEntry[],
   catalogMeta: [] as CatalogConsoleMeta[],
   catalogTotalGames: DEFAULT_CATALOG_TOTAL_GAMES,
@@ -1000,6 +1005,50 @@ function getAccountIdentityLabel() {
     : state.accountEmail || 'collector'
 }
 
+function getOwnedRecordCount(library: Record<string, GameRecord> = state.library) {
+  return Object.values(library).reduce((total, record) => total + (normalizeGameRecord(record).status === 'owned' ? 1 : 0), 0)
+}
+
+function isGuestDiscoveryDefaultActive() {
+  return (
+    state.consoleFilter === LEGENDS_FILTER &&
+    state.ownershipFilter === 'all' &&
+    state.regionFilter === 'All regions' &&
+    state.yearFilter === 'All years' &&
+    state.releaseTypeFilter === 'All release types' &&
+    state.letterFilter === '' &&
+    !state.search.trim()
+  )
+}
+
+function applyGuestDiscoveryDefaultView() {
+  state.consoleFilter = LEGENDS_FILTER
+  state.regionFilter = 'All regions'
+  state.yearFilter = 'All years'
+  state.releaseTypeFilter = 'All release types'
+  state.ownershipFilter = 'all'
+  state.letterFilter = ''
+  resetVisibleGameCount()
+}
+
+function applySignedInVaultDefaultView(force = false) {
+  if (!state.authToken || getOwnedRecordCount() === 0) {
+    return
+  }
+
+  if (!force && !isGuestDiscoveryDefaultActive()) {
+    return
+  }
+
+  state.consoleFilter = 'All consoles'
+  state.regionFilter = 'All regions'
+  state.yearFilter = 'All years'
+  state.releaseTypeFilter = 'All release types'
+  state.ownershipFilter = 'owned'
+  state.letterFilter = ''
+  resetVisibleGameCount()
+}
+
 function loadOnboardingDismissed() {
   return localStorage.getItem(ONBOARDING_STORAGE_KEY) === 'true'
 }
@@ -1209,6 +1258,7 @@ function resetLocalCollectionState() {
   state.selectedGameId = ''
   libraryRevision += 1
   invalidateCatalogCache()
+  applyGuestDiscoveryDefaultView()
   saveLocalCollectionState()
 }
 
@@ -4283,6 +4333,7 @@ function applyRemoteSyncState(syncState: {
   state.accountDisplayName = typeof syncState.profile?.displayName === 'string' ? syncState.profile.displayName : state.accountDisplayName
   libraryRevision += 1
   invalidateCatalogCache()
+  applySignedInVaultDefaultView()
 
   localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
   localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
@@ -9879,6 +9930,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       state.syncStatus = 'Syncing your collection...'
       state.authSuccess = 'Account created. Your collection is being synced.'
       applyRemoteSyncState(payload.syncState, { mergeWithLocal: true })
+      applySignedInVaultDefaultView(true)
       await syncToCloud()
       state.accountHydrationPending = false
       state.syncStatus = 'Your collection is synced to your account'
@@ -9901,6 +9953,7 @@ async function handleAuthForm(form: HTMLFormElement) {
       saveAuthToken(payload.token)
       saveAuthProfile(payload.user.email, payload.user.displayName ?? '')
       applyRemoteSyncState(payload.syncState, { mergeWithLocal: true })
+      applySignedInVaultDefaultView(true)
       await syncToCloud()
       state.accountHydrationPending = false
       state.syncStatus = 'Your collection is synced to your account'
