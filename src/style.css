@@ -58,14 +58,6 @@ body::before {
     linear-gradient(90deg, rgba(7, 11, 20, 0.74), rgba(7, 11, 20, 0.3) 36%, rgba(7, 11, 20, 0.66) 100%),
     linear-gradient(180deg, rgba(255, 184, 88, 0.12), rgba(255, 184, 88, 0) 32%, rgba(9, 17, 27, 0.45) 100%);
   opacity: 0.96;
-  transition: background 0.4s ease;
-}
-
-body.bg-loaded::before {
-  background:
-    linear-gradient(90deg, rgba(7, 11, 20, 0.74), rgba(7, 11, 20, 0.3) 36%, rgba(7, 11, 20, 0.66) 100%),
-    linear-gradient(180deg, rgba(255, 184, 88, 0.12), rgba(255, 184, 88, 0) 32%, rgba(9, 17, 27, 0.45) 100%),
-    url('/retro-room-bg.png') center center / cover no-repeat;
 }
 
 body::after {
@@ -3630,6 +3622,8 @@ a {
   overflow: hidden;
   position: relative;
   contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 280px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(10, 18, 27, 0.96)),

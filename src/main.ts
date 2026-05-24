@@ -303,7 +303,7 @@ const HERO_STATS_STORAGE_KEY = 'retro-game-collector-hero-stats'
 const VAULT_STARTUP_STORAGE_KEY = 'retro-game-collector-vault-startup'
 const DEFAULT_CATALOG_TOTAL_GAMES = 40593
 const DEFAULT_CATALOG_TOTAL_CONSOLES = 100
-const STARTUP_VISUAL_SETTLE_MS = 8000
+const STARTUP_VISUAL_SETTLE_MS = 1500
 const CATALOG_CACHE_DB_NAME = 'retro-vault-catalog-cache'
 const CATALOG_CACHE_STORE = 'snapshots'
 const COVER_HASH_CACHE_STORE = 'cover-hashes'
@@ -10244,10 +10244,9 @@ async function handleAuthForm(form: HTMLFormElement) {
       state.authSuccess = 'Account created. Your collection is being synced.'
       applyRemoteSyncState(payload.syncState, { mergeWithLocal: true })
       applySignedInVaultDefaultView(true)
-      await syncToCloud()
       state.accountHydrationPending = false
-      state.syncStatus = 'Your collection is synced to your account'
       state.authView = 'none'
+      void syncToCloud()
       void fetchTradeNotifications()
       return
     }
@@ -10267,11 +10266,10 @@ async function handleAuthForm(form: HTMLFormElement) {
       saveAuthProfile(payload.user.email, payload.user.displayName ?? '')
       applyRemoteSyncState(payload.syncState, { mergeWithLocal: true })
       applySignedInVaultDefaultView(true)
-      await syncToCloud()
       state.accountHydrationPending = false
-      state.syncStatus = 'Your collection is synced to your account'
       state.authSuccess = 'Signed in successfully.'
       state.authView = 'none'
+      void syncToCloud()
       void fetchTradeNotifications()
       return
     }
