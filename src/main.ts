@@ -851,6 +851,8 @@ function buildVaultStartupSnapshotFromCurrentState() {
 
   const ownedGames: CatalogEntry[] = []
   const wantedGames: CatalogEntry[] = []
+  const ownedIds = new Set<string>()
+  const wantedIds = new Set<string>()
 
   for (const [id, record] of Object.entries(startupLibrary)) {
     const game =
@@ -865,8 +867,38 @@ function buildVaultStartupSnapshotFromCurrentState() {
 
     if (record.status === 'owned') {
       ownedGames.push(game)
+      ownedIds.add(id)
     } else if (record.status === 'wanted') {
       wantedGames.push(game)
+      wantedIds.add(id)
+    }
+  }
+
+  const ownedTargetCount = Object.values(startupLibrary).filter((record) => record.status === 'owned').length
+  const wantedTargetCount = Object.values(startupLibrary).filter((record) => record.status === 'wanted').length
+
+  if (!hasCompleteCatalogLoaded()) {
+    for (const [id, record] of Object.entries(startupLibrary)) {
+      if (record.status === 'owned' && !ownedIds.has(id)) {
+        const fallbackGame = existingOwnedById.get(id) ?? existingWantedById.get(id)
+        if (fallbackGame) {
+          ownedGames.push(fallbackGame)
+          ownedIds.add(id)
+        }
+      }
+
+      if (record.status === 'wanted' && !wantedIds.has(id)) {
+        const fallbackGame = existingWantedById.get(id) ?? existingOwnedById.get(id)
+        if (fallbackGame) {
+          wantedGames.push(fallbackGame)
+          wantedIds.add(id)
+        }
+      }
+    }
+
+    const snapshotStillIncomplete = ownedGames.length < ownedTargetCount || wantedGames.length < wantedTargetCount
+    if (snapshotStillIncomplete && !existingSnapshot) {
+      return null
     }
   }
 
