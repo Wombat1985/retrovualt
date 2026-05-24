@@ -4717,7 +4717,7 @@ async function hydrateAccount() {
   }
 
   state.accountHydrationPending = false
-  requestBackgroundFullRefresh()
+  requestBackgroundFullRefresh(true)
   void fetchTradeNotifications()
 }
 
@@ -8044,14 +8044,14 @@ function allowBackgroundVisualRefresh() {
   backgroundVisualRefreshReady = true
 }
 
-function requestBackgroundCatalogRefresh() {
-  if (backgroundVisualRefreshReady) {
+function requestBackgroundCatalogRefresh(force = false) {
+  if (force || backgroundVisualRefreshReady) {
     renderCatalogOnly()
   }
 }
 
-function requestBackgroundFullRefresh() {
-  if (backgroundVisualRefreshReady) {
+function requestBackgroundFullRefresh(force = false) {
+  if (force || backgroundVisualRefreshReady) {
     render()
   }
 }
