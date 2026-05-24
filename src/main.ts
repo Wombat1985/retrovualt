@@ -2839,6 +2839,19 @@ function getHeroCollectionCounts() {
   }
 }
 
+function isSignedInVaultStartupPending(filteredGamesCount = getFilteredGames().length) {
+  const { ownedCount } = getHeroCollectionCounts()
+
+  return (
+    Boolean(state.authToken) &&
+    state.ownershipFilter === 'owned' &&
+    state.consoleFilter === 'All consoles' &&
+    ownedCount > 0 &&
+    filteredGamesCount === 0 &&
+    (state.accountHydrationPending || !hasCompleteCatalogLoaded())
+  )
+}
+
 function updateHeroStatsSnapshot(summary: DashboardSummary) {
   if (!hasCompleteCatalogLoaded()) {
     return
@@ -5596,6 +5609,7 @@ function renderGuestSafeguardStrip() {
 }
 
 function renderVaultLanesStrip() {
+  const { ownedCount: hintedOwnedCount, wantedCount: hintedWantedCount } = getHeroCollectionCounts()
   const laneItems = state.authToken
     ? [
         {
@@ -5607,14 +5621,14 @@ function renderVaultLanesStrip() {
         },
         {
           label: 'Owned shelf',
-          title: `${getOwnedGames().length.toLocaleString()} tracked`,
+          title: `${hintedOwnedCount.toLocaleString()} tracked`,
           detail: 'Your collection',
           action: 'browse-owned-games',
           active: state.ownershipFilter === 'owned',
         },
         {
           label: 'Wanted list',
-          title: `${getWantedGames().length.toLocaleString()} hunting`,
+          title: `${hintedWantedCount.toLocaleString()} hunting`,
           detail: 'Target games',
           action: 'ownership-filter',
           active: state.ownershipFilter === 'wanted',
@@ -5795,6 +5809,7 @@ function renderOnboardingPanel() {
 }
 
 function renderControlSummary(resultCount: number, visibleCount: number) {
+  const vaultStartupPending = isSignedInVaultStartupPending(resultCount)
   const activeFilters = [
     state.regionFilter !== 'All regions' ? getRegionOptionLabel(state.regionFilter) : '',
     state.consoleFilter !== 'All consoles' && state.consoleFilter !== LEGENDS_FILTER ? getConsoleOptionLabel(state.consoleFilter) : '',
@@ -5808,8 +5823,8 @@ function renderControlSummary(resultCount: number, visibleCount: number) {
     <section class="control-summary">
       <div>
         <p class="kicker">Filters</p>
-        <strong>${resultCount.toLocaleString()} results</strong>
-        <span class="subtle">Showing ${visibleCount.toLocaleString()} now. Filters update without leaving the collection grid.</span>
+        <strong>${vaultStartupPending ? 'Loading your vault...' : `${resultCount.toLocaleString()} results`}</strong>
+        <span class="subtle">${vaultStartupPending ? 'Bringing your owned games into the collection grid.' : `Showing ${visibleCount.toLocaleString()} now. Filters update without leaving the collection grid.`}</span>
       </div>
       <div class="filter-chip-row">
         ${
@@ -5824,6 +5839,8 @@ function renderControlSummary(resultCount: number, visibleCount: number) {
 }
 
 function renderViewSummary(filteredGames: CatalogEntry[]) {
+  const vaultStartupPending = isSignedInVaultStartupPending(filteredGames.length)
+  const { ownedCount: hintedOwnedCount, wantedCount: hintedWantedCount } = getHeroCollectionCounts()
   const ownedGames = filteredGames.filter((game) => getRecord(game.id).status === 'owned')
   const wantedGames = filteredGames.filter((game) => getRecord(game.id).status === 'wanted')
   const totalCounts = getInstantLibraryCounts()
@@ -5838,23 +5855,23 @@ function renderViewSummary(filteredGames: CatalogEntry[]) {
     <section class="view-summary">
       <article>
         <span class="stat-label">Owned shown here</span>
-        <strong>${ownedGames.length.toLocaleString()}</strong>
-        <span class="stat-note">${hiddenOwnedCount > 0 ? `${hiddenOwnedCount.toLocaleString()} owned game${hiddenOwnedCount === 1 ? '' : 's'} outside this view` : `${completeOwned.toLocaleString()} complete copies tracked`}</span>
+        <strong>${vaultStartupPending ? hintedOwnedCount.toLocaleString() : ownedGames.length.toLocaleString()}</strong>
+        <span class="stat-note">${vaultStartupPending ? 'Loading your owned games into this view.' : hiddenOwnedCount > 0 ? `${hiddenOwnedCount.toLocaleString()} owned game${hiddenOwnedCount === 1 ? '' : 's'} outside this view` : `${completeOwned.toLocaleString()} complete copies tracked`}</span>
       </article>
       <article>
         <span class="stat-label">Wanted shown here</span>
-        <strong>${wantedGames.length.toLocaleString()}</strong>
-        <span class="stat-note">${hiddenWantedCount > 0 ? `${hiddenWantedCount.toLocaleString()} wanted game${hiddenWantedCount === 1 ? '' : 's'} outside this view` : `${formatPrice(wantedGames.reduce((total, game) => total + getReferencePrice(game), 0))} target value`}</span>
+        <strong>${vaultStartupPending ? hintedWantedCount.toLocaleString() : wantedGames.length.toLocaleString()}</strong>
+        <span class="stat-note">${vaultStartupPending ? 'Wishlist totals will settle once the vault finishes loading.' : hiddenWantedCount > 0 ? `${hiddenWantedCount.toLocaleString()} wanted game${hiddenWantedCount === 1 ? '' : 's'} outside this view` : `${formatPrice(wantedGames.reduce((total, game) => total + getReferencePrice(game), 0))} target value`}</span>
       </article>
       <article>
         <span class="stat-label">Tracked value shown here</span>
-        <strong>${formatPrice(ownedTrackedValue)}</strong>
-        <span class="stat-note">Based on your loose or complete ownership choices</span>
+        <strong>${vaultStartupPending ? 'Loading...' : formatPrice(ownedTrackedValue)}</strong>
+        <span class="stat-note">${vaultStartupPending ? 'Pulling your vault values into this view.' : 'Based on your loose or complete ownership choices'}</span>
       </article>
       <article>
         <span class="stat-label">Paid total shown here</span>
-        <strong>${formatPrice(paidTotal)}</strong>
-        <span class="stat-note">${paidTotal ? `${marketEdge >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(marketEdge))}` : 'Add paid prices to compare pickups versus market'}</span>
+        <strong>${vaultStartupPending ? 'Loading...' : formatPrice(paidTotal)}</strong>
+        <span class="stat-note">${vaultStartupPending ? 'Paid totals will appear once your collection grid is ready.' : paidTotal ? `${marketEdge >= 0 ? 'Ahead' : 'Behind'} ${formatPrice(Math.abs(marketEdge))}` : 'Add paid prices to compare pickups versus market'}</span>
       </article>
     </section>
   `
@@ -6748,6 +6765,7 @@ function renderCatalogSkeleton() {
 function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: CatalogEntry[]) {
   const isShelf = state.viewMode === 'shelf'
   const trackedCount = getOwnedGames().length + getWantedGames().length
+  const vaultStartupPending = isSignedInVaultStartupPending(filteredGames.length)
   const showGuestRunway = !state.authToken && !state.search.trim() && state.ownershipFilter === 'all'
   const showRecentStrip = Boolean(state.authToken && !state.search.trim() && state.ownershipFilter === 'all' && state.recentViewedGameIds.length)
   const emptyState = state.ownershipFilter === 'tradeable-now'
@@ -6757,7 +6775,7 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
       : trackedCount === 0
         ? '<div class="empty-state"><p class="empty-state__eyebrow">Nothing here yet</p><h3>Add your first game</h3><p>Browse the library or scan a barcode to start building your collection.</p><div class="empty-state__actions"><button class="toggle-button" data-action="browse-library" type="button">Browse Games Library</button><button class="ghost-button" data-action="open-scanner" type="button">Scan Barcode</button></div></div>'
         : '<div class="empty-state"><p class="empty-state__eyebrow">No matches</p><h3>Nothing matches this view yet</h3><p>Clear a filter, switch consoles, or add the missing title yourself and keep the vault moving.</p><div class="empty-state__actions"><button class="toggle-button" data-action="open-custom-entry" type="button">Add missing game</button><button class="ghost-button" data-action="reset-library" type="button">Clear filters</button></div></div>'
-  const showSkeleton = state.isCatalogLoading && visibleGames.length === 0
+  const showSkeleton = (state.isCatalogLoading && visibleGames.length === 0) || vaultStartupPending
   return `
     <section class="catalog-section">
       ${showGuestRunway ? renderCatalogRunway(filteredGames) : ''}
@@ -6777,7 +6795,7 @@ function renderCatalogSection(filteredGames: CatalogEntry[], visibleGames: Catal
           </div>
           ${state.consoleFilter === LEGENDS_FILTER
             ? `<h2>Featured games</h2><p class="legends-sub">A smaller set to start with. Switch to <em>All consoles</em> to browse the full library.</p>`
-            : `<h2>${showSkeleton ? 'Loading the Games Library' : `${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view`}</h2>`}
+            : `<h2>${vaultStartupPending ? 'Loading your collection' : showSkeleton ? 'Loading the Games Library' : `${filteredGames.length} game${filteredGames.length === 1 ? '' : 's'} in view`}</h2>${vaultStartupPending ? '<p class="legends-sub">Your owned games are loading into the vault now.</p>' : ''}`}
         </div>
         <div class="catalog-section__actions">
           <button class="ghost-button" data-action="open-custom-entry" type="button">Report Missing Game</button>
@@ -10557,6 +10575,7 @@ function unregisterServiceWorker() {
 async function loadGeneratedCatalog() {
   const cachedSnapshotPromise = readCatalogSnapshot()
   let bootstrappedVisibleCatalog = false
+  const prefersVaultStartup = Boolean(state.authToken && state.ownershipFilter === 'owned')
   try {
     const metaPromise = fetch('/catalogs/retro-catalog-meta.json')
     const startupPromise = fetch('/catalogs/retro-catalog-startup.json')
@@ -10607,8 +10626,10 @@ async function loadGeneratedCatalog() {
         state.catalogLoadError = false
         state.isCatalogLoading = false
         invalidateCatalogCache()
-        renderCatalogOnly()
-        bootstrappedVisibleCatalog = true
+        if (!prefersVaultStartup) {
+          renderCatalogOnly()
+          bootstrappedVisibleCatalog = true
+        }
       }
     }
 
@@ -10694,7 +10715,9 @@ async function loadGeneratedCatalog() {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
       invalidateCatalogCache()
-      if (typeof window.requestIdleCallback === 'function') {
+      if (prefersVaultStartup) {
+        void hydrateFullCatalog(parsedMeta)
+      } else if (typeof window.requestIdleCallback === 'function') {
         window.requestIdleCallback(() => {
           void hydrateFullCatalog(parsedMeta)
         })
@@ -10704,7 +10727,9 @@ async function loadGeneratedCatalog() {
         }, 600)
       }
     } else {
-      if (typeof window.requestIdleCallback === 'function') {
+      if (prefersVaultStartup) {
+        void hydrateFullCatalog(parsedMeta)
+      } else if (typeof window.requestIdleCallback === 'function') {
         window.requestIdleCallback(() => {
           void hydrateFullCatalog(parsedMeta)
         })
