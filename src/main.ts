@@ -10746,6 +10746,28 @@ async function loadGeneratedCatalog() {
       }
     }
 
+    const earlyCachedSnapshot = await cachedSnapshotPromise
+    const hasEarlyCachedCatalog = Boolean(earlyCachedSnapshot?.generatedCatalog.length)
+    const hasEarlyCompleteCachedCatalog =
+      hasEarlyCachedCatalog &&
+      Boolean(earlyCachedSnapshot?.catalogMeta.length) &&
+      (earlyCachedSnapshot?.loadedConsoles.length ?? 0) >= (earlyCachedSnapshot?.catalogMeta.length ?? 0)
+
+    if (prefersVaultStartup && hasEarlyCachedCatalog) {
+      state.generatedCatalog = earlyCachedSnapshot?.generatedCatalog ?? state.generatedCatalog
+      state.catalogMeta = earlyCachedSnapshot?.catalogMeta ?? state.catalogMeta
+      state.loadedConsoles = earlyCachedSnapshot?.loadedConsoles ?? state.loadedConsoles
+      state.catalogLoadError = false
+      state.isCatalogLoading = false
+      invalidateCatalogCache()
+      renderCatalogOnly()
+      bootstrappedVisibleCatalog = true
+
+      if (hasEarlyCompleteCachedCatalog) {
+        scheduleCatalogSnapshotSave()
+      }
+    }
+
     const startupResponse = await startupPromise
 
     if (startupResponse?.ok) {
@@ -10769,7 +10791,7 @@ async function loadGeneratedCatalog() {
       }
     }
 
-    const cachedSnapshot = await cachedSnapshotPromise
+    const cachedSnapshot = earlyCachedSnapshot
     const hasCompleteCachedCatalog =
       Boolean(cachedSnapshot?.generatedCatalog.length) &&
       Boolean(cachedSnapshot?.catalogMeta.length) &&
