@@ -3621,9 +3621,7 @@ a {
   border-radius: 26px;
   overflow: hidden;
   position: relative;
-  contain: layout style paint;
-  content-visibility: auto;
-  contain-intrinsic-size: 0 280px;
+  backdrop-filter: none;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(10, 18, 27, 0.96)),
@@ -3748,7 +3746,6 @@ a {
   height: 100%;
   object-fit: contain;
   display: block;
-  will-change: transform;
   filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.22));
   transition:
     transform 180ms ease,
