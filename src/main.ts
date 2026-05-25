@@ -883,9 +883,6 @@ function buildVaultStartupSnapshotFromCurrentState() {
     }
   }
 
-  const ownedTargetCount = Object.values(startupLibrary).filter((record) => record.status === 'owned').length
-  const wantedTargetCount = Object.values(startupLibrary).filter((record) => record.status === 'wanted').length
-
   if (!hasCompleteCatalogLoaded()) {
     for (const [id, record] of Object.entries(startupLibrary)) {
       if (record.status === 'owned' && !ownedIds.has(id)) {
@@ -905,8 +902,7 @@ function buildVaultStartupSnapshotFromCurrentState() {
       }
     }
 
-    const snapshotStillIncomplete = ownedGames.length < ownedTargetCount || wantedGames.length < wantedTargetCount
-    if (snapshotStillIncomplete && !existingSnapshot) {
+    if (ownedGames.length === 0 && wantedGames.length === 0) {
       return null
     }
   }
@@ -4744,6 +4740,7 @@ async function hydrateAccount() {
   }
 
   state.accountHydrationPending = false
+  persistVaultStartupSnapshotFromCurrentState()
   requestBackgroundFullRefresh(true)
   void fetchTradeNotifications()
 }
@@ -10957,10 +10954,8 @@ async function loadGeneratedCatalog() {
         state.isCatalogLoading = false
         invalidateCatalogCache()
         persistVaultStartupSnapshotFromCurrentState()
-        if (!prefersVaultStartup) {
-          renderCatalogOnly()
-          bootstrappedVisibleCatalog = true
-        }
+        renderCatalogOnly()
+        bootstrappedVisibleCatalog = true
       }
     }
 
