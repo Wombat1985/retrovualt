@@ -589,7 +589,7 @@ const state = {
   tradeInboxFreshOpportunityIds: new Set<string>(),
 }
 
-unregisterServiceWorker()
+registerServiceWorker()
 
 function defaultRecord(): GameRecord {
   return {
@@ -10869,11 +10869,9 @@ function exportCatalog() {
   URL.revokeObjectURL(url)
 }
 
-function unregisterServiceWorker() {
+function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return
-  void navigator.serviceWorker.getRegistrations().then((registrations) => {
-    registrations.forEach((r) => void r.unregister())
-  })
+  void navigator.serviceWorker.register('/sw.js', { scope: '/' })
 }
 
 async function loadGeneratedCatalog() {
@@ -10883,36 +10881,60 @@ async function loadGeneratedCatalog() {
   try {
     const metaPromise = fetch('/catalogs/retro-catalog-meta.json')
     const startupPromise = fetch('/catalogs/retro-catalog-startup.json')
-    const hydrateFullCatalog = async (parsedMeta: CatalogConsoleMeta[]) => {
+    const hydrateFullCatalog = async (_parsedMeta: CatalogConsoleMeta[]) => {
       try {
-        const liteResponse = await fetch('/catalogs/retro-catalog-lite.json')
-
-        if (!liteResponse.ok) {
-          throw new Error(`Catalog request failed: ${liteResponse.status}`)
-        }
-
-        const liteText = await liteResponse.text()
-        await new Promise<void>((resolve) => setTimeout(resolve, 0))
-        const parsedLite = liteText ? JSON.parse(liteText) as unknown : []
-        const liteCatalog = Array.isArray(parsedLite)
-          ? parsedLite.map(normalizeCatalogEntry).filter(isCatalogEntry)
-          : normalizePackedLiteCatalog(parsedLite)
-
-        if (!liteCatalog.length) {
-          return
-        }
-
-        state.generatedCatalog = dedupeCatalog(liteCatalog)
-        state.loadedConsoles = [...new Set(parsedMeta.map((entry) => entry.console))]
-        state.catalogLoadError = false
-        invalidateCatalogCache()
-        persistVaultStartupSnapshotFromCurrentState()
-        scheduleCatalogSnapshotSave()
-        requestBackgroundCatalogRefresh()
+        await ensureAllConsoleCatalogsLoaded(true)
       } catch {
         state.catalogLoadError = true
         requestBackgroundCatalogRefresh()
       }
+    }
+
+    // Fast path for logged-in owned view: load only the consoles the user has games
+    // in, then background-load the full catalog. Renders after each batch of 4 consoles
+    // so tiles appear progressively rather than all-at-once after the slowest file.
+    const hydrateOwnedConsolesFirst = async (parsedMeta: CatalogConsoleMeta[]) => {
+      const libraryIds = Object.keys(state.library).filter((id) => {
+        const record = state.library[id]
+        return record?.status === 'owned' || record?.status === 'wanted'
+      })
+
+      if (!libraryIds.length) {
+        void hydrateFullCatalog(parsedMeta)
+        return
+      }
+
+      // Sort slugs longest-first so 'sega-genesis' matches before 'sega'
+      const sortedMeta = [...parsedMeta].sort((a, b) => b.slug.length - a.slug.length)
+      const neededConsoles = new Set<string>()
+      for (const gameId of libraryIds) {
+        for (const meta of sortedMeta) {
+          if (gameId.startsWith(`${meta.slug}-`)) {
+            neededConsoles.add(meta.console)
+            break
+          }
+        }
+      }
+
+      if (!neededConsoles.size) {
+        void hydrateFullCatalog(parsedMeta)
+        return
+      }
+
+      // Popular consoles first so the most common collections appear fastest
+      const sortedConsoles = [...neededConsoles].sort((a, b) => {
+        const ai = POPULAR_CONSOLE_ORDER.indexOf(a)
+        const bi = POPULAR_CONSOLE_ORDER.indexOf(b)
+        if (ai !== -1 && bi !== -1) return ai - bi
+        if (ai !== -1) return -1
+        if (bi !== -1) return 1
+        return 0
+      })
+
+      await ensureConsoleBatchLoaded(sortedConsoles, true)
+
+      // Background-load remaining consoles so search/filter works across full catalog
+      void ensureAllConsoleCatalogsLoaded(true)
     }
 
     const earlyCachedSnapshot = await cachedSnapshotPromise
@@ -10937,7 +10959,10 @@ async function loadGeneratedCatalog() {
       }
     }
 
-    const startupResponse = await startupPromise
+    // Vault startup users on first load (no cache) benefit from skipping the
+    // 217KB startup catalog — those are generic games, not their owned collection.
+    // Go straight to meta so per-console fetches begin without an extra RTT wait.
+    const startupResponse = (prefersVaultStartup && !hasEarlyCachedCatalog) ? null : await startupPromise
 
     if (startupResponse?.ok) {
       const startupText = await startupResponse.text()
@@ -11045,7 +11070,7 @@ async function loadGeneratedCatalog() {
       invalidateCatalogCache()
       persistVaultStartupSnapshotFromCurrentState()
       if (prefersVaultStartup) {
-        void hydrateFullCatalog(parsedMeta)
+        void hydrateOwnedConsolesFirst(parsedMeta)
       } else if (typeof window.requestIdleCallback === 'function') {
         window.requestIdleCallback(() => {
           void hydrateFullCatalog(parsedMeta)
@@ -11057,7 +11082,7 @@ async function loadGeneratedCatalog() {
       }
     } else {
       if (prefersVaultStartup) {
-        void hydrateFullCatalog(parsedMeta)
+        void hydrateOwnedConsolesFirst(parsedMeta)
       } else if (typeof window.requestIdleCallback === 'function') {
         window.requestIdleCallback(() => {
           void hydrateFullCatalog(parsedMeta)
