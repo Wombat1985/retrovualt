@@ -404,6 +404,12 @@ let filteredGamesCacheKey = ''
 type HeroPreviewResult = { title: string; subtitle: string; items: Array<{ game: CatalogEntry; label: string; detail: string }> }
 let heroPreviewCache: HeroPreviewResult | null = null
 let heroPreviewCacheKey = ''
+let yearsCache: string[] | null = null
+let yearsCacheKey = ''
+let releaseTypeOptionsCache: string[] | null = null
+let releaseTypeOptionsCacheKey = ''
+let consoleFilterOptionsCache = ''
+let consoleFilterOptionsCacheKey = ''
 const searchHaystackCache = new Map<string, string>()
 let dashboardSummaryCache: DashboardSummary | null = null
 let dashboardSummaryCacheKey = ''
@@ -2376,6 +2382,12 @@ function invalidateCatalogCache() {
   filteredGamesCacheKey = ''
   heroPreviewCache = null
   heroPreviewCacheKey = ''
+  yearsCache = null
+  yearsCacheKey = ''
+  releaseTypeOptionsCache = null
+  releaseTypeOptionsCacheKey = ''
+  consoleFilterOptionsCache = ''
+  consoleFilterOptionsCacheKey = ''
   state.cachedCatalogStatsKey = ''
   state.cachedConsoleProgressKey = ''
 }
@@ -2477,6 +2489,8 @@ function getConsoleFamilyLabel(consoleName: string) {
 }
 
 function renderConsoleFilterOptions() {
+  const cfoKey = `${catalogCacheKey}|${state.regionFilter}|${state.consoleFilter}`
+  if (consoleFilterOptionsCache && consoleFilterOptionsCacheKey === cfoKey) return consoleFilterOptionsCache
   const consoles = getConsoles()
   const pinned = consoles.filter((consoleName) => consoleName === LEGENDS_FILTER || consoleName === 'All consoles')
   const pinnedSet = new Set<string>(pinned)
@@ -2526,10 +2540,13 @@ function renderConsoleFilterOptions() {
     })
     .join('')
 
-  return `${pinnedOptions}${groupedOptions}`
+  consoleFilterOptionsCache = `${pinnedOptions}${groupedOptions}`
+  consoleFilterOptionsCacheKey = cfoKey
+  return consoleFilterOptionsCache
 }
 
 function getReleaseTypeOptions() {
+  if (releaseTypeOptionsCache && releaseTypeOptionsCacheKey === catalogCacheKey) return releaseTypeOptionsCache
   const available = new Set<ReleaseTypeFilter>(['All release types'])
 
   getCatalog().forEach((game) => {
@@ -2551,9 +2568,11 @@ function getReleaseTypeOptions() {
     }
   })
 
-  return ['All release types', 'Licensed', 'Unlicensed', 'Homebrew', 'Custom'].filter((option) =>
+  releaseTypeOptionsCache = ['All release types', 'Licensed', 'Unlicensed', 'Homebrew', 'Custom'].filter((option) =>
     available.has(option as ReleaseTypeFilter),
   )
+  releaseTypeOptionsCacheKey = catalogCacheKey
+  return releaseTypeOptionsCache
 }
 
 function getEffectiveReleaseType(game: CatalogEntry): ReleaseType {
@@ -2600,8 +2619,11 @@ function getRegionOptionLabel(regionName: string) {
 }
 
 function getYears() {
+  if (yearsCache && yearsCacheKey === catalogCacheKey) return yearsCache
   const years = [...new Set(getCatalog().map((game) => game.year).filter((year): year is number => Number.isFinite(year)))]
-  return ['All years', ...years.sort((left, right) => right - left).map(String)]
+  yearsCache = ['All years', ...years.sort((left, right) => right - left).map(String)]
+  yearsCacheKey = catalogCacheKey
+  return yearsCache
 }
 
 function getRecord(gameId: string) {
@@ -7632,9 +7654,8 @@ function renderNow() {
   const estimatedSellValue = ownedTrackedValue
   const completionPercentage = dashboard.completionPercentage
   const wishlistValue = dashboard.wishlistValue
-  const consoleCount = new Set(catalog.map((game) => game.console)).size
   const loadedConsoleCount = state.loadedConsoles.length
-  const totalConsoleCount = state.catalogMeta.length || state.catalogTotalConsoles || consoleCount
+  const totalConsoleCount = state.catalogMeta.length || state.catalogTotalConsoles || loadedConsoleCount
   const totalCatalogGames = state.catalogTotalGames || catalog.length || DEFAULT_CATALOG_TOTAL_GAMES
   const selectedCurrency = getSelectedCurrency()
   const accountIdentity = getAccountIdentityLabel()
@@ -7653,7 +7674,7 @@ function renderNow() {
     ? `Loading the library. ${loadedConsoleCount} of ${totalConsoleCount} console lists are ready so far.`
     : state.catalogLoadError
       ? `Using the latest reference snapshot from ${priceSnapshotDate} while the rest of the catalog catches up.`
-      : `${totalCatalogGames} games across ${totalConsoleCount || consoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
+      : `${totalCatalogGames} games across ${totalConsoleCount} retro consoles, with ${loadedConsoleCount} of ${totalConsoleCount} console lists ready. Latest snapshot ${priceSnapshotDate}.`
 
   const preCatalogCollectorMarkup = ''
 
