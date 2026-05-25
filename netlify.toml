@@ -62,12 +62,6 @@
   [headers.values]
     Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
 
-# ── Full lite catalog (13 MB) — cache 7 days; IndexedDB handles freshness ────
-[[headers]]
-  for = "/catalogs/retro-catalog-lite.json"
-  [headers.values]
-    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
-
 # ── Individual console catalogs — cache 7 days ───────────────────────────────
 [[headers]]
   for = "/catalogs/catalog-*.json"

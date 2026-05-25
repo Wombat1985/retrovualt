@@ -19,8 +19,5 @@
 /catalogs/retro-catalog-meta.json
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 
-/catalogs/retro-catalog-lite.json
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
 /catalogs/catalog-*.json
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400

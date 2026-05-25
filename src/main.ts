@@ -10874,10 +10874,26 @@ function registerServiceWorker() {
   void navigator.serviceWorker.register('/sw.js', { scope: '/' })
 }
 
+const VAULT_CONSOLE_URLS_KEY = 'rvlt_vault_console_urls'
+
 async function loadGeneratedCatalog() {
   const cachedSnapshotPromise = readCatalogSnapshot()
   let bootstrappedVisibleCatalog = false
   const prefersVaultStartup = Boolean(state.authToken && state.ownershipFilter === 'owned')
+
+  // Kick off console file downloads immediately using URLs cached from the previous visit.
+  // Browser deduplicates in-flight requests, so when ensureConsoleCatalogLoaded calls
+  // fetch() for the same URLs later they resolve from the already-started download.
+  if (prefersVaultStartup) {
+    try {
+      const raw = localStorage.getItem(VAULT_CONSOLE_URLS_KEY)
+      if (raw) {
+        const urls = JSON.parse(raw) as string[]
+        for (const url of urls) void fetch(url)
+      }
+    } catch {}
+  }
+
   try {
     const metaPromise = fetch('/catalogs/retro-catalog-meta.json')
     const startupPromise = fetch('/catalogs/retro-catalog-startup.json')
@@ -10931,7 +10947,17 @@ async function loadGeneratedCatalog() {
         return 0
       })
 
-      await ensureConsoleBatchLoaded(sortedConsoles, true)
+      // Cache the file URLs so the next visit can start fetching before meta arrives
+      try {
+        const urls = sortedConsoles
+          .map((c) => sortedMeta.find((m) => m.console === c)?.file)
+          .filter((f): f is string => typeof f === 'string')
+        localStorage.setItem(VAULT_CONSOLE_URLS_KEY, JSON.stringify(urls))
+      } catch {}
+
+      // Fetch all needed console files in parallel, rendering immediately as each one
+      // completes — NES tiles appear without waiting for the 1.1MB PS2 file.
+      await Promise.all(sortedConsoles.map((consoleName) => ensureConsoleCatalogLoaded(consoleName, true)))
 
       // Background-load remaining consoles so search/filter works across full catalog
       void ensureAllConsoleCatalogsLoaded(true)
@@ -11205,13 +11231,11 @@ async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad
       throw new Error(`Console catalog request failed: ${response.status}`)
     }
 
-    const parsed = await response.json()
+    const parsed = await response.json() as unknown
 
-    if (!Array.isArray(parsed)) {
-      throw new Error('Console catalog payload was not an array.')
-    }
-
-    const consoleEntries = parsed.map(normalizeCatalogEntry).filter(isCatalogEntry)
+    const consoleEntries = Array.isArray(parsed)
+      ? (parsed as unknown[]).map(normalizeCatalogEntry).filter(isCatalogEntry)
+      : normalizePackedLiteCatalog(parsed)
 
     state.generatedCatalog = dedupeCatalog([...state.generatedCatalog, ...consoleEntries])
     state.loadedConsoles = [...state.loadedConsoles, consoleName]
