@@ -401,6 +401,9 @@ let catalogCacheKey = ''
 let catalogByIdCache = new Map<string, CatalogEntry>()
 let filteredGamesCache: CatalogEntry[] | null = null
 let filteredGamesCacheKey = ''
+type HeroPreviewResult = { title: string; subtitle: string; items: Array<{ game: CatalogEntry; label: string; detail: string }> }
+let heroPreviewCache: HeroPreviewResult | null = null
+let heroPreviewCacheKey = ''
 const searchHaystackCache = new Map<string, string>()
 let dashboardSummaryCache: DashboardSummary | null = null
 let dashboardSummaryCacheKey = ''
@@ -2371,6 +2374,8 @@ function invalidateCatalogCache() {
   catalogByIdCache = new Map()
   filteredGamesCache = null
   filteredGamesCacheKey = ''
+  heroPreviewCache = null
+  heroPreviewCacheKey = ''
   state.cachedCatalogStatsKey = ''
   state.cachedConsoleProgressKey = ''
 }
@@ -5423,8 +5428,12 @@ function renderHeroSearchSuggestions(query: string) {
   `
 }
 
-function getHeroPreviewEntries() {
-  const catalog = getCatalog()
+function getHeroPreviewEntries(): HeroPreviewResult {
+  const memoKey = `${getLibraryStatsKey()}|${state.recentViewedGameIds.join(',')}`
+  if (heroPreviewCache && heroPreviewCacheKey === memoKey) {
+    return heroPreviewCache
+  }
+
   const items: Array<{ game: CatalogEntry; label: string; detail: string }> = []
   const seen = new Set<string>()
   const push = (game: CatalogEntry | null | undefined, label: string, detail: string) => {
@@ -5437,7 +5446,7 @@ function getHeroPreviewEntries() {
   }
 
   const recentGames = state.recentViewedGameIds
-    .map((id) => catalog.find((game) => game.id === id) ?? null)
+    .map((id) => catalogByIdCache.get(id) ?? null)
     .filter((game): game is CatalogEntry => game !== null)
 
   const wantedGames = [...getWantedGames()].sort((left, right) => getReferencePrice(right) - getReferencePrice(left))
@@ -5458,13 +5467,12 @@ function getHeroPreviewEntries() {
   }
 
   if (items.length >= 4) {
-    return {
-      title: 'From your vault',
-      subtitle: 'Wanted games, recent views, and owned highlights.',
-      items,
-    }
+    heroPreviewCache = { title: 'From your vault', subtitle: 'Wanted games, recent views, and owned highlights.', items }
+    heroPreviewCacheKey = memoKey
+    return heroPreviewCache
   }
 
+  const catalog = getCatalog()
   const searchTerms = [
     'super mario world',
     'pokemon red',
@@ -5483,11 +5491,9 @@ function getHeroPreviewEntries() {
       detail: `Loose ${formatPrice(game.priceLoose)} / CiB ${formatPrice(game.priceComplete ?? game.priceLoose ?? 0)}`,
     }))
 
-  return {
-    title: 'Popular games in the library',
-    subtitle: 'A few real titles from the catalog.',
-    items: previews,
-  }
+  heroPreviewCache = { title: 'Popular games in the library', subtitle: 'A few real titles from the catalog.', items: previews }
+  heroPreviewCacheKey = memoKey
+  return heroPreviewCache
 }
 
 function renderHeroPreviewStrip() {
