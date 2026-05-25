@@ -453,6 +453,10 @@ if (!appElement) {
 
 const app = appElement
 const pendingConsoleLoads = new Map<string, Promise<void>>()
+
+// Set by hydrateOwnedConsolesFirst when the library hasn't synced yet.
+// applyRemoteSyncState fires this once the library arrives from the server.
+let pendingVaultHydration: (() => void) | null = null
 let syncTimeout: number | null = null
 let catalogSnapshotDbPromise: Promise<IDBDatabase> | null = null
 const editionOptions: EditionStatus[] = ['loose', 'boxed', 'manual', 'box-only', 'manual-only', 'box-manual', 'cib', 'sealed', 'graded']
@@ -4672,6 +4676,12 @@ function applyRemoteSyncState(syncState: {
   localStorage.setItem(DELETED_GAME_IDS_STORAGE_KEY, JSON.stringify(state.deletedGameIds))
   saveActivityEvents()
   persistVaultStartupSnapshotFromCurrentState()
+
+  if (pendingVaultHydration) {
+    const fn = pendingVaultHydration
+    pendingVaultHydration = null
+    fn()
+  }
 }
 
 function scheduleCloudSync() {
@@ -10916,6 +10926,11 @@ async function loadGeneratedCatalog() {
       })
 
       if (!libraryIds.length) {
+        if (state.authToken) {
+          // Library hasn't synced from server yet — defer until applyRemoteSyncState fires
+          pendingVaultHydration = () => void hydrateOwnedConsolesFirst(parsedMeta)
+          return
+        }
         void hydrateFullCatalog(parsedMeta)
         return
       }
@@ -10960,7 +10975,8 @@ async function loadGeneratedCatalog() {
       await Promise.all(sortedConsoles.map((consoleName) => ensureConsoleCatalogLoaded(consoleName, true)))
 
       // Background-load remaining consoles so search/filter works across full catalog
-      void ensureAllConsoleCatalogsLoaded(true)
+      // false = no re-render per console — avoids 25+ render storm while user browses
+      void ensureAllConsoleCatalogsLoaded(false)
     }
 
     const earlyCachedSnapshot = await cachedSnapshotPromise
