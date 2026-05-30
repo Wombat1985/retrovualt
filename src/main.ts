@@ -3287,10 +3287,6 @@ function updateVaultStartupSnapshot(summary: DashboardSummary) {
     return
   }
 
-  if (!hasCompleteCatalogLoaded()) {
-    return
-  }
-
   const startupLibrary = Object.fromEntries(
     Object.entries(state.library).flatMap(([id, record]) => {
       const safeRecord = normalizeGameRecord(record)
@@ -3303,11 +3299,44 @@ function updateVaultStartupSnapshot(summary: DashboardSummary) {
     }),
   )
 
+  if (!Object.keys(startupLibrary).length) {
+    return
+  }
+
+  const existingSnapshot = getCurrentVaultStartupSnapshot()
+  const existingOwnedById = new Map((existingSnapshot?.ownedGames ?? []).map((game) => [game.id, game]))
+  const existingWantedById = new Map((existingSnapshot?.wantedGames ?? []).map((game) => [game.id, game]))
+  const ownedById = new Map(summary.ownedGames.map((game) => [game.id, game]))
+  const wantedById = new Map(summary.wantedGames.map((game) => [game.id, game]))
+  const ownedGames: CatalogEntry[] = []
+  const wantedGames: CatalogEntry[] = []
+
+  for (const [id, record] of Object.entries(startupLibrary)) {
+    if (record.status === 'owned') {
+      const game = ownedById.get(id) ?? wantedById.get(id) ?? existingOwnedById.get(id) ?? existingWantedById.get(id)
+      if (game) {
+        ownedGames.push(game)
+      }
+      continue
+    }
+
+    if (record.status === 'wanted') {
+      const game = wantedById.get(id) ?? ownedById.get(id) ?? existingWantedById.get(id) ?? existingOwnedById.get(id)
+      if (game) {
+        wantedGames.push(game)
+      }
+    }
+  }
+
+  if (!ownedGames.length && !wantedGames.length) {
+    return
+  }
+
   saveVaultStartupSnapshot({
     accountEmail: state.accountEmail.trim().toLowerCase(),
     library: startupLibrary,
-    ownedGames: summary.ownedGames,
-    wantedGames: summary.wantedGames,
+    ownedGames,
+    wantedGames,
     savedAt: new Date().toISOString(),
   })
 }
@@ -11352,7 +11381,7 @@ async function ensureAllConsoleCatalogsLoaded(rerenderAfterBatch: boolean) {
 }
 
 async function ensureConsoleBatchLoaded(consoleNames: string[], rerenderAfterBatch: boolean) {
-  const batchSize = 4
+  const batchSize = rerenderAfterBatch ? 2 : 4
 
   for (let index = 0; index < consoleNames.length; index += batchSize) {
     const batch = consoleNames.slice(index, index + batchSize)
@@ -11482,6 +11511,3 @@ if (state.authToken) {
     }, 80)
   })
 }
-
-
-
