@@ -929,6 +929,61 @@ function persistVaultStartupSnapshotFromCurrentState() {
   saveVaultStartupSnapshot(snapshot)
 }
 
+function buildVaultStartupSnapshotFromLibraryAndCatalog(
+  library: Record<string, GameRecord>,
+  catalog: CatalogEntry[],
+  accountEmail: string,
+) {
+  if (!accountEmail) {
+    return null
+  }
+
+  const startupLibrary = Object.fromEntries(
+    Object.entries(library).flatMap(([id, record]) => {
+      const safeRecord = normalizeGameRecord(record)
+
+      if (safeRecord.status !== 'owned' && safeRecord.status !== 'wanted') {
+        return []
+      }
+
+      return [[id, safeRecord]]
+    }),
+  )
+
+  if (!Object.keys(startupLibrary).length) {
+    return null
+  }
+
+  const byId = new Map(catalog.map((game) => [game.id, game]))
+  const ownedGames: CatalogEntry[] = []
+  const wantedGames: CatalogEntry[] = []
+
+  for (const [id, record] of Object.entries(startupLibrary)) {
+    const game = byId.get(id)
+    if (!game) {
+      continue
+    }
+
+    if (record.status === 'owned') {
+      ownedGames.push(game)
+    } else if (record.status === 'wanted') {
+      wantedGames.push(game)
+    }
+  }
+
+  if (ownedGames.length === 0 && wantedGames.length === 0) {
+    return null
+  }
+
+  return {
+    accountEmail: accountEmail.trim().toLowerCase(),
+    library: startupLibrary,
+    ownedGames,
+    wantedGames,
+    savedAt: new Date().toISOString(),
+  } satisfies VaultStartupSnapshot
+}
+
 function getHeroStatsSnapshotForSync() {
   const counts = getInstantLibraryCounts()
 
@@ -2627,7 +2682,17 @@ function getYears() {
 }
 
 function getRecord(gameId: string) {
-  return state.library[gameId] ?? defaultRecord()
+  const liveRecord = state.library[gameId]
+  if (liveRecord) {
+    return liveRecord
+  }
+
+  const startupLibraryRecord =
+    state.authToken && state.accountEmail
+      ? getCurrentVaultStartupSnapshot()?.library?.[gameId]
+      : undefined
+
+  return startupLibraryRecord ?? defaultRecord()
 }
 
 function getGameById(gameId: string) {
@@ -3166,6 +3231,10 @@ function updateHeroStatsSnapshot(summary: DashboardSummary) {
 
 function updateVaultStartupSnapshot(summary: DashboardSummary) {
   if (!state.authToken || !state.accountEmail) {
+    return
+  }
+
+  if (!hasCompleteCatalogLoaded()) {
     return
   }
 
@@ -10985,11 +11054,38 @@ async function loadGeneratedCatalog() {
       hasEarlyCachedCatalog &&
       Boolean(earlyCachedSnapshot?.catalogMeta.length) &&
       (earlyCachedSnapshot?.loadedConsoles.length ?? 0) >= (earlyCachedSnapshot?.catalogMeta.length ?? 0)
+    const currentStartupSnapshot = getCurrentVaultStartupSnapshot()
+    const shouldRepairVaultStartupSnapshot =
+      prefersVaultStartup &&
+      hasEarlyCachedCatalog &&
+      Boolean(Object.keys(state.library).length) &&
+      (!currentStartupSnapshot || (currentStartupSnapshot.ownedGames.length === 0 && currentStartupSnapshot.wantedGames.length === 0))
+    const repairedVaultStartupSnapshot = shouldRepairVaultStartupSnapshot
+      ? buildVaultStartupSnapshotFromLibraryAndCatalog(
+          state.library,
+          earlyCachedSnapshot?.generatedCatalog ?? [],
+          state.accountEmail,
+        )
+      : null
+
+    if (repairedVaultStartupSnapshot) {
+      saveVaultStartupSnapshot(repairedVaultStartupSnapshot)
+    }
 
     if (prefersVaultStartup && hasEarlyCachedCatalog) {
-      state.generatedCatalog = earlyCachedSnapshot?.generatedCatalog ?? state.generatedCatalog
+      const repairedStartupCatalog = repairedVaultStartupSnapshot
+        ? dedupeCatalog([...repairedVaultStartupSnapshot.ownedGames, ...repairedVaultStartupSnapshot.wantedGames])
+        : []
+
+      state.generatedCatalog =
+        repairedStartupCatalog.length > 0
+          ? repairedStartupCatalog
+          : earlyCachedSnapshot?.generatedCatalog ?? state.generatedCatalog
       state.catalogMeta = earlyCachedSnapshot?.catalogMeta ?? state.catalogMeta
-      state.loadedConsoles = earlyCachedSnapshot?.loadedConsoles ?? state.loadedConsoles
+      state.loadedConsoles =
+        repairedStartupCatalog.length > 0
+          ? [...new Set(repairedStartupCatalog.map((entry) => entry.console))]
+          : earlyCachedSnapshot?.loadedConsoles ?? state.loadedConsoles
       state.catalogLoadError = false
       state.isCatalogLoading = false
       invalidateCatalogCache()
