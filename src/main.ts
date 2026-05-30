@@ -10959,6 +10959,11 @@ async function loadGeneratedCatalog() {
   const cachedSnapshotPromise = readCatalogSnapshot()
   let bootstrappedVisibleCatalog = false
   const prefersVaultStartup = Boolean(state.authToken && state.ownershipFilter === 'owned')
+  const currentStartupSnapshot = getCurrentVaultStartupSnapshot()
+  const startupLibrarySeed =
+    Object.keys(state.library).length > 0
+      ? state.library
+      : currentStartupSnapshot?.library ?? {}
 
   // Kick off console file downloads immediately using URLs cached from the previous visit.
   // Browser deduplicates in-flight requests, so when ensureConsoleCatalogLoaded calls
@@ -10989,8 +10994,8 @@ async function loadGeneratedCatalog() {
     // in, then background-load the full catalog. Renders after each batch of 4 consoles
     // so tiles appear progressively rather than all-at-once after the slowest file.
     const hydrateOwnedConsolesFirst = async (parsedMeta: CatalogConsoleMeta[]) => {
-      const libraryIds = Object.keys(state.library).filter((id) => {
-        const record = state.library[id]
+      const libraryIds = Object.keys(startupLibrarySeed).filter((id) => {
+        const record = startupLibrarySeed[id]
         return record?.status === 'owned' || record?.status === 'wanted'
       })
 
@@ -11054,15 +11059,14 @@ async function loadGeneratedCatalog() {
       hasEarlyCachedCatalog &&
       Boolean(earlyCachedSnapshot?.catalogMeta.length) &&
       (earlyCachedSnapshot?.loadedConsoles.length ?? 0) >= (earlyCachedSnapshot?.catalogMeta.length ?? 0)
-    const currentStartupSnapshot = getCurrentVaultStartupSnapshot()
     const shouldRepairVaultStartupSnapshot =
       prefersVaultStartup &&
       hasEarlyCachedCatalog &&
-      Boolean(Object.keys(state.library).length) &&
+      Boolean(Object.keys(startupLibrarySeed).length) &&
       (!currentStartupSnapshot || (currentStartupSnapshot.ownedGames.length === 0 && currentStartupSnapshot.wantedGames.length === 0))
     const repairedVaultStartupSnapshot = shouldRepairVaultStartupSnapshot
       ? buildVaultStartupSnapshotFromLibraryAndCatalog(
-          state.library,
+          startupLibrarySeed,
           earlyCachedSnapshot?.generatedCatalog ?? [],
           state.accountEmail,
         )
