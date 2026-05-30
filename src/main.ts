@@ -421,6 +421,7 @@ let barcodeCameraStartPromise: Promise<void> | null = null
 let barcodeModulePromise: Promise<{ BrowserMultiFormatReader: new () => BarcodeReaderInstance }> | null = null
 const coverHashMemoryCache = new Map<string, string>()
 let pendingCatalogSnapshotSave = 0
+let pendingVaultStartupSnapshotSave = 0
 let pendingLibrarySave = 0
 let pendingSearchRender = 0
 let pendingBarcodeSearchRender = 0
@@ -929,6 +930,26 @@ function persistVaultStartupSnapshotFromCurrentState() {
   saveVaultStartupSnapshot(snapshot)
 }
 
+function scheduleVaultStartupSnapshotSave(delay = 300) {
+  if (pendingVaultStartupSnapshotSave) {
+    window.clearTimeout(pendingVaultStartupSnapshotSave)
+  }
+
+  pendingVaultStartupSnapshotSave = window.setTimeout(() => {
+    pendingVaultStartupSnapshotSave = 0
+    persistVaultStartupSnapshotFromCurrentState()
+  }, delay)
+}
+
+function flushVaultStartupSnapshotSave() {
+  if (pendingVaultStartupSnapshotSave) {
+    window.clearTimeout(pendingVaultStartupSnapshotSave)
+    pendingVaultStartupSnapshotSave = 0
+  }
+
+  persistVaultStartupSnapshotFromCurrentState()
+}
+
 function buildVaultStartupSnapshotFromLibraryAndCatalog(
   library: Record<string, GameRecord>,
   catalog: CatalogEntry[],
@@ -1207,7 +1228,7 @@ function flushLibrarySave() {
   }
 
   localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(state.library))
-  persistVaultStartupSnapshotFromCurrentState()
+  flushVaultStartupSnapshotSave()
 }
 
 function loadCustomCatalog(): CatalogEntry[] {
@@ -1227,7 +1248,7 @@ function loadCustomCatalog(): CatalogEntry[] {
 
 function saveCustomCatalog() {
   localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state.customCatalog))
-  persistVaultStartupSnapshotFromCurrentState()
+  scheduleVaultStartupSnapshotSave()
   scheduleCloudSync()
 }
 
@@ -1565,7 +1586,7 @@ function saveLocalCollectionState() {
   localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
   localStorage.setItem(DELETED_GAME_IDS_STORAGE_KEY, JSON.stringify(state.deletedGameIds))
   saveActivityEvents()
-  persistVaultStartupSnapshotFromCurrentState()
+  scheduleVaultStartupSnapshotSave()
 }
 
 function loadBarcodeMappings() {
@@ -4776,7 +4797,7 @@ function applyRemoteSyncState(syncState: {
   localStorage.setItem(BARCODE_STORAGE_KEY, JSON.stringify(state.barcodeMappings))
   localStorage.setItem(DELETED_GAME_IDS_STORAGE_KEY, JSON.stringify(state.deletedGameIds))
   saveActivityEvents()
-  persistVaultStartupSnapshotFromCurrentState()
+  scheduleVaultStartupSnapshotSave()
 
   if (pendingVaultHydration) {
     const fn = pendingVaultHydration
@@ -4851,7 +4872,7 @@ async function hydrateAccount() {
   }
 
   state.accountHydrationPending = false
-  persistVaultStartupSnapshotFromCurrentState()
+  scheduleVaultStartupSnapshotSave()
   requestBackgroundFullRefresh(true)
   void fetchTradeNotifications()
 }
@@ -11152,7 +11173,7 @@ async function loadGeneratedCatalog() {
         state.catalogLoadError = false
         state.isCatalogLoading = false
         invalidateCatalogCache()
-        persistVaultStartupSnapshotFromCurrentState()
+        scheduleVaultStartupSnapshotSave()
         renderCatalogOnly()
         bootstrappedVisibleCatalog = true
       }
@@ -11171,7 +11192,7 @@ async function loadGeneratedCatalog() {
       state.catalogLoadError = false
       state.isCatalogLoading = false
       invalidateCatalogCache()
-      persistVaultStartupSnapshotFromCurrentState()
+      scheduleVaultStartupSnapshotSave()
       renderCatalogOnly()
       bootstrappedVisibleCatalog = true
     }
@@ -11237,12 +11258,12 @@ async function loadGeneratedCatalog() {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? state.generatedCatalog
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? state.loadedConsoles
       invalidateCatalogCache()
-      persistVaultStartupSnapshotFromCurrentState()
+      scheduleVaultStartupSnapshotSave()
     } else if (cachedSnapshot?.generatedCatalog.length) {
       state.generatedCatalog = cachedSnapshot?.generatedCatalog ?? []
       state.loadedConsoles = cachedSnapshot?.loadedConsoles ?? []
       invalidateCatalogCache()
-      persistVaultStartupSnapshotFromCurrentState()
+      scheduleVaultStartupSnapshotSave()
       if (prefersVaultStartup) {
         void hydrateOwnedConsolesFirst(parsedMeta)
       } else if (typeof window.requestIdleCallback === 'function') {
@@ -11388,7 +11409,7 @@ async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad
     state.generatedCatalog = dedupeCatalog([...state.generatedCatalog, ...consoleEntries])
     state.loadedConsoles = [...state.loadedConsoles, consoleName]
     invalidateCatalogCache()
-    persistVaultStartupSnapshotFromCurrentState()
+    scheduleVaultStartupSnapshotSave()
     state.catalogLoadError = false
     scheduleCatalogSnapshotSave()
   })()
