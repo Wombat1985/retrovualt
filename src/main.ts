@@ -1286,7 +1286,14 @@ function getAccountIdentityLabel() {
 }
 
 function getOwnedRecordCount(library: Record<string, GameRecord> = state.library) {
-  return Object.values(library).reduce((total, record) => total + (normalizeGameRecord(record).status === 'owned' ? 1 : 0), 0)
+  const effectiveLibrary =
+    Object.keys(library).length > 0
+      ? library
+      : state.authToken && state.accountEmail
+        ? (getCurrentVaultStartupSnapshot()?.library ?? {})
+        : {}
+
+  return Object.values(effectiveLibrary).reduce((total, record) => total + (normalizeGameRecord(record).status === 'owned' ? 1 : 0), 0)
 }
 
 function getOwnedVaultHintCount(library: Record<string, GameRecord> = state.library) {
@@ -2390,6 +2397,25 @@ function bestCopyEdition(copies: GameCopy[]): EditionStatus {
   )
 }
 
+function getStartupSnapshotCacheFragment() {
+  if (!state.authToken || hasCompleteCatalogLoaded()) {
+    return 'live'
+  }
+
+  const snapshot = getCurrentVaultStartupSnapshot()
+  if (!snapshot) {
+    return 'none'
+  }
+
+  return [
+    snapshot.accountEmail,
+    snapshot.savedAt,
+    Object.keys(snapshot.library).length,
+    snapshot.ownedGames.length,
+    snapshot.wantedGames.length,
+  ].join(':')
+}
+
 function getCopiesSummary(record: GameRecord): string {
   const copies = getRecordCopies(record)
   if (copies.length <= 1) return ''
@@ -2405,7 +2431,7 @@ function getCatalog() {
     state.loadedConsoles.join('|'),
     state.customCatalog.map((game) => game.id).join('|'),
     state.authToken ? (state.accountEmail || '').toLowerCase() : '',
-    state.authToken && !hasCompleteCatalogLoaded() ? 'startup' : 'live',
+    getStartupSnapshotCacheFragment(),
   ].join(':')
 
   if (catalogCache && catalogCacheKey === key) {
@@ -3142,7 +3168,7 @@ function getWantedGames() {
 }
 
 function getLibraryStatsKey() {
-  return `${catalogCacheKey}:${libraryRevision}`
+  return `${catalogCacheKey}:${libraryRevision}:${getStartupSnapshotCacheFragment()}`
 }
 
 function hasCompleteCatalogLoaded() {
@@ -3157,8 +3183,14 @@ function hasCompleteCatalogLoaded() {
 function getInstantLibraryCounts() {
   let ownedCount = 0
   let wantedCount = 0
+  const effectiveLibrary =
+    Object.keys(state.library).length > 0
+      ? state.library
+      : state.authToken && state.accountEmail
+        ? (getCurrentVaultStartupSnapshot()?.library ?? {})
+        : {}
 
-  for (const record of Object.values(state.library)) {
+  for (const record of Object.values(effectiveLibrary)) {
     if (record.status === 'owned') {
       ownedCount += 1
     } else if (record.status === 'wanted') {
