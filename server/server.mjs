@@ -238,10 +238,6 @@ async function supabaseRequest(path, init = {}) {
 }
 
 async function loadSupabaseDb() {
-  const rows = await supabaseRequest(
-    `${encodeURIComponent(supabaseStateTable)}?id=eq.${encodeURIComponent(supabaseStateId)}&select=data&limit=1`,
-  )
-
   const loadBestAlternateSupabaseDb = async () => {
     const allRows = await supabaseRequest(
       `${encodeURIComponent(supabaseStateTable)}?select=id,data,updated_at&order=updated_at.desc.nullslast&limit=25`,
@@ -278,22 +274,29 @@ async function loadSupabaseDb() {
     return bestCandidate
   }
 
+  const rows = await supabaseRequest(
+    `${encodeURIComponent(supabaseStateTable)}?id=eq.${encodeURIComponent(supabaseStateId)}&select=data&limit=1`,
+  )
+
   if (Array.isArray(rows) && rows[0]?.data) {
     const remoteDb = normalizeDb(rows[0].data)
     const localDb = loadLocalDb()
+    const remoteScore = getDbMeaningfulnessScore(remoteDb)
 
     if (!hasMeaningfulDbData(remoteDb) && hasMeaningfulDbData(localDb)) {
       await saveSupabaseDb(localDb)
       return normalizeDb(localDb)
     }
 
-     if (!hasMeaningfulDbData(remoteDb)) {
-      const alternateCandidate = await loadBestAlternateSupabaseDb()
+    const alternateCandidate = await loadBestAlternateSupabaseDb()
 
-      if (alternateCandidate && alternateCandidate.id !== supabaseStateId) {
-        await saveSupabaseDb(alternateCandidate.db)
-        return alternateCandidate.db
-      }
+    if (
+      alternateCandidate &&
+      alternateCandidate.id !== supabaseStateId &&
+      alternateCandidate.score > remoteScore
+    ) {
+      await saveSupabaseDb(alternateCandidate.db)
+      return alternateCandidate.db
     }
 
     return remoteDb
