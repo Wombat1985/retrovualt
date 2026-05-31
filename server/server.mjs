@@ -204,6 +204,16 @@ function hasMeaningfulDbData(db) {
   )
 }
 
+function getDbMeaningfulnessScore(db) {
+  return (
+    db.users.length * 1000000 +
+    db.newsletterSubscribers.length * 100000 +
+    db.sessions.length * 1000 +
+    Number(db.analytics?.lifetimePageViews || 0) +
+    Number(db.analytics?.totalPageViews || 0)
+  )
+}
+
 async function supabaseRequest(path, init = {}) {
   const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
     ...init,
@@ -232,6 +242,42 @@ async function loadSupabaseDb() {
     `${encodeURIComponent(supabaseStateTable)}?id=eq.${encodeURIComponent(supabaseStateId)}&select=data&limit=1`,
   )
 
+  const loadBestAlternateSupabaseDb = async () => {
+    const allRows = await supabaseRequest(
+      `${encodeURIComponent(supabaseStateTable)}?select=id,data,updated_at&order=updated_at.desc.nullslast&limit=25`,
+    )
+
+    if (!Array.isArray(allRows) || !allRows.length) {
+      return null
+    }
+
+    const candidates = allRows
+      .flatMap((row) => {
+        const id = typeof row?.id === 'string' ? row.id : ''
+
+        if (!id || !row?.data) {
+          return []
+        }
+
+        const db = normalizeDb(row.data)
+
+        return [{
+          id,
+          db,
+          score: getDbMeaningfulnessScore(db),
+        }]
+      })
+      .sort((left, right) => right.score - left.score)
+
+    const bestCandidate = candidates[0]
+
+    if (!bestCandidate || !hasMeaningfulDbData(bestCandidate.db)) {
+      return null
+    }
+
+    return bestCandidate
+  }
+
   if (Array.isArray(rows) && rows[0]?.data) {
     const remoteDb = normalizeDb(rows[0].data)
     const localDb = loadLocalDb()
@@ -241,7 +287,25 @@ async function loadSupabaseDb() {
       return normalizeDb(localDb)
     }
 
+     if (!hasMeaningfulDbData(remoteDb)) {
+      const alternateCandidate = await loadBestAlternateSupabaseDb()
+
+      if (alternateCandidate && alternateCandidate.id !== supabaseStateId) {
+        await saveSupabaseDb(alternateCandidate.db)
+        return alternateCandidate.db
+      }
+    }
+
     return remoteDb
+  }
+
+  const alternateCandidate = await loadBestAlternateSupabaseDb()
+
+  if (alternateCandidate) {
+    if (alternateCandidate.id !== supabaseStateId) {
+      await saveSupabaseDb(alternateCandidate.db)
+    }
+    return alternateCandidate.db
   }
 
   const emptyDb = createEmptyDb()
