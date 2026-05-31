@@ -37,8 +37,8 @@ let lastStorageStatus = {
   checkedAt: null,
 }
 const defaultAllowedOrigins = [
-  'https://www.retrovaultelite.com',
   'https://retrovaultelite.com',
+  'https://www.retrovaultelite.com',
   'https://retro-vault-web.onrender.com',
 ]
 const backendPublicUrl = String(process.env.BACKEND_PUBLIC_URL ?? 'https://retro-vault-backend.onrender.com').replace(/\/$/, '')
@@ -1557,6 +1557,18 @@ const server = createServer(async (request, response) => {
   }
 
   const url = new URL(request.url, `http://${request.headers.host}`)
+  const requestHost = String(request.headers.host ?? '').replace(/:\d+$/, '').toLowerCase()
+
+  if (requestHost === 'www.retrovaultelite.com') {
+    response.writeHead(308, {
+      Location: `https://retrovaultelite.com${url.pathname}${url.search}`,
+      'X-Content-Type-Options': 'nosniff',
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'Cache-Control': 'no-store',
+    })
+    response.end()
+    return
+  }
 
   try {
     const accountRoute =
