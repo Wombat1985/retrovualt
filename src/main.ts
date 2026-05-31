@@ -11038,7 +11038,6 @@ function registerServiceWorker() {
 const VAULT_CONSOLE_URLS_KEY = 'rvlt_vault_console_urls'
 
 async function loadGeneratedCatalog() {
-  const cachedSnapshotPromise = readCatalogSnapshot()
   let bootstrappedVisibleCatalog = false
   const prefersVaultStartup = Boolean(state.authToken && state.ownershipFilter === 'owned')
   const currentStartupSnapshot = getCurrentVaultStartupSnapshot()
@@ -11049,6 +11048,9 @@ async function loadGeneratedCatalog() {
   const canBootstrapFromVaultSnapshot =
     prefersVaultStartup &&
     Boolean(currentStartupSnapshot && (currentStartupSnapshot.ownedGames.length > 0 || currentStartupSnapshot.wantedGames.length > 0))
+  const cachedSnapshotPromise = canBootstrapFromVaultSnapshot
+    ? Promise.resolve<CatalogSnapshot | null>(null)
+    : readCatalogSnapshot()
 
   try {
     if (canBootstrapFromVaultSnapshot) {
