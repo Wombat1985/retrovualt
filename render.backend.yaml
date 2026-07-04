@@ -4,10 +4,17 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile.backend
     plan: starter
+    healthCheckPath: /health
     envVars:
       - key: PORT
         value: 8787
       - key: DATA_DIR
         value: server/data
       - key: CORS_ORIGIN
+        sync: false
+      # Vault state persistence — without these the backend silently falls back
+      # to the ephemeral container disk and user data is lost on every deploy
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
