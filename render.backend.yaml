@@ -3,7 +3,7 @@ services:
     name: retro-vault-backend
     runtime: docker
     dockerfilePath: ./Dockerfile.backend
-    plan: free
+    plan: starter
     envVars:
       - key: PORT
         value: 8787
