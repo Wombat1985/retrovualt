@@ -74,6 +74,7 @@
         ]
       }
     </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5824811414274116" crossorigin="anonymous"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-N3BEJV5KZ"></script>
     <script>
       window.dataLayer = window.dataLayer || []
@@ -140,6 +141,62 @@
           );
         opacity: 0.42;
       }
+
+      .site-guides {
+        position: relative;
+        z-index: 0;
+        padding: 40px 24px 56px;
+        background: rgba(7, 11, 20, 0.55);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .site-guides__inner {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      .site-guides h2 {
+        font-size: 1.15rem;
+        letter-spacing: 0.02em;
+        margin: 0 0 12px;
+      }
+
+      .site-guides p {
+        color: rgba(245, 247, 251, 0.78);
+        line-height: 1.6;
+        margin: 0 0 20px;
+        max-width: 72ch;
+      }
+
+      .site-guides__links,
+      .site-guides__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 22px;
+      }
+
+      .site-guides__links a,
+      .site-guides__meta a {
+        color: #9fb6ff;
+        text-decoration: none;
+        font-size: 0.92rem;
+      }
+
+      .site-guides__links a:hover,
+      .site-guides__meta a:hover {
+        text-decoration: underline;
+      }
+
+      .site-guides__meta {
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .site-guides__meta a {
+        color: rgba(245, 247, 251, 0.6);
+        font-size: 0.85rem;
+      }
     </style>
     <title>Retro Vault Elite - Retro Games Collection Tracker</title>
   </head>
@@ -148,6 +205,43 @@
       <img src="/retro-vault-elite-logo.png" alt="" width="320" height="320" style="width:clamp(132px,26vw,188px);height:auto;display:block;" />
     </div>
     <div id="app"></div>
+
+    <!-- Static crawlable content and navigation — present before JavaScript runs -->
+    <section class="site-guides" aria-label="Collector guides and site information">
+      <div class="site-guides__inner">
+        <h2>Retro collecting guides &amp; resources</h2>
+        <p>
+          Retro Vault Elite is a free collection tracker for retro video games. Browse a catalog
+          spanning more than 100 console libraries — NES, SNES, Famicom, Mega Drive, PlayStation,
+          and beyond — mark what you own and what you're still hunting for, record condition and
+          the price you paid, and watch what your shelves are worth over time. The guides below
+          cover the collecting knowledge behind the app: how games are valued, what drives rarity,
+          and how to trade safely with other collectors.
+        </p>
+        <nav class="site-guides__links" aria-label="Collector guides">
+          <a href="/how-to-value-retro-game-collection.html">How to value a retro game collection</a>
+          <a href="/loose-vs-cib-game-value.html">Loose vs CIB: what the box is worth</a>
+          <a href="/retro-game-price-tracker.html">Retro game price tracker</a>
+          <a href="/retro-game-collection-tracker.html">Retro game collection tracker</a>
+          <a href="/best-retro-games-to-collect.html">Best retro games to collect</a>
+          <a href="/complete-in-box-value-guide.html">Complete-in-box value guide</a>
+          <a href="/sell-retro-game-collection-value.html">Selling a retro game collection</a>
+          <a href="/snes-rarity-list.html">SNES rarity list</a>
+          <a href="/nes-collection-checklist.html">NES collection checklist</a>
+          <a href="/trading-safety.html">Trading safely with other collectors</a>
+        </nav>
+        <nav class="site-guides__meta" aria-label="Site information">
+          <a href="/about.html">About</a>
+          <a href="/why-i-built-retro-vault-elite.html">Why I built Retro Vault Elite</a>
+          <a href="/data-sources.html">Data sources</a>
+          <a href="/support.html">Support &amp; contact</a>
+          <a href="/updates.html">Updates</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="/terms.html">Terms</a>
+        </nav>
+      </div>
+    </section>
+
     <script type="module" src="/src/main.ts"></script>
 
   </body>
