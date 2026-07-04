@@ -33,12 +33,6 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# ── Background image — cache 30 days ─────────────────────────────────────────
-[[headers]]
-  for = "/retro-room-bg.png"
-  [headers.values]
-    Cache-Control = "public, max-age=2592000, stale-while-revalidate=86400"
-
 # ── Icons and static images — cache 30 days ──────────────────────────────────
 [[headers]]
   for = "/*.png"

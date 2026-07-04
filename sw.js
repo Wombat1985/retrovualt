@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v2'
+const CACHE_VERSION = 'v3'
 const ASSET_CACHE = `assets-${CACHE_VERSION}`
 const IMAGE_CACHE = `images-${CACHE_VERSION}`
 const CATALOG_CACHE = `catalogs-${CACHE_VERSION}`
@@ -11,7 +11,7 @@ self.addEventListener('install', (event) => {
   void self.skipWaiting()
   event.waitUntil(
     caches.open(IMAGE_CACHE).then((cache) =>
-      cache.addAll(['/retro-room-bg.png', '/retro-vault-elite-logo.png', '/icon-192.png', '/favicon-32.png'])
+      cache.addAll(['/retro-vault-elite-logo.png', '/icon-192.png', '/favicon-32.png'])
         .catch(() => {})
     )
   )

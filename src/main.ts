@@ -8949,7 +8949,23 @@ function dedupeCatalog(entries: CatalogEntry[]) {
   return [...new Map(entries.map((entry) => [getCatalogDedupeKey(entry), entry])).values()]
 }
 
+// Dedupe runs over the whole growing catalog after every console file load, so
+// normalizing the same entries' keys repeatedly dominates startup CPU — cache per object.
+const catalogDedupeKeyCache = new WeakMap<CatalogEntry, string>()
+
 function getCatalogDedupeKey(entry: CatalogEntry) {
+  const cached = catalogDedupeKeyCache.get(entry)
+
+  if (cached) {
+    return cached
+  }
+
+  const key = buildCatalogDedupeKey(entry)
+  catalogDedupeKeyCache.set(entry, key)
+  return key
+}
+
+function buildCatalogDedupeKey(entry: CatalogEntry) {
   if (entry.priceSourceUrl.includes('/custom-entry')) {
     return `custom|${normalizeSearchText(entry.id)}`
   }
@@ -11136,8 +11152,8 @@ async function loadGeneratedCatalog() {
         localStorage.setItem(VAULT_CONSOLE_URLS_KEY, JSON.stringify(urls))
       } catch {}
 
-      // Fetch all needed console files in parallel, rendering immediately as each one
-      // completes — NES tiles appear without waiting for the 1.1MB PS2 file.
+      // Load owned consoles in small batches so refresh stays responsive.
+      // Parallelizing lots of JSON parses can freeze the page on slower devices.
       await ensureConsoleBatchLoaded(sortedConsoles, true)
 
       // Background-load remaining consoles so search/filter works across full catalog
@@ -11392,19 +11408,44 @@ async function ensureAllConsoleCatalogsLoaded(rerenderAfterBatch: boolean) {
   await ensureConsoleBatchLoaded(remaining, rerenderAfterBatch)
 }
 
+// Tracks bulk catalog loads so per-file work (snapshot saves, re-renders) can be
+// deferred to the end — re-doing it after each of ~100 files froze first visits.
+let bulkCatalogLoadDepth = 0
+
 async function ensureConsoleBatchLoaded(consoleNames: string[], rerenderAfterBatch: boolean) {
-  const batchSize = rerenderAfterBatch ? 1 : 2
+  const batchSize = 2
+  let lastProgressRender = 0
 
-  for (let index = 0; index < consoleNames.length; index += batchSize) {
-    const batch = consoleNames.slice(index, index + batchSize)
-    await Promise.all(batch.map((consoleName) => ensureConsoleCatalogLoaded(consoleName, false)))
+  bulkCatalogLoadDepth += 1
 
-    if (rerenderAfterBatch) {
-      renderCatalogOnly()
+  try {
+    for (let index = 0; index < consoleNames.length; index += batchSize) {
+      const batch = consoleNames.slice(index, index + batchSize)
+      await Promise.all(batch.map((consoleName) => ensureConsoleCatalogLoaded(consoleName, false)))
+
+      // Progressive tiles still appear, but at most once a second — rebuilding the
+      // catalog DOM after every file is what made the first visit stutter.
+      if (rerenderAfterBatch) {
+        const now = performance.now()
+
+        if (now - lastProgressRender >= 1000) {
+          lastProgressRender = now
+          renderCatalogOnly()
+        }
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
     }
-
-    await new Promise((resolve) => window.setTimeout(resolve, 0))
+  } finally {
+    bulkCatalogLoadDepth -= 1
   }
+
+  if (rerenderAfterBatch) {
+    renderCatalogOnly()
+  }
+
+  scheduleVaultStartupSnapshotSave()
+  scheduleCatalogSnapshotSave()
 }
 
 async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad = true) {
@@ -11452,9 +11493,14 @@ async function ensureConsoleCatalogLoaded(consoleName: string, rerenderAfterLoad
     state.generatedCatalog = dedupeCatalog([...state.generatedCatalog, ...consoleEntries])
     state.loadedConsoles = [...state.loadedConsoles, consoleName]
     invalidateCatalogCache()
-    scheduleVaultStartupSnapshotSave()
     state.catalogLoadError = false
-    scheduleCatalogSnapshotSave()
+
+    // During bulk loads the batch loader saves once at the end — serializing the
+    // whole catalog to IndexedDB after every file stalls the main thread.
+    if (bulkCatalogLoadDepth === 0) {
+      scheduleVaultStartupSnapshotSave()
+      scheduleCatalogSnapshotSave()
+    }
   })()
 
   pendingConsoleLoads.set(consoleName, loadPromise)
